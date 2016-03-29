@@ -54,6 +54,16 @@ public:
   TcpCongestionOps ();
   TcpCongestionOps (const TcpCongestionOps &other);
 
+  // CA EVENT
+  typedef enum
+  {
+    CA_EVENT_ECN_IS_CE,
+    CA_EVENT_ECN_NO_CE,
+    CA_EVENT_DELAY_ACK_RESERVED,
+    CA_EVENT_DELAY_ACK_NO_RESERVED,
+    CA_EVENT_LAST_EVENT
+  } TcpCongEvent_t;
+
   virtual ~TcpCongestionOps ();
 
   /**
@@ -94,6 +104,18 @@ public:
   virtual void IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked) = 0;
 
   /**
+   * ECN related functions
+   * Optional, only congestion control algorithm that cares the ECN mark
+   * should implement those methods.
+   */
+
+  virtual void CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev,
+        Ptr<TcpSocketBase> socket);
+
+  // TODO this function would be called only if the state goes into CA_CWR
+  virtual uint32_t GetCwnd(Ptr<TcpSocketState> tcb);
+
+  /**
    * \brief Timing information on received ACK
    *
    * The function is called every time an ACK is received (only one time
@@ -104,9 +126,10 @@ public:
    * \param tcb internal congestion state
    * \param segmentsAcked count of segments acked
    * \param rtt last rtt
+   * \param withECE whether the ACK is with ECE codepoint
    */
   virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
-                          const Time& rtt) { }
+                          const Time& rtt, bool withECE) { }
 
   // Present in Linux but not in ns-3 yet:
   /* call before changing ca_state (optional) */
@@ -126,6 +149,8 @@ public:
    * \return a pointer of the copied object
    */
   virtual Ptr<TcpCongestionOps> Fork () = 0;
+
+  virtual void SendEmptyPacket (Ptr<TcpSocketBase> socket, uint32_t flag);
 };
 
 /**

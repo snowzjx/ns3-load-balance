@@ -97,20 +97,22 @@ public:
    * \brief Destructor
    *
    * Destructor
-   */ 
+   */
   virtual ~RedQueueDisc ();
 
   /**
    * \brief Stats
    */
   typedef struct
-  {   
+  {
+    uint32_t unforcedMarking;
+    uint32_t forcedMarking;
     uint32_t unforcedDrop;  //!< Early probability drops
     uint32_t forcedDrop;    //!< Forced drops, qavg > max threshold
     uint32_t qLimDrop;      //!< Drops due to queue limits
   } Stats;
 
-  /** 
+  /**
    * \brief Drop types
    */
   enum

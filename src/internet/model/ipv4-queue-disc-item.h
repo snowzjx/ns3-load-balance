@@ -58,6 +58,8 @@ public:
    */
   const Ipv4Header & GetHeader (void) const;
 
+  void SetHeader (Ipv4Header header);
+
   /**
    * \brief Add the header to the packet
    */

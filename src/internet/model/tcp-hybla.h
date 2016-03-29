@@ -62,7 +62,7 @@ public:
   virtual ~TcpHybla (void);
 
   virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
-                          const Time& rtt);
+          const Time& rtt, bool withECE);
 
   virtual std::string GetName () const;
 

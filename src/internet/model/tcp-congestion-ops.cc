@@ -48,6 +48,26 @@ TcpCongestionOps::~TcpCongestionOps ()
 {
 }
 
+void
+TcpCongestionOps::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket)
+{
+  if (ev == CA_EVENT_ECN_NO_CE)
+  {
+    tcb->m_demandCWR = false;
+  }
+}
+
+uint32_t
+TcpCongestionOps::GetCwnd(Ptr<TcpSocketState> tcb)
+{
+  return std::max(tcb->m_cWnd.Get() / 2, tcb->m_segmentSize);
+}
+
+void
+TcpCongestionOps::SendEmptyPacket(Ptr<TcpSocketBase> socket, uint32_t flags)
+{
+  socket->SendEmptyPacket(flags);
+}
 
 // RENO
 

@@ -130,6 +130,7 @@ public:
     CA_LAST_STATE /**< Used only in debug messages */
   } TcpCongState_t;
 
+
   /**
    * \ingroup tcp
    * TracedValue Callback signature for TcpCongState_t
@@ -153,6 +154,15 @@ public:
 
   // Segment
   uint32_t               m_segmentSize;     //!< Segment size
+
+  // ECN support
+  TracedValue<bool>      m_ecnConn;         //!< Whether the TCP connection is ECN capable
+  TracedValue<bool>      m_ecnSeen;         //!< Whether ECN mark has been appeared through the communication
+  TracedValue<bool>      m_demandCWR;       //!< The receiver demands the sender to send the CWR by sending ECE ACK
+  TracedValue<bool>      m_queueCWR;        //!< The congestion ops has responded, ready to send the CWR code point
+  TracedValue<bool>      m_sentCWR;         //!< The CWR has sent indicating the CWRSentSeq has been set
+  TracedValue<SequenceNumber32> m_CWRSentSeq;   //!< The CWR seq is marked down to indicate when to exit the CA_CWR
+
 
   TracedValue<TcpCongState_t> m_congState;    //!< State in the Congestion state machine
 
@@ -241,6 +251,7 @@ public:
  */
 class TcpSocketBase : public TcpSocket
 {
+friend class TcpCongestionOps;
 public:
   /**
    * Get the type ID.

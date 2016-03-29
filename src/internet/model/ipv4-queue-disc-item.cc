@@ -54,6 +54,12 @@ Ipv4QueueDiscItem::GetHeader (void) const
   return m_header;
 }
 
+void
+Ipv4QueueDiscItem::SetHeader (Ipv4Header header)
+{
+  m_header = header;
+}
+
 void Ipv4QueueDiscItem::AddHeader(void)
 {
   NS_LOG_FUNCTION (this);

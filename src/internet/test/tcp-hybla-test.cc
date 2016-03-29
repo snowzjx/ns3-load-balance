@@ -86,7 +86,7 @@ TcpHyblaIncrementTest::DoRun ()
 
   TimeValue rRtt;
   cong->GetAttribute ("RRTT", rRtt);
-  cong->PktsAcked (m_state, 1, m_rtt);
+  cong->PktsAcked (m_state, 1, m_rtt, false);
 
   double calcRho = std::max (m_rtt.GetSeconds () / rRtt.Get ().GetSeconds (), 1.0);
 

@@ -20,8 +20,8 @@
  * Thanks to: Duy Nguyen<duy@soe.ucsc.edu> by RED efforts in NS3
  *
  *
- * This file incorporates work covered by the following copyright and  
- * permission notice:  
+ * This file incorporates work covered by the following copyright and
+ * permission notice:
  *
  * Copyright (c) 1990-1997 Regents of the University of California.
  * All rights reserved.
@@ -52,7 +52,7 @@
  */
 
 /*
- * PORT NOTE: This code was ported from ns-2 (queue/red.cc).  Almost all 
+ * PORT NOTE: This code was ported from ns-2 (queue/red.cc).  Almost all
  * comments have also been ported from NS-2
  */
 
@@ -64,6 +64,8 @@
 #include "ns3/abort.h"
 #include "red-queue-disc.h"
 #include "ns3/drop-tail-queue.h"
+#include "ns3/ipv4-header.h"
+#include "ns3/ipv4-queue-disc-item.h"
 
 namespace ns3 {
 
@@ -183,12 +185,12 @@ TypeId RedQueueDisc::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&RedQueueDisc::m_isNs1Compat),
                    MakeBooleanChecker ())
-    .AddAttribute ("LinkBandwidth", 
+    .AddAttribute ("LinkBandwidth",
                    "The RED link bandwidth",
                    DataRateValue (DataRate ("1.5Mbps")),
                    MakeDataRateAccessor (&RedQueueDisc::m_linkBandwidth),
                    MakeDataRateChecker ())
-    .AddAttribute ("LinkDelay", 
+    .AddAttribute ("LinkDelay",
                    "The RED link delay",
                    TimeValue (MilliSeconds (20)),
                    MakeTimeAccessor (&RedQueueDisc::m_linkDelay),
@@ -293,7 +295,7 @@ RedQueueDisc::GetStats ()
   return m_stats;
 }
 
-int64_t 
+int64_t
 RedQueueDisc::AssignStreams (int64_t stream)
 {
   NS_LOG_FUNCTION (this << stream);
@@ -359,7 +361,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
         }
       else if (m_old == 0)
         {
-          /* 
+          /*
            * The average queue size has just crossed the
            * threshold from below to above "minthresh", or
            * from above "minthresh" with an empty queue to
@@ -375,7 +377,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
           dropType = DTYPE_UNFORCED;
         }
     }
-  else 
+  else
     {
       // No packets are being dropped
       m_vProb = 0.0;
@@ -386,28 +388,65 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
       (GetMode () == Queue::QUEUE_MODE_BYTES && nQueued + item->GetPacketSize() > m_queueLimit))
     {
       NS_LOG_DEBUG ("\t Dropping due to Queue Full " << nQueued);
-      dropType = DTYPE_FORCED;
       m_stats.qLimDrop++;
-    }
-
-  if (dropType == DTYPE_UNFORCED)
-    {
-      NS_LOG_DEBUG ("\t Dropping due to Prob Mark " << m_qAvg);
-      m_stats.unforcedDrop++;
-      Drop (item);
-      return false;
-    }
-  else if (dropType == DTYPE_FORCED)
-    {
-      NS_LOG_DEBUG ("\t Dropping due to Hard Mark " << m_qAvg);
       m_stats.forcedDrop++;
       Drop (item);
       if (m_isNs1Compat)
+      {
+        m_count = 0;
+        m_countBytes = 0;
+      }
+      return false;
+    }
+
+  Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
+  Ipv4Header header;
+  bool isIpv4Item = (ipv4Item != 0);
+  if (isIpv4Item)
+  {
+    header = ipv4Item -> GetHeader();
+    NS_LOG_DEBUG("\t Header: " << header);
+  }
+
+  if (dropType == DTYPE_UNFORCED)
+    {
+      NS_LOG_DEBUG ("\t Dropping\\Marking due to Prob Mark " << m_qAvg);
+      if (isIpv4Item &&
+          header.GetEcn() == Ipv4Header::ECN_ECT1)
+      {
+        NS_LOG_DEBUG ("\t Marking CE due to DTYPE_UNFORCED ");
+        header.SetEcn(Ipv4Header::ECN_CE);
+        ipv4Item->SetHeader(header);
+        m_stats.unforcedMarking++;
+      }
+      else {
+        m_stats.unforcedDrop++;
+        Drop (item);
+        return false;
+      }
+    }
+  else if (dropType == DTYPE_FORCED)
+    {
+      NS_LOG_DEBUG ("\t Dropping\\Marking due to Hard Mark " << m_qAvg);
+      if (isIpv4Item &&
+          header.GetEcn() == Ipv4Header::ECN_ECT1)
+      {
+        NS_LOG_DEBUG ("\t Marking CE Due to DTYPE_FORCED" );
+        header.SetEcn(Ipv4Header::ECN_CE);
+        ipv4Item->SetHeader(header);
+        m_stats.forcedMarking++;
+      }
+      else
+      {
+        m_stats.forcedDrop++;
+        Drop (item);
+        if (m_isNs1Compat)
         {
           m_count = 0;
           m_countBytes = 0;
         }
-      return false;
+        return false;
+      }
     }
 
   GetInternalQueue (0)->Enqueue (item);
@@ -465,6 +504,8 @@ RedQueueDisc::InitializeParams (void)
     }
 
   NS_ASSERT (m_minTh <= m_maxTh);
+  m_stats.unforcedMarking = 0;
+  m_stats.forcedMarking = 0;
   m_stats.forcedDrop = 0;
   m_stats.unforcedDrop = 0;
   m_stats.qLimDrop = 0;
@@ -478,7 +519,7 @@ RedQueueDisc::InitializeParams (void)
   double th_diff = (m_maxTh - m_minTh);
   if (th_diff == 0)
     {
-      th_diff = 1.0; 
+      th_diff = 1.0;
     }
   m_vA = 1.0 / th_diff;
   m_curMaxP = 1.0 / m_lInterm;
@@ -494,13 +535,13 @@ RedQueueDisc::InitializeParams (void)
 /*
  * If m_qW=0, set it to a reasonable value of 1-exp(-1/C)
  * This corresponds to choosing m_qW to be of that value for
- * which the packet time constant -1/ln(1-m)qW) per default RTT 
+ * which the packet time constant -1/ln(1-m)qW) per default RTT
  * of 100ms is an order of magnitude more than the link capacity, C.
  *
  * If m_qW=-1, then the queue weight is set to be a function of
- * the bandwidth and the link propagation delay.  In particular, 
- * the default RTT is assumed to be three times the link delay and 
- * transmission delay, if this gives a default RTT greater than 100 ms. 
+ * the bandwidth and the link propagation delay.  In particular,
+ * the default RTT is assumed to be three times the link delay and
+ * transmission delay, if this gives a default RTT greater than 100 ms.
  *
  * If m_qW=-2, set it to a reasonable value of 1-exp(-10/C).
  */
@@ -536,7 +577,7 @@ RedQueueDisc::InitializeParams (void)
         }
     }
 
-  NS_LOG_DEBUG ("\tm_delay " << m_linkDelay.GetSeconds () << "; m_isWait " 
+  NS_LOG_DEBUG ("\tm_delay " << m_linkDelay.GetSeconds () << "; m_isWait "
                              << m_isWait << "; m_qW " << m_qW << "; m_ptc " << m_ptc
                              << "; m_minTh " << m_minTh << "; m_maxTh " << m_maxTh
                              << "; m_isGentle " << m_isGentle << "; th_diff " << th_diff
@@ -665,7 +706,7 @@ RedQueueDisc::CalculatePNew (double qAvg, double maxTh, bool isGentle, double vA
     }
   else if (!isGentle && qAvg >= maxTh)
     {
-      /* 
+      /*
        * OLD: p continues to range linearly above max_p as
        * the average queue size ranges above th_max.
        * NEW: p is set to 1.0
@@ -691,7 +732,7 @@ RedQueueDisc::CalculatePNew (double qAvg, double maxTh, bool isGentle, double vA
 }
 
 // Returns a probability using these function parameters for the DropEarly funtion
-double 
+double
 RedQueueDisc::ModifyP (double p, uint32_t count, uint32_t countBytes,
                    uint32_t meanPktSize, bool isWait, uint32_t size)
 {

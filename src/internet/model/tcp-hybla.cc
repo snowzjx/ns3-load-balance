@@ -1,4 +1,3 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
  * Copyright (c) 2014 Natale Patriciello <natale.patriciello@gmail.com>
  *
@@ -81,9 +80,9 @@ TcpHybla::RecalcParam (Ptr<TcpSocketState> tcb, const Time &rtt)
 
 void
 TcpHybla::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
-                     const Time &rtt)
+        const Time &rtt, bool withECE)
 {
-  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt);
+  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE);
 
   if (rtt < m_minRtt)
     {

@@ -329,7 +329,7 @@ private:
   SequenceNumber32 m_sequenceNumber;  //!< Sequence number
   SequenceNumber32 m_ackNumber;       //!< ACK number
   uint8_t m_length;             //!< Length (really a uint4_t) in words.
-  uint8_t m_flags;              //!< Flags (really a uint6_t)
+  uint8_t m_flags;              //!< Flags (really a uint6_t) XXX with ECN support, it should extend to 8 bits
   uint16_t m_windowSize;        //!< Window size
   uint16_t m_urgentPointer;     //!< Urgent pointer
 

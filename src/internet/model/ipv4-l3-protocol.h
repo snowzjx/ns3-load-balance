@@ -55,7 +55,7 @@ class Icmpv4L4Protocol;
 
 /**
  * \brief Implement the Ipv4 layer.
- * 
+ *
  * This is the actual implementation of IP.  It contains APIs to send and
  * receive packets at the IP layer, as well as APIs for IP routing.
  *
@@ -93,7 +93,7 @@ public:
    * \enum DropReason
    * \brief Reason why a packet has been dropped.
    */
-  enum DropReason 
+  enum DropReason
   {
     DROP_TTL_EXPIRED = 1,   /**< Packet TTL has expired */
     DROP_NO_ROUTE,   /**< No route to host */
@@ -162,7 +162,7 @@ public:
    * Higher-level layers call this method to send a packet
    * down the stack to the MAC and PHY layers.
    */
-  void Send (Ptr<Packet> packet, Ipv4Address source, 
+  void Send (Ptr<Packet> packet, Ipv4Address source,
              Ipv4Address destination, uint8_t protocol, Ptr<Ipv4Route> route);
   /**
    * \param packet packet to send
@@ -229,7 +229,7 @@ public:
    */
   typedef void (* SentTracedCallback)
     (const Ipv4Header & header, Ptr<const Packet> packet, uint32_t interface);
-   
+
   /**
    * TracedCallback signature for packet transmission or reception events.
    *
@@ -258,7 +258,7 @@ public:
     (const Ipv4Header & header, Ptr<const Packet> packet,
      DropReason reason, Ptr<Ipv4> ipv4,
      uint32_t interface);
-   
+
 protected:
 
   virtual void DoDispose (void);
@@ -299,6 +299,7 @@ private:
    * \param payloadSize payload size
    * \param ttl Time to Live
    * \param tos Type of Service
+   * \param ecn ECN
    * \param mayFragment true if the packet can be fragmented
    * \return newly created IPv4 header
    */
@@ -309,6 +310,7 @@ private:
     uint16_t payloadSize,
     uint8_t ttl,
     uint8_t tos,
+    Ipv4Header::EcnType ecn,
     bool mayFragment);
 
   /**
@@ -328,9 +330,9 @@ private:
    * \param p packet to forward
    * \param header IPv4 header to add to the packet
    */
-  void 
-  IpForward (Ptr<Ipv4Route> rtentry, 
-             Ptr<const Packet> p, 
+  void
+  IpForward (Ptr<Ipv4Route> rtentry,
+             Ptr<const Packet> p,
              const Ipv4Header &header);
 
   /**
@@ -340,8 +342,8 @@ private:
    * \param header IPv4 header to add to the packet
    */
   void
-  IpMulticastForward (Ptr<Ipv4MulticastRoute> mrtentry, 
-                      Ptr<const Packet> p, 
+  IpMulticastForward (Ptr<Ipv4MulticastRoute> mrtentry,
+                      Ptr<const Packet> p,
                       const Ipv4Header &header);
 
   /**
