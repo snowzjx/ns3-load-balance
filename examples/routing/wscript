@@ -50,3 +50,8 @@ def build(bld):
     obj = bld.create_ns3_program('global-routing-multi-switch-plus-router',
                                  ['core', 'network', 'applications', 'internet', 'bridge', 'csma', 'point-to-point', 'csma', 'internet'])
     obj.source = 'global-routing-multi-switch-plus-router.cc'
+    
+    obj = bld.create_ns3_program('per-flow-ecmp-routing',
+                                 ['point-to-point', 'internet', 'applications'])
+    obj.source = 'per-flow-ecmp-routing.cc'
+
