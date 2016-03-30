@@ -233,7 +233,7 @@ Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, uint32_t flowId, Ptr<NetDevic
         }
       else if (m_perFlowEcmpRouting && flowId != 0) // If the flow id is 0, it may be the socket setup endpoint request, we simply return the first
         {                                           // available route to indicate the address is not local
-          selectIndex = (allRoutes.size() - 1) % flowId;
+          selectIndex = flowId % allRoutes.size();
           NS_LOG_LOGIC ("Per flow ECMP is enabled, select index: " << selectIndex << " for flow: " << flowId);
         }
       else
