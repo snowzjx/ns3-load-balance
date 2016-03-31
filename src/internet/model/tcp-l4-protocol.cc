@@ -556,8 +556,9 @@ TcpL4Protocol::SendPacketV4 (Ptr<Packet> packet, const TcpHeader &outgoing,
   packet->AddHeader (outgoingHeader);
 
   // XXX Per flow ECMP support
-  // Calculate the flow id and store it in the packet flow id byte tag
-  // NOTE Here we do not use the byte tag since the TCP tx byte has been segmented
+  // Calculate the flow id and store it in the packet flow id packet tag
+  // NOTE Here we do not use the byte tag since we want the flow id tag to be applied to each packet
+  // after TCP fragmentation
   uint32_t flowId = 0;
 
   flowId ^= saddr.Get();
