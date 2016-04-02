@@ -55,3 +55,7 @@ def build(bld):
                                  ['point-to-point', 'internet', 'applications'])
     obj.source = 'per-flow-ecmp-routing.cc'
 
+    obj = bld.create_ns3_program('drb-routing',
+                                 ['point-to-point', 'internet', 'applications'])
+    obj.source = 'drb-routing.cc'
+

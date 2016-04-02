@@ -22,25 +22,28 @@
 #include <list>
 #include "ns3/ipv4-routing-protocol.h"
 #include "ns3/simulator.h"
+#include "ns3/ipv4-drb.h"
 
 namespace ns3 {
 
+class Ipv4Drb;
+
 /**
- * \ingroup internet 
+ * \ingroup internet
  * \defgroup ipv4ListRouting Ipv4 List Routing
  */
 /**
  * \ingroup ipv4ListRouting
  *
- * This class is a specialization of Ipv4RoutingProtocol that allows 
- * other instances of Ipv4RoutingProtocol to be inserted in a 
+ * This class is a specialization of Ipv4RoutingProtocol that allows
+ * other instances of Ipv4RoutingProtocol to be inserted in a
  * prioritized list.  Routing protocols in the list are consulted one
  * by one, from highest to lowest priority, until a routing protocol
  * is found that will take the packet (this corresponds to a non-zero
  * return value to RouteOutput, or a return value of true to RouteInput).
- * The order by which routing protocols with the same priority value 
+ * The order by which routing protocols with the same priority value
  * are consulted is undefined.
- * 
+ *
  */
 class Ipv4ListRouting : public Ipv4RoutingProtocol
 {
@@ -71,8 +74,8 @@ public:
    * first protocol (index 0) the highest priority, the next one (index 1)
    * the second highest priority, and so on.  The priority parameter is an
    * output parameter and it returns the integer priority of the protocol.
-   * 
-   * \return pointer to routing protocol indexed by 
+   *
+   * \return pointer to routing protocol indexed by
    * \param index index of protocol to return
    * \param priority output parameter, set to the priority of the protocol
             being returned
@@ -91,6 +94,9 @@ public:
   virtual void NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address);
   virtual void SetIpv4 (Ptr<Ipv4> ipv4);
   virtual void PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const;
+
+  virtual void SetDrb(Ptr<Ipv4Drb> drb);
+  virtual Ptr<Ipv4Drb> GetDrb ();
 
 protected:
   virtual void DoDispose (void);
@@ -115,7 +121,7 @@ private:
   static bool Compare (const Ipv4RoutingProtocolEntry& a, const Ipv4RoutingProtocolEntry& b);
   Ptr<Ipv4> m_ipv4; //!< Ipv4 this protocol is associated with.
 
-
+  Ptr<Ipv4Drb> m_drb;  //!< The DRB routing engine
 };
 
 } // namespace ns3

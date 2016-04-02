@@ -23,6 +23,7 @@
 #include "ns3/node.h"
 #include "ns3/ipv4-static-routing.h"
 #include "ipv4-list-routing.h"
+#include "ipv4-drb-tag.h"
 
 namespace ns3 {
 
@@ -42,13 +43,13 @@ Ipv4ListRouting::GetTypeId (void)
 }
 
 
-Ipv4ListRouting::Ipv4ListRouting () 
-  : m_ipv4 (0)
+Ipv4ListRouting::Ipv4ListRouting ()
+  : m_ipv4 (0), m_drb (0)
 {
   NS_LOG_FUNCTION (this);
 }
 
-Ipv4ListRouting::~Ipv4ListRouting () 
+Ipv4ListRouting::~Ipv4ListRouting ()
 {
   NS_LOG_FUNCTION (this);
 }
@@ -67,13 +68,14 @@ Ipv4ListRouting::DoDispose (void)
     }
   m_routingProtocols.clear ();
   m_ipv4 = 0;
+  m_drb = 0;
 }
 
 void
 Ipv4ListRouting::PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const
 {
   NS_LOG_FUNCTION (this << stream);
-  *stream->GetStream () << "Node: " << m_ipv4->GetObject<Node> ()->GetId () 
+  *stream->GetStream () << "Node: " << m_ipv4->GetObject<Node> ()->GetId ()
                         << ", Time: " << Now().As (Time::S)
                         << ", Local time: " << GetObject<Node> ()->GetLocalTime ().As (Time::S)
                         << ", Ipv4ListRouting table" << std::endl;
@@ -125,9 +127,9 @@ Ipv4ListRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDe
 }
 
 // Patterned after Linux ip_route_input and ip_route_input_slow
-bool 
-Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev, 
-                             UnicastForwardCallback ucb, MulticastForwardCallback mcb, 
+bool
+Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
+                             UnicastForwardCallback ucb, MulticastForwardCallback mcb,
                              LocalDeliverCallback lcb, ErrorCallback ecb)
 {
   NS_LOG_FUNCTION (this << p << header << idev << &ucb << &mcb << &lcb << &ecb);
@@ -135,25 +137,62 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
   NS_LOG_LOGIC ("RouteInput logic for node: " << m_ipv4->GetObject<Node> ()->GetId ());
 
   NS_ASSERT (m_ipv4 != 0);
-  // Check if input device supports IP 
+  // Check if input device supports IP
   NS_ASSERT (m_ipv4->GetInterfaceForDevice (idev) >= 0);
-  uint32_t iif = m_ipv4->GetInterfaceForDevice (idev); 
+  uint32_t iif = m_ipv4->GetInterfaceForDevice (idev);
+
+  Ptr<Packet> packet = p->Copy ();
+  Ipv4Header ipHeader = header;
+
+  // XXX DRB support
+  // We need to query the DRB index here to simulate the IP-in-IP encapsulation
+
+  Ipv4DrbTag ipv4DrbTag;
+  bool found = packet->PeekPacketTag(ipv4DrbTag);
+
+  if (m_drb != 0 && !found)
+  {
+    NS_LOG_DEBUG ("DRB is enabled");
+    Ipv4Address address = m_drb->GetCoreSwitchAddress ();
+    if (address != Ipv4Address()) // NULL check
+    {
+      Ipv4DrbTag ipv4DrbTag;
+      ipv4DrbTag.SetOriginalDestAddr(header.GetDestination ());
+      ipHeader.SetDestination(address);
+      packet->AddPacketTag(ipv4DrbTag);
+      NS_LOG_DEBUG ("Forwarding the packet to core switch: " << address);
+    }
+    else
+    {
+      NS_LOG_ERROR ("Core switch address is missing");
+    }
+  }
 
   retVal = m_ipv4->IsDestinationAddress (header.GetDestination (), iif);
   if (retVal == true)
     {
-      NS_LOG_LOGIC ("Address "<< header.GetDestination () << " is a match for local delivery");
-      if (header.GetDestination ().IsMulticast ())
+      // XXX DRB support, extract the original address
+      if (found && !m_ipv4->IsDestinationAddress (ipv4DrbTag.GetOriginalDestAddr(), iif))
         {
-          Ptr<Packet> packetCopy = p->Copy ();
-          lcb (packetCopy, header, iif);
-          retVal = true;
-          // Fall through
+          Ipv4Address originalDestAddr = ipv4DrbTag.GetOriginalDestAddr();
+          ipHeader.SetDestination(originalDestAddr);
+          NS_LOG_DEBUG ("Receive DRB packet, bouncing packet to: " << originalDestAddr);
         }
       else
         {
-          lcb (p, header, iif);
-          return true;
+          NS_LOG_LOGIC ("Address "<< header.GetDestination () << " is a match for local delivery");
+          if (header.GetDestination ().IsMulticast ())
+            {
+              Ptr<Packet> packetCopy = p->Copy ();
+              lcb (packetCopy, header, iif);
+              retVal = true;
+              // Fall through
+            }
+          else
+            {
+              lcb (p, header, iif);
+              return true;
+            }
         }
     }
   // Check if input device supports IP forwarding
@@ -176,9 +215,9 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
        rprotoIter != m_routingProtocols.end ();
        rprotoIter++)
     {
-      if ((*rprotoIter).second->RouteInput (p, header, idev, ucb, mcb, downstreamLcb, ecb))
+      if ((*rprotoIter).second->RouteInput (packet, ipHeader, idev, ucb, mcb, downstreamLcb, ecb))
         {
-          NS_LOG_LOGIC ("Route found to forward packet in protocol " << (*rprotoIter).second->GetInstanceTypeId ().GetName ()); 
+          NS_LOG_LOGIC ("Route found to forward packet in protocol " << (*rprotoIter).second->GetInstanceTypeId ().GetName ());
           return true;
         }
     }
@@ -186,7 +225,7 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
   return retVal;
 }
 
-void 
+void
 Ipv4ListRouting::NotifyInterfaceUp (uint32_t interface)
 {
   NS_LOG_FUNCTION (this << interface);
@@ -198,7 +237,7 @@ Ipv4ListRouting::NotifyInterfaceUp (uint32_t interface)
       (*rprotoIter).second->NotifyInterfaceUp (interface);
     }
 }
-void 
+void
 Ipv4ListRouting::NotifyInterfaceDown (uint32_t interface)
 {
   NS_LOG_FUNCTION (this << interface);
@@ -210,7 +249,7 @@ Ipv4ListRouting::NotifyInterfaceDown (uint32_t interface)
       (*rprotoIter).second->NotifyInterfaceDown (interface);
     }
 }
-void 
+void
 Ipv4ListRouting::NotifyAddAddress (uint32_t interface, Ipv4InterfaceAddress address)
 {
   NS_LOG_FUNCTION (this << interface << address);
@@ -222,7 +261,7 @@ Ipv4ListRouting::NotifyAddAddress (uint32_t interface, Ipv4InterfaceAddress addr
       (*rprotoIter).second->NotifyAddAddress (interface, address);
     }
 }
-void 
+void
 Ipv4ListRouting::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address)
 {
   NS_LOG_FUNCTION (this << interface << address);
@@ -234,7 +273,7 @@ Ipv4ListRouting::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress a
       (*rprotoIter).second->NotifyRemoveAddress (interface, address);
     }
 }
-void 
+void
 Ipv4ListRouting::SetIpv4 (Ptr<Ipv4> ipv4)
 {
   NS_LOG_FUNCTION (this << ipv4);
@@ -261,14 +300,14 @@ Ipv4ListRouting::AddRoutingProtocol (Ptr<Ipv4RoutingProtocol> routingProtocol, i
     }
 }
 
-uint32_t 
+uint32_t
 Ipv4ListRouting::GetNRoutingProtocols (void) const
 {
   NS_LOG_FUNCTION (this);
-  return m_routingProtocols.size (); 
+  return m_routingProtocols.size ();
 }
 
-Ptr<Ipv4RoutingProtocol> 
+Ptr<Ipv4RoutingProtocol>
 Ipv4ListRouting::GetRoutingProtocol (uint32_t index, int16_t& priority) const
 {
   NS_LOG_FUNCTION (this << index << priority);
@@ -289,13 +328,24 @@ Ipv4ListRouting::GetRoutingProtocol (uint32_t index, int16_t& priority) const
   return 0;
 }
 
-bool 
+bool
 Ipv4ListRouting::Compare (const Ipv4RoutingProtocolEntry& a, const Ipv4RoutingProtocolEntry& b)
 {
   NS_LOG_FUNCTION_NOARGS ();
   return a.first > b.first;
 }
 
+void
+Ipv4ListRouting::SetDrb(Ptr<Ipv4Drb> drb)
+{
+  m_drb = drb;
+}
+
+Ptr<Ipv4Drb>
+Ipv4ListRouting::GetDrb ()
+{
+  return m_drb;
+}
 
 } // namespace ns3
 
