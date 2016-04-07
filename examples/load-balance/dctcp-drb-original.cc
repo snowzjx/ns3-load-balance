@@ -6,6 +6,7 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
+#include "ns3/tcp-dctcp.h"
 
 using namespace ns3;
 
@@ -126,6 +127,8 @@ int main (int argc, char *argv[])
 
     CommandLine cmd;
     cmd.Parse (argc, argv);
+
+    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpWestwood::GetTypeId ()));
 
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
