@@ -6,7 +6,6 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
-#include "ns3/tcp-dctcp.h"
 
 using namespace ns3;
 
@@ -119,6 +118,39 @@ CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
     NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
 }
 
+static void
+CongChange (TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
+{
+    NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
+}
+
+uint32_t checkTimes;
+double avgQueueSize;
+
+std::stringstream filePlotQueue;
+std::stringstream filePlotQueueAvg;
+
+void
+CheckQueueSize (Ptr<QueueDisc> queue)
+{
+  uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
+
+  avgQueueSize += qSize;
+  checkTimes++;
+
+  // check queue size every 1/100 of a second
+  Simulator::Schedule (Seconds (0.01), &CheckQueueSize, queue);
+
+  std::ofstream fPlotQueue (filePlotQueue.str ().c_str (), std::ios::out|std::ios::app);
+  fPlotQueue << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
+  fPlotQueue.close ();
+
+  std::ofstream fPlotQueueAvg (filePlotQueueAvg.str ().c_str (), std::ios::out|std::ios::app);
+  fPlotQueueAvg << Simulator::Now ().GetSeconds () << " " << avgQueueSize / checkTimes << std::endl;
+  fPlotQueueAvg.close ();
+}
+
+
 int main (int argc, char *argv[])
 {
 #if 1
@@ -128,7 +160,7 @@ int main (int argc, char *argv[])
     CommandLine cmd;
     cmd.Parse (argc, argv);
 
-    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpWestwood::GetTypeId ()));
+    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
 
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
@@ -160,6 +192,7 @@ int main (int argc, char *argv[])
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
 
     Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
+    Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1040));
     Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (1000));
 
     TrafficControlHelper tchRed;
@@ -168,7 +201,7 @@ int main (int argc, char *argv[])
                                                   "MinTh", DoubleValue (65),
                                                   "MaxTh", DoubleValue (65));
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
-    tchRed.Install (d1d2);
+    QueueDiscContainer queueDisc12 = tchRed.Install (d1d2);
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
     tchRed.Install (d2d4);
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
@@ -178,9 +211,9 @@ int main (int argc, char *argv[])
 
     TrafficControlHelper tchRed2;
     tchRed2.SetRootQueueDisc ("ns3::RedQueueDisc", "LinkBandwidth", StringValue ("1Gbps"),
-                                                  "LinkDelay", TimeValue (MicroSeconds (100)),
-                                                  "MinTh", DoubleValue (20),
-                                                  "MaxTh", DoubleValue (20));
+                                                   "LinkDelay", TimeValue (MicroSeconds (100)),
+                                                   "MinTh", DoubleValue (10),
+                                                   "MaxTh", DoubleValue (10));
 
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
     tchRed2.Install (d1d3);
@@ -221,6 +254,7 @@ int main (int argc, char *argv[])
     Address sinkAddress (InetSocketAddress (i4i5.GetAddress(1), port));
     Ptr<Socket> ns3TcpSocket = Socket::CreateSocket (c.Get(0), TcpSocketFactory::GetTypeId ());
     ns3TcpSocket->TraceConnectWithoutContext("CongestionWindow", MakeCallback (&CwndChange));
+    ns3TcpSocket->TraceConnectWithoutContext("CongState", MakeCallback (&CongChange));
 
     Ptr<MyApp> app = CreateObject<MyApp> ();
     app->Setup (ns3TcpSocket, sinkAddress, 1040, 1000000, DataRate ("10Gbps"));
@@ -233,6 +267,11 @@ int main (int argc, char *argv[])
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
     sinkApp.Start (Seconds (0.1));
     sinkApp.Stop (Seconds (10.0));
+
+    filePlotQueue << "red-queue.plotme";
+    filePlotQueueAvg << "red-queue-avg.plotme";
+    Ptr<QueueDisc> queue = queueDisc12.Get (0);
+    Simulator::ScheduleNow (&CheckQueueSize, queue);
 
     Simulator::Run ();
     Simulator::Destroy ();
