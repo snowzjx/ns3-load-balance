@@ -11,107 +11,6 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("DcTcpDrbOriginal");
 
-class MyApp : public Application
-{
-public:
-
-  MyApp ();
-  virtual ~MyApp();
-
-  void Setup (Ptr<Socket> socket, Address address, uint32_t packetSize, uint32_t nPackets, DataRate dataRate);
-
-private:
-  virtual void StartApplication (void);
-  virtual void StopApplication (void);
-
-  void ScheduleTx (void);
-  void SendPacket (void);
-
-  Ptr<Socket>     m_socket;
-  Address         m_peer;
-  uint32_t        m_packetSize;
-  uint32_t        m_nPackets;
-  DataRate        m_dataRate;
-  EventId         m_sendEvent;
-  bool            m_running;
-  uint32_t        m_packetsSent;
-};
-
-MyApp::MyApp ()
-  : m_socket (0),
-    m_peer (),
-    m_packetSize (0),
-    m_nPackets (0),
-    m_dataRate (0),
-    m_sendEvent (),
-    m_running (false),
-    m_packetsSent (0)
-{
-}
-
-MyApp::~MyApp()
-{
-  m_socket = 0;
-}
-
-void
-MyApp::Setup (Ptr<Socket> socket, Address address, uint32_t packetSize, uint32_t nPackets, DataRate dataRate)
-{
-  m_socket = socket;
-  m_peer = address;
-  m_packetSize = packetSize;
-  m_nPackets = nPackets;
-  m_dataRate = dataRate;
-}
-
-void
-MyApp::StartApplication (void)
-{
-  m_running = true;
-  m_packetsSent = 0;
-  m_socket->Bind ();
-  m_socket->Connect (m_peer);
-  SendPacket ();
-}
-
-void
-MyApp::StopApplication (void)
-{
-  m_running = false;
-
-  if (m_sendEvent.IsRunning ())
-    {
-      Simulator::Cancel (m_sendEvent);
-    }
-
-  if (m_socket)
-    {
-      m_socket->Close ();
-    }
-}
-
-void
-MyApp::SendPacket (void)
-{
-  Ptr<Packet> packet = Create<Packet> (m_packetSize);
-  m_socket->Send (packet);
-
-  if (++m_packetsSent < m_nPackets)
-    {
-      ScheduleTx ();
-    }
-}
-
-void
-MyApp::ScheduleTx (void)
-{
-  if (m_running)
-    {
-      Time tNext (Seconds (m_packetSize * 8 / static_cast<double> (m_dataRate.GetBitRate ())));
-      m_sendEvent = Simulator::Schedule (tNext, &MyApp::SendPacket, this);
-    }
-}
-
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
@@ -122,6 +21,20 @@ static void
 CongChange (TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
 {
     NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
+}
+
+static void
+TraceCwnd ()
+{
+    Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow",
+            MakeCallback (&CwndChange));
+}
+
+static void
+TraceCong ()
+{
+    Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongState",
+            MakeCallback (&CongChange));
 }
 
 uint32_t checkTimes;
@@ -160,7 +73,8 @@ int main (int argc, char *argv[])
     CommandLine cmd;
     cmd.Parse (argc, argv);
 
-    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+//    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+    Config::SetDefault ("ns3::TcpSocketBase::ECN", BooleanValue(false));
 
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
@@ -205,7 +119,7 @@ int main (int argc, char *argv[])
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
     tchRed.Install (d2d4);
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
-    tchRed.Install (d4d5);
+    QueueDiscContainer queueDisc45 = tchRed.Install (d4d5);
 
     p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
 
@@ -235,6 +149,7 @@ int main (int argc, char *argv[])
     ipv4.SetBase ("10.1.6.0", "255.255.255.0");
     Ipv4InterfaceContainer i4i5 = ipv4.Assign (d4d5);
 
+    /*
     NS_LOG_INFO ("Enable DRB");
     Ipv4DrbHelper drb;
     Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
@@ -246,34 +161,44 @@ int main (int argc, char *argv[])
     Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
     ipv4Drb4->AddCoreSwitchAddress(i2i4.GetAddress (0));
     ipv4Drb4->AddCoreSwitchAddress(i3i4.GetAddress (0));
+    */
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
     NS_LOG_INFO ("Install TCP based application");
-    uint16_t port = 8080;
-    Address sinkAddress (InetSocketAddress (i4i5.GetAddress(1), port));
-    Ptr<Socket> ns3TcpSocket = Socket::CreateSocket (c.Get(0), TcpSocketFactory::GetTypeId ());
-    ns3TcpSocket->TraceConnectWithoutContext("CongestionWindow", MakeCallback (&CwndChange));
-    ns3TcpSocket->TraceConnectWithoutContext("CongState", MakeCallback (&CongChange));
 
-    Ptr<MyApp> app = CreateObject<MyApp> ();
-    app->Setup (ns3TcpSocket, sinkAddress, 1040, 1000000, DataRate ("10Gbps"));
-    c.Get(0)->AddApplication (app);
-    app->SetStartTime (Seconds (1.0));
-    app->SetStopTime (Seconds (10.0));
+    uint16_t port = 8080;
+
+    BulkSendHelper source ("ns3::TcpSocketFactory",
+            InetSocketAddress (i4i5.GetAddress(1), port));
+    source.SetAttribute ("MaxBytes", UintegerValue (0));
+    ApplicationContainer sourceApps = source.Install (c.Get (0));
+    sourceApps.Start (Seconds (0.0));
+    sourceApps.Stop (Seconds (10.0));
 
     PacketSinkHelper sink ("ns3::TcpSocketFactory",
             InetSocketAddress (Ipv4Address::GetAny (), port));
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
-    sinkApp.Start (Seconds (0.1));
+    sinkApp.Start (Seconds (0.0));
     sinkApp.Stop (Seconds (10.0));
+
+    Simulator::Schedule (Seconds (0.00001), &TraceCwnd);
+    Simulator::Schedule (Seconds (0.00001), &TraceCong);
 
     filePlotQueue << "red-queue.plotme";
     filePlotQueueAvg << "red-queue-avg.plotme";
-    Ptr<QueueDisc> queue = queueDisc12.Get (0);
+    Ptr<QueueDisc> queue = queueDisc45.Get (0);
     Simulator::ScheduleNow (&CheckQueueSize, queue);
 
+    NS_LOG_INFO ("Run Simulations");
+
+    Simulator::Stop (Seconds (10.0));
     Simulator::Run ();
+
+    Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
+
+    NS_LOG_UNCOND ("bytes (" << pktSink->GetTotalRx () * 8 / 10 << "  bps)");
+
     Simulator::Destroy ();
 
     return 0;
