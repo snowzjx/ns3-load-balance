@@ -19,7 +19,7 @@ public:
   Ipv4Address GetCoreSwitchAddress (void);
 
   void AddCoreSwitchAddress (Ipv4Address address);
-
+  void AddCoreSwitchAddress (uint32_t k, Ipv4Address address);
 private:
   std::vector<Ipv4Address> m_coreSwitchAddressList;
 

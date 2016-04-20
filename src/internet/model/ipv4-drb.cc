@@ -48,4 +48,13 @@ Ipv4Drb::AddCoreSwitchAddress (Ipv4Address addr)
   m_coreSwitchAddressList.push_back (addr);
 }
 
+void
+Ipv4Drb::AddCoreSwitchAddress (uint32_t k, Ipv4Address addr)
+{
+  for (uint32_t i = 0; i < k; i++)
+  {
+    Ipv4Drb::AddCoreSwitchAddress(addr);
+  }
+}
+
 }
