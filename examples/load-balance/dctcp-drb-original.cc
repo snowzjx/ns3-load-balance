@@ -11,10 +11,16 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("DcTcpDrbOriginal");
 
+double lastCwndCheckTime;
+
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
-    NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.01)
+    {
+        NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+        lastCwndCheckTime = Simulator::Now ().GetSeconds ();
+    }
 }
 
 static void
@@ -37,30 +43,42 @@ TraceCong ()
             MakeCallback (&CongChange));
 }
 
-uint32_t checkTimes;
 double avgQueueSize;
 
-std::stringstream filePlotQueue;
-std::stringstream filePlotQueueAvg;
-
 void
-CheckQueueSize (Ptr<QueueDisc> queue)
+CheckQueueDiscSize (Ptr<QueueDisc> queue)
 {
   uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
 
-  avgQueueSize += qSize;
-  checkTimes++;
+  Simulator::Schedule (Seconds (0.01), &CheckQueueDiscSize, queue);
 
-  // check queue size every 1/100 of a second
+  NS_LOG_UNCOND ("Queue disc size: " << qSize);
+}
+
+void
+CheckQueueSize (Ptr<Queue> queue)
+{
+  uint32_t qSize = queue->GetNPackets ();
+
   Simulator::Schedule (Seconds (0.01), &CheckQueueSize, queue);
 
-  std::ofstream fPlotQueue (filePlotQueue.str ().c_str (), std::ios::out|std::ios::app);
-  fPlotQueue << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
-  fPlotQueue.close ();
+  NS_LOG_UNCOND ("Queue size: " << qSize);
 
-  std::ofstream fPlotQueueAvg (filePlotQueueAvg.str ().c_str (), std::ios::out|std::ios::app);
-  fPlotQueueAvg << Simulator::Now ().GetSeconds () << " " << avgQueueSize / checkTimes << std::endl;
-  fPlotQueueAvg.close ();
+}
+
+uint32_t accumRecvBytes;
+
+void
+CheckThroughput (Ptr<PacketSink> sink)
+{
+  uint32_t totalRecvBytes = sink->GetTotalRx ();
+  uint32_t currentPeriodRecvBytes = totalRecvBytes - accumRecvBytes;
+
+  accumRecvBytes = totalRecvBytes;
+
+  Simulator::Schedule (Seconds (0.01), &CheckThroughput, sink);
+
+  NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.01 << "bps");
 }
 
 
@@ -74,7 +92,7 @@ int main (int argc, char *argv[])
     cmd.Parse (argc, argv);
 
 //    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
-    Config::SetDefault ("ns3::TcpSocketBase::ECN", BooleanValue(false));
+    Config::SetDefault ("ns3::TcpSocketBase::ECN", BooleanValue (false));
 
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
@@ -99,38 +117,39 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Install channel");
     PointToPointHelper p2p;
-    p2p.SetQueue ("ns3::DropTailQueue");
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
+    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
     p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
 
+    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (1000));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
     Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1040));
-    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (1000));
+    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
 
     TrafficControlHelper tchRed;
-    tchRed.SetRootQueueDisc ("ns3::RedQueueDisc", "LinkBandwidth", StringValue ("10Gbps"),
-                                                  "LinkDelay", TimeValue (MicroSeconds (100)),
-                                                  "MinTh", DoubleValue (65),
+    tchRed.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
                                                   "MaxTh", DoubleValue (65));
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
     QueueDiscContainer queueDisc12 = tchRed.Install (d1d2);
+
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
     tchRed.Install (d2d4);
-    NetDeviceContainer d4d5 = p2p.Install (n4n5);
-    QueueDiscContainer queueDisc45 = tchRed.Install (d4d5);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    NetDeviceContainer d4d5 = p2p.Install (n4n5);
+    tchRed.Install (d4d5);
+
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
 
     TrafficControlHelper tchRed2;
-    tchRed2.SetRootQueueDisc ("ns3::RedQueueDisc", "LinkBandwidth", StringValue ("1Gbps"),
-                                                   "LinkDelay", TimeValue (MicroSeconds (100)),
-                                                   "MinTh", DoubleValue (10),
+    tchRed2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (10),
                                                    "MaxTh", DoubleValue (10));
 
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
-    tchRed2.Install (d1d3);
+    QueueDiscContainer queueDisc13 = tchRed2.Install (d1d3);
+
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
     tchRed2.Install (d3d4);
 
@@ -149,19 +168,27 @@ int main (int argc, char *argv[])
     ipv4.SetBase ("10.1.6.0", "255.255.255.0");
     Ipv4InterfaceContainer i4i5 = ipv4.Assign (d4d5);
 
-    /*
-    NS_LOG_INFO ("Enable DRB");
+    // Uninstall the queue disc in sender
+    TrafficControlHelper tc;
+    tc.Uninstall(d0d1);
+    tc.Uninstall(d1d2);
+    tc.Uninstall(d1d3);
+    tc.Uninstall(d2d4);
+    tc.Uninstall(d3d4);
+    tc.Uninstall(d4d5);
+
+
+    NS_LOG_INFO ("Enable k DRB");
     Ipv4DrbHelper drb;
     Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
     Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
-    ipv4Drb1->AddCoreSwitchAddress(i1i2.GetAddress (1));
-    ipv4Drb1->AddCoreSwitchAddress(i1i3.GetAddress (1));
+    ipv4Drb1->AddCoreSwitchAddress(64000, i1i2.GetAddress (1));
+    ipv4Drb1->AddCoreSwitchAddress(64000, i1i3.GetAddress (1));
 
     Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
     Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
-    ipv4Drb4->AddCoreSwitchAddress(i2i4.GetAddress (0));
-    ipv4Drb4->AddCoreSwitchAddress(i3i4.GetAddress (0));
-    */
+    ipv4Drb4->AddCoreSwitchAddress(64000, i2i4.GetAddress (0));
+    ipv4Drb4->AddCoreSwitchAddress(64000, i3i4.GetAddress (0));
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
@@ -185,20 +212,20 @@ int main (int argc, char *argv[])
     Simulator::Schedule (Seconds (0.00001), &TraceCwnd);
     Simulator::Schedule (Seconds (0.00001), &TraceCong);
 
-    filePlotQueue << "red-queue.plotme";
-    filePlotQueueAvg << "red-queue-avg.plotme";
-    Ptr<QueueDisc> queue = queueDisc45.Get (0);
+    //Ptr<QueueDisc> queueDisc = queueDisc13.Get (0);
+    //Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc);
+
+    Ptr<NetDevice> nd = d0d1.Get (0);
+    Ptr<Queue> queue = DynamicCast<PointToPointNetDevice>(nd)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue);
+
+    Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
+    Simulator::ScheduleNow (&CheckThroughput, pktSink);
 
     NS_LOG_INFO ("Run Simulations");
 
     Simulator::Stop (Seconds (10.0));
     Simulator::Run ();
-
-    Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
-
-    NS_LOG_UNCOND ("bytes (" << pktSink->GetTotalRx () * 8 / 10 << "  bps)");
-
     Simulator::Destroy ();
 
     return 0;

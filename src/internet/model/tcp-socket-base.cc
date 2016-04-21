@@ -129,6 +129,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (true),
                    MakeBooleanAccessor (&TcpSocketBase::m_limitedTx),
                    MakeBooleanChecker ())
+    .AddAttribute ("ECN", "Enable ECN capable connection",
+                   BooleanValue (true),
+                   MakeBooleanAccessor (&TcpSocketBase::m_ecn),
+                   MakeBooleanChecker ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -319,6 +323,15 @@ TcpSocketBase::TcpSocketBase (void)
   m_txBuffer = CreateObject<TcpTxBuffer> ();
   m_tcb      = CreateObject<TcpSocketState> ();
 
+  if (m_ecn)
+  {
+    m_tcb -> m_ecnConn = true;
+  }
+  else
+  {
+    m_tcb -> m_ecnConn = false;
+  }
+
   bool ok;
 
   ok = m_tcb->TraceConnectWithoutContext ("CongestionWindow",
@@ -403,6 +416,16 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
   m_txBuffer = CopyObject (sock.m_txBuffer);
   m_rxBuffer = CopyObject (sock.m_rxBuffer);
   m_tcb = CopyObject (sock.m_tcb);
+
+  if (m_ecn)
+  {
+    m_tcb -> m_ecnConn = true;
+  }
+  else
+  {
+    m_tcb -> m_ecnConn = false;
+  }
+
   if (sock.m_congestionControl)
     {
       m_congestionControl = sock.m_congestionControl->Fork ();
