@@ -315,6 +315,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_retxThresh (3),
     m_limitedTx (false),
     m_retransOut (0),
+    m_ecn (true),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -394,6 +395,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_retxThresh (sock.m_retxThresh),
     m_limitedTx (sock.m_limitedTx),
     m_retransOut (sock.m_retransOut),
+    m_ecn (sock.m_ecn),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -1615,10 +1617,12 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       // XXX After the CWR has been acked, the CA_CWR exits
       else if (m_tcb->m_congState == TcpSocketState::CA_CWR)
         {
-            if(m_tcb->m_sentCWR && ackNumber > m_tcb->m_CWRSentSeq) {
+          if(m_tcb->m_sentCWR && ackNumber > m_tcb->m_CWRSentSeq) {
             NS_LOG_DEBUG ("CA_CWR -> OPEN");
             m_tcb->m_congState = TcpSocketState::CA_OPEN;
             m_tcb->m_sentCWR = false;
+            m_dupAckCount = 0;
+            m_retransOut = 0;
           }
           m_congestionControl->PktsAcked(m_tcb, segsAcked, m_lastRtt, withECE);
         }

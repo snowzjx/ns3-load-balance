@@ -992,6 +992,9 @@ protected:
   bool                   m_limitedTx;    //!< perform limited transmit
   uint32_t               m_retransOut;   //!< Number of retransmission in this window
 
+  // ECN capable connection
+  bool m_ecn;   //!< ECN capability
+
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
   Ptr<TcpCongestionOps>  m_congestionControl; //!< Congestion control
@@ -999,10 +1002,7 @@ protected:
   // Guesses over the other connection end
   bool m_isFirstPartialAck; //!< First partial ACK during RECOVERY
 
-  // ECN capable connection
-  bool m_ecn;   //!< ECN capability
-
-  // The following two traces pass a packet with a TCP header
+   // The following two traces pass a packet with a TCP header
   TracedCallback<Ptr<const Packet>, const TcpHeader&,
                  Ptr<const TcpSocketBase> > m_txTrace; //!< Trace of transmitted packets
 
