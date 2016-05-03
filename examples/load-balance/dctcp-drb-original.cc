@@ -107,11 +107,29 @@ int main (int argc, char *argv[])
     LogComponentEnable ("DcTcpDrbOriginal", LOG_LEVEL_INFO);
 #endif
 
+    std::string transportProt = "Tcp";
+    uint32_t drbCount1 = 0;
+    uint32_t drbCount2 = 0;
+
     CommandLine cmd;
+    cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+    cmd.AddValue ("drbCount1", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount1);
+    cmd.AddValue ("drbCount2", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount2);
+
     cmd.Parse (argc, argv);
 
-    Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
-    //Config::SetDefault ("ns3::TcpSocketBase::ECN", BooleanValue (false));
+    if (transportProt.compare ("Tcp") == 0)
+    {
+        Config::SetDefault ("ns3::TcpSocketBase::ECN", BooleanValue (false));
+    }
+    else if (transportProt.compare ("DcTcp") == 0)
+    {
+        Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+    }
+    else
+    {
+        return 0;
+    }
 
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
@@ -130,7 +148,9 @@ int main (int argc, char *argv[])
     internet.Install (c.Get (2));
     internet.Install (c.Get (3));
     internet.Install (c.Get (5));
-    internet.SetDrb (true);
+    if (drbCount1 != 0 || drbCount2 != 0) {
+        internet.SetDrb (true);
+    }
     internet.Install (c.Get (1));
     internet.Install (c.Get (4));
 
@@ -141,42 +161,45 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1040));
     Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
 
-    TrafficControlHelper tchRed;
-    tchRed.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (8),
-                                                  "MaxTh", DoubleValue (8));
+    TrafficControlHelper tc;
+    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
+                                              "MaxTh", DoubleValue (65));
 
-    //p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
-    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
+    if (transportProt.compare ("Tcp") == 0)
+    {
+        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
+    }
+    else
+    {
+        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
+    }
+
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
     p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
-    QueueDiscContainer qd0d1 = tchRed.Install (d0d1);
-
-    //p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
-    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Mbps"));
+    QueueDiscContainer qd0d1 = tc.Install (d0d1);
 
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
-    tchRed.Install (d1d2);
+    tc.Install (d1d2);
 
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
-    tchRed.Install (d2d4);
+    tc.Install (d2d4);
 
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
-    tchRed.Install (d4d5);
+    tc.Install (d4d5);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Mbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
 
-    TrafficControlHelper tchRed2;
-    tchRed2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (2),
-                                                   "MaxTh", DoubleValue (2));
+    TrafficControlHelper tc2;
+    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (20),
+                                               "MaxTh", DoubleValue (20));
 
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
-    tchRed2.Install (d1d3);
+    tc2.Install (d1d3);
 
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
-    tchRed2.Install (d3d4);
+    tc2.Install (d3d4);
 
     NS_LOG_INFO ("Assign IP address");
     Ipv4AddressHelper ipv4;
@@ -194,41 +217,30 @@ int main (int argc, char *argv[])
     Ipv4InterfaceContainer i4i5 = ipv4.Assign (d4d5);
 
     // Uninstall the queue disc in sender
-    /*
-    TrafficControlHelper tc;
-    tc.Uninstall(d0d1);
-    tc.Uninstall(d1d2);
-    tc.Uninstall(d1d3);
-    tc.Uninstall(d2d4);
-    tc.Uninstall(d3d4);
-    tc.Uninstall(d4d5);
-    */
+    if (transportProt.compare ("Tcp") == 0)
+    {
+        TrafficControlHelper tc;
+        tc.Uninstall(d0d1);
+        tc.Uninstall(d1d2);
+        tc.Uninstall(d1d3);
+        tc.Uninstall(d2d4);
+        tc.Uninstall(d3d4);
+        tc.Uninstall(d4d5);
+    }
 
-    NS_LOG_INFO ("Enable k DRB");
-    Ipv4DrbHelper drb;
-    Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
-    Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
-    ipv4Drb1->AddCoreSwitchAddress(200, i1i2.GetAddress (1));
-    ipv4Drb1->AddCoreSwitchAddress(200, i1i3.GetAddress (1));
+    if (drbCount1 != 0 || drbCount2 != 0) {
+        NS_LOG_INFO ("Enable " << drbCount1 << ":" << drbCount2 <<" DRB");
+        Ipv4DrbHelper drb;
+        Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
+        Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
+        ipv4Drb1->AddCoreSwitchAddress(drbCount1, i1i2.GetAddress (1));
+        ipv4Drb1->AddCoreSwitchAddress(drbCount2, i1i3.GetAddress (1));
 
-    Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
-    Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
-    ipv4Drb4->AddCoreSwitchAddress(200, i2i4.GetAddress (0));
-    ipv4Drb4->AddCoreSwitchAddress(200, i3i4.GetAddress (0));
-
-    /*
-    NS_LOG_INFO ("Enable DRB");
-    Ipv4DrbHelper drb;
-    Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
-    Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
-    ipv4Drb1->AddCoreSwitchAddress(i1i2.GetAddress (1));
-    ipv4Drb1->AddCoreSwitchAddress(i1i3.GetAddress (1));
-
-    Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
-    Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
-    ipv4Drb4->AddCoreSwitchAddress(i2i4.GetAddress (0));
-    ipv4Drb4->AddCoreSwitchAddress(i3i4.GetAddress (0));
-    */
+        Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
+        Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
+        ipv4Drb4->AddCoreSwitchAddress(drbCount1, i2i4.GetAddress (0));
+        ipv4Drb4->AddCoreSwitchAddress(drbCount2, i3i4.GetAddress (0));
+    }
 
     NS_LOG_INFO ("Setting up routing table");
 
@@ -266,8 +278,11 @@ int main (int argc, char *argv[])
     Simulator::Schedule (Seconds (0.00001), &TraceCwnd);
     Simulator::Schedule (Seconds (0.00001), &TraceCong);
 
-    Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
-    Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc);
+    if (transportProt.compare ("DcTcp") == 0)
+    {
+        Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc);
+    }
 
     Ptr<NetDevice> nd = d0d1.Get (0);
     Ptr<Queue> queue = DynamicCast<PointToPointNetDevice>(nd)->GetQueue ();
