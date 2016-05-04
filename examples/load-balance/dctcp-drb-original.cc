@@ -13,20 +13,28 @@ NS_LOG_COMPONENT_DEFINE ("DcTcpDrbOriginal");
 
 double lastCwndCheckTime;
 
-std::stringstream cwndPlot;
-std::stringstream congPlot;
-std::stringstream queueDiscPlot;
-std::stringstream queuePlot;
-std::stringstream throughputPlot;
+//std::stringstream cwndPlot;
+//std::stringstream congPlot;
+//std::stringstream queueDiscPlot;
+//std::stringstream queuePlot;
+//std::stringstream throughputPlot;
+
+std::string cwndPlot = "cwnd.plotme";
+std::string congPlot = "cong.plotme";
+std::string queueDiscPlot = "queue_disc.plotme";
+std::string queuePlot = "queue.plotme";
+std::string queueDiscPlot3 = "queue_disc_3.plotme";
+std::string queuePlot3 = "queue_3.plotme";
+std::string throughputPlot = "throughput.plotme";
 
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
-    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.01)
+    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.001)
     {
         NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
-        std::ofstream fCwndPlot (cwndPlot.str ().c_str (), std::ios::out|std::ios::app);
+        std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
     }
 }
@@ -35,7 +43,7 @@ static void
 CongChange (TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
 {
     NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
-    std::ofstream fCongPlot (congPlot.str ().c_str (), std::ios::out|std::ios::app);
+    std::ofstream fCongPlot (congPlot.c_str (), std::ios::out|std::ios::app);
     fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
 }
 
@@ -56,28 +64,28 @@ TraceCong ()
 double avgQueueSize;
 
 void
-CheckQueueDiscSize (Ptr<QueueDisc> queue)
+CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot)
 {
   uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
 
-  Simulator::Schedule (Seconds (0.01), &CheckQueueDiscSize, queue);
+  Simulator::Schedule (Seconds (0.001), &CheckQueueDiscSize, queue, plot);
 
   NS_LOG_UNCOND ("Queue disc size: " << qSize);
 
-  std::ofstream fQueueDiscPlot (queueDiscPlot.str ().c_str (), std::ios::out|std::ios::app);
+  std::ofstream fQueueDiscPlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueueDiscPlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
 }
 
 void
-CheckQueueSize (Ptr<Queue> queue)
+CheckQueueSize (Ptr<Queue> queue, std::string plot)
 {
   uint32_t qSize = queue->GetNPackets ();
 
-  Simulator::Schedule (Seconds (0.01), &CheckQueueSize, queue);
+  Simulator::Schedule (Seconds (0.001), &CheckQueueSize, queue, plot);
 
   NS_LOG_UNCOND ("Queue size: " << qSize);
 
-  std::ofstream fQueuePlot (queuePlot.str ().c_str (), std::ios::out|std::ios::app);
+  std::ofstream fQueuePlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueuePlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
 
 }
@@ -92,11 +100,11 @@ CheckThroughput (Ptr<PacketSink> sink)
 
   accumRecvBytes = totalRecvBytes;
 
-  Simulator::Schedule (Seconds (0.01), &CheckThroughput, sink);
+  Simulator::Schedule (Seconds (0.001), &CheckThroughput, sink);
 
   NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.01 << "bps");
 
-  std::ofstream fThroughputPlot (throughputPlot.str ().c_str (), std::ios::out|std::ios::app);
+  std::ofstream fThroughputPlot (throughputPlot.c_str (), std::ios::out|std::ios::app);
   fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.01 <<std::endl;
 }
 
@@ -106,6 +114,9 @@ int main (int argc, char *argv[])
 #if 1
     LogComponentEnable ("DcTcpDrbOriginal", LOG_LEVEL_INFO);
 #endif
+
+    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
+    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
@@ -174,8 +185,8 @@ int main (int argc, char *argv[])
         p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
     }
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
-    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(0.1)));
 
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
     QueueDiscContainer qd0d1 = tc.Install (d0d1);
@@ -189,7 +200,7 @@ int main (int argc, char *argv[])
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
     tc.Install (d4d5);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
 
     TrafficControlHelper tc2;
     tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (20),
@@ -199,7 +210,7 @@ int main (int argc, char *argv[])
     tc2.Install (d1d3);
 
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
-    tc2.Install (d3d4);
+    QueueDiscContainer qd3d4 = tc2.Install (d3d4);
 
     NS_LOG_INFO ("Assign IP address");
     Ipv4AddressHelper ipv4;
@@ -255,25 +266,27 @@ int main (int argc, char *argv[])
     source.SetAttribute ("MaxBytes", UintegerValue (0));
     ApplicationContainer sourceApps = source.Install (c.Get (0));
     sourceApps.Start (Seconds (0.0));
-    sourceApps.Stop (Seconds (20.0));
+    sourceApps.Stop (Seconds (1.0));
 
     PacketSinkHelper sink ("ns3::TcpSocketFactory",
             InetSocketAddress (Ipv4Address::GetAny (), port));
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
     sinkApp.Start (Seconds (0.0));
-    sinkApp.Stop (Seconds (20.0));
+    sinkApp.Stop (Seconds (1.0));
 
-    cwndPlot << "cwnd.plotme";
-    congPlot << "cong.plotme";
-    queueDiscPlot << "queue_disc.plotme";
-    queuePlot << "queue.plotme";
-    throughputPlot << "throughput.plotme";
+    //cwndPlot << "cwnd.plotme";
+    //congPlot << "cong.plotme";
+    //queueDiscPlot << "queue_disc.plotme";
+    //queuePlot << "queue.plotme";
+    //throughputPlot << "throughput.plotme";
 
-    remove(cwndPlot.str ().c_str ());
-    remove(congPlot.str ().c_str ());
-    remove(queueDiscPlot.str ().c_str ());
-    remove(queuePlot.str ().c_str ());
-    remove(throughputPlot.str ().c_str ());
+    remove(cwndPlot.c_str ());
+    remove(congPlot.c_str ());
+    remove(queueDiscPlot.c_str ());
+    remove(queuePlot.c_str ());
+    remove(queueDiscPlot3.c_str ());
+    remove(queuePlot3.c_str ());
+    remove(throughputPlot.c_str ());
 
     Simulator::Schedule (Seconds (0.00001), &TraceCwnd);
     Simulator::Schedule (Seconds (0.00001), &TraceCong);
@@ -281,19 +294,26 @@ int main (int argc, char *argv[])
     if (transportProt.compare ("DcTcp") == 0)
     {
         Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
-        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot);
+
+        Ptr<QueueDisc> queueDisc3 = qd3d4.Get (0);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3);
     }
 
     Ptr<NetDevice> nd = d0d1.Get (0);
     Ptr<Queue> queue = DynamicCast<PointToPointNetDevice>(nd)->GetQueue ();
-    Simulator::ScheduleNow (&CheckQueueSize, queue);
+    Simulator::ScheduleNow (&CheckQueueSize, queue, queuePlot);
+
+    Ptr<NetDevice> nd3 = d3d4.Get (0);
+    Ptr<Queue> queue3 = DynamicCast<PointToPointNetDevice>(nd3)->GetQueue ();
+    Simulator::ScheduleNow (&CheckQueueSize, queue3, queuePlot3);
 
     Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
     Simulator::ScheduleNow (&CheckThroughput, pktSink);
 
     NS_LOG_INFO ("Run Simulations");
 
-    Simulator::Stop (Seconds (20.0));
+    Simulator::Stop (Seconds (1.0));
     Simulator::Run ();
     Simulator::Destroy ();
 
