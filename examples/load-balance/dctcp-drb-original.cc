@@ -69,14 +69,14 @@ DoGnuPlot () {
     queue3GnuPlot.SetTerminal("png");
     queue3GnuPlot.AddDataset (queue3Dataset);
     std::ofstream queue3PlotFile ("queue_3.plt");
-    queueGnuPlot.GenerateOutput (queue3PlotFile);
+    queue3GnuPlot.GenerateOutput (queue3PlotFile);
     queue3PlotFile.close();
 
     Gnuplot throughputGnuPlot ("throughput.png");
     throughputGnuPlot.SetTitle("Throughtput");
     throughputGnuPlot.SetTerminal("png");
     throughputGnuPlot.AddDataset (throughputDataset);
-    std::ofstream throughputPlotFile ("queue_3.plt");
+    std::ofstream throughputPlotFile ("throughput.plt");
     throughputGnuPlot.GenerateOutput (throughputPlotFile);
     throughputPlotFile.close();
 
