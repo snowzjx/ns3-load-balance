@@ -7,17 +7,13 @@
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
 
+#include "ns3/gnuplot.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("DcTcpDrbOriginal");
 
 double lastCwndCheckTime;
-
-//std::stringstream cwndPlot;
-//std::stringstream congPlot;
-//std::stringstream queueDiscPlot;
-//std::stringstream queuePlot;
-//std::stringstream throughputPlot;
 
 std::string cwndPlot = "cwnd.plotme";
 std::string congPlot = "cong.plotme";
@@ -26,6 +22,65 @@ std::string queuePlot = "queue.plotme";
 std::string queueDiscPlot3 = "queue_disc_3.plotme";
 std::string queuePlot3 = "queue_3.plotme";
 std::string throughputPlot = "throughput.plotme";
+
+Gnuplot2dDataset cwndDataset;
+Gnuplot2dDataset queueDiscDataset;
+Gnuplot2dDataset queueDataset;
+Gnuplot2dDataset queueDisc3Dataset;
+Gnuplot2dDataset queue3Dataset;
+Gnuplot2dDataset throughputDataset;
+
+void
+DoGnuPlot () {
+    Gnuplot cwndGnuPlot ("cwnd.png");
+    cwndGnuPlot.SetTitle("Cwnd");
+    cwndGnuPlot.SetTerminal("png");
+    cwndGnuPlot.AddDataset (cwndDataset);
+    std::ofstream cwndPlotFile ("cwnd.plt");
+    cwndGnuPlot.GenerateOutput (cwndPlotFile);
+    cwndPlotFile.close();
+
+    Gnuplot queueDiscGnuPlot ("queue_disc.png");
+    queueDiscGnuPlot.SetTitle("Queue Disc");
+    queueDiscGnuPlot.SetTerminal("png");
+    queueDiscGnuPlot.AddDataset (queueDiscDataset);
+    std::ofstream queueDiscPlotFile ("queue_disc.plt");
+    queueDiscGnuPlot.GenerateOutput (queueDiscPlotFile);
+    queueDiscPlotFile.close();
+
+    Gnuplot queueGnuPlot ("queue.png");
+    queueGnuPlot.SetTitle("Queue");
+    queueGnuPlot.SetTerminal("png");
+    queueGnuPlot.AddDataset (queueDataset);
+    std::ofstream queuePlotFile ("queue.plt");
+    queueGnuPlot.GenerateOutput (queuePlotFile);
+    queuePlotFile.close();
+
+    Gnuplot queueDisc3GnuPlot ("queue_disc_3.png");
+    queueDisc3GnuPlot.SetTitle("Queue Disc 3");
+    queueDisc3GnuPlot.SetTerminal("png");
+    queueDisc3GnuPlot.AddDataset (queueDisc3Dataset);
+    std::ofstream queueDisc3PlotFile ("queue_disc_3.plt");
+    queueDisc3GnuPlot.GenerateOutput (queueDisc3PlotFile);
+    queueDisc3PlotFile.close();
+
+    Gnuplot queue3GnuPlot ("queue_3.png");
+    queue3GnuPlot.SetTitle("Queue 3");
+    queue3GnuPlot.SetTerminal("png");
+    queue3GnuPlot.AddDataset (queue3Dataset);
+    std::ofstream queue3PlotFile ("queue_3.plt");
+    queueGnuPlot.GenerateOutput (queue3PlotFile);
+    queue3PlotFile.close();
+
+    Gnuplot throughputGnuPlot ("throughput.png");
+    throughputGnuPlot.SetTitle("Throughtput");
+    throughputGnuPlot.SetTerminal("png");
+    throughputGnuPlot.AddDataset (throughputDataset);
+    std::ofstream throughputPlotFile ("queue_3.plt");
+    throughputGnuPlot.GenerateOutput (throughputPlotFile);
+    throughputPlotFile.close();
+
+}
 
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
@@ -36,6 +91,8 @@ CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
         std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
+
+        cwndDataset.Add(Simulator::Now ().GetSeconds (), newCwnd);
     }
 }
 
@@ -64,30 +121,33 @@ TraceCong ()
 double avgQueueSize;
 
 void
-CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot)
+CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot, Gnuplot2dDataset *dataset)
 {
   uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
 
-  Simulator::Schedule (Seconds (0.001), &CheckQueueDiscSize, queue, plot);
+  Simulator::Schedule (Seconds (0.001), &CheckQueueDiscSize, queue, plot, dataset);
 
   NS_LOG_UNCOND ("Queue disc size: " << qSize);
 
   std::ofstream fQueueDiscPlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueueDiscPlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
+
+  dataset->Add (Simulator::Now ().GetSeconds (), qSize);
 }
 
 void
-CheckQueueSize (Ptr<Queue> queue, std::string plot)
+CheckQueueSize (Ptr<Queue> queue, std::string plot, Gnuplot2dDataset *dataset)
 {
   uint32_t qSize = queue->GetNPackets ();
 
-  Simulator::Schedule (Seconds (0.001), &CheckQueueSize, queue, plot);
+  Simulator::Schedule (Seconds (0.001), &CheckQueueSize, queue, plot, dataset);
 
   NS_LOG_UNCOND ("Queue size: " << qSize);
 
   std::ofstream fQueuePlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueuePlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
 
+  dataset->Add (Simulator::Now ().GetSeconds (), qSize);
 }
 
 uint32_t accumRecvBytes;
@@ -106,6 +166,8 @@ CheckThroughput (Ptr<PacketSink> sink)
 
   std::ofstream fThroughputPlot (throughputPlot.c_str (), std::ios::out|std::ios::app);
   fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.01 <<std::endl;
+
+  throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.01);
 }
 
 
@@ -266,13 +328,13 @@ int main (int argc, char *argv[])
     source.SetAttribute ("MaxBytes", UintegerValue (0));
     ApplicationContainer sourceApps = source.Install (c.Get (0));
     sourceApps.Start (Seconds (0.0));
-    sourceApps.Stop (Seconds (1.0));
+    sourceApps.Stop (Seconds (0.1));
 
     PacketSinkHelper sink ("ns3::TcpSocketFactory",
             InetSocketAddress (Ipv4Address::GetAny (), port));
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
     sinkApp.Start (Seconds (0.0));
-    sinkApp.Stop (Seconds (1.0));
+    sinkApp.Stop (Seconds (0.1));
 
     //cwndPlot << "cwnd.plotme";
     //congPlot << "cong.plotme";
@@ -288,34 +350,56 @@ int main (int argc, char *argv[])
     remove(queuePlot3.c_str ());
     remove(throughputPlot.c_str ());
 
+    // Gnuplot Settings
+    cwndDataset.SetTitle("Cwnd");
+    cwndDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queueDataset.SetTitle("Queue");
+    queueDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queueDiscDataset.SetTitle("Queue Disc");
+    queueDiscDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queue3Dataset.SetTitle("Queue 3");
+    queue3Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queueDisc3Dataset.SetTitle("Queue Disc 3");
+    queueDisc3Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    throughputDataset.SetTitle("Throughput");
+    throughputDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
     Simulator::Schedule (Seconds (0.00001), &TraceCwnd);
     Simulator::Schedule (Seconds (0.00001), &TraceCong);
 
     if (transportProt.compare ("DcTcp") == 0)
     {
         Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
-        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot, &queueDiscDataset);
 
         Ptr<QueueDisc> queueDisc3 = qd3d4.Get (0);
-        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3, &queueDisc3Dataset);
     }
 
     Ptr<NetDevice> nd = d0d1.Get (0);
     Ptr<Queue> queue = DynamicCast<PointToPointNetDevice>(nd)->GetQueue ();
-    Simulator::ScheduleNow (&CheckQueueSize, queue, queuePlot);
+    Simulator::ScheduleNow (&CheckQueueSize, queue, queuePlot, &queueDataset);
 
     Ptr<NetDevice> nd3 = d3d4.Get (0);
     Ptr<Queue> queue3 = DynamicCast<PointToPointNetDevice>(nd3)->GetQueue ();
-    Simulator::ScheduleNow (&CheckQueueSize, queue3, queuePlot3);
+    Simulator::ScheduleNow (&CheckQueueSize, queue3, queuePlot3, &queue3Dataset);
 
     Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
     Simulator::ScheduleNow (&CheckThroughput, pktSink);
 
+
     NS_LOG_INFO ("Run Simulations");
 
-    Simulator::Stop (Seconds (1.0));
+    Simulator::Stop (Seconds (0.1));
     Simulator::Run ();
     Simulator::Destroy ();
+
+    DoGnuPlot ();
 
     return 0;
 }
