@@ -21,17 +21,22 @@ std::string queueDiscPlot = "queue_disc.plotme";
 std::string queuePlot = "queue.plotme";
 std::string queueDiscPlot3 = "queue_disc_3.plotme";
 std::string queuePlot3 = "queue_3.plotme";
+std::string queueDiscPlot2 = "queue_disc_2.plotme";
+std::string queuePlot2 = "queue_2.plotme";
+
 std::string throughputPlot = "throughput.plotme";
 
 Gnuplot2dDataset cwndDataset;
 Gnuplot2dDataset queueDiscDataset;
 Gnuplot2dDataset queueDataset;
+Gnuplot2dDataset queueDisc2Dataset;
+Gnuplot2dDataset queue2Dataset;
 Gnuplot2dDataset queueDisc3Dataset;
 Gnuplot2dDataset queue3Dataset;
 Gnuplot2dDataset throughputDataset;
 
 void
-DoGnuPlot () {
+DoGnuPlot (std::string transportProt) {
     Gnuplot cwndGnuPlot ("cwnd.png");
     cwndGnuPlot.SetTitle("Cwnd");
     cwndGnuPlot.SetTerminal("png");
@@ -39,14 +44,6 @@ DoGnuPlot () {
     std::ofstream cwndPlotFile ("cwnd.plt");
     cwndGnuPlot.GenerateOutput (cwndPlotFile);
     cwndPlotFile.close();
-
-    Gnuplot queueDiscGnuPlot ("queue_disc.png");
-    queueDiscGnuPlot.SetTitle("Queue Disc");
-    queueDiscGnuPlot.SetTerminal("png");
-    queueDiscGnuPlot.AddDataset (queueDiscDataset);
-    std::ofstream queueDiscPlotFile ("queue_disc.plt");
-    queueDiscGnuPlot.GenerateOutput (queueDiscPlotFile);
-    queueDiscPlotFile.close();
 
     Gnuplot queueGnuPlot ("queue.png");
     queueGnuPlot.SetTitle("Queue");
@@ -56,13 +53,13 @@ DoGnuPlot () {
     queueGnuPlot.GenerateOutput (queuePlotFile);
     queuePlotFile.close();
 
-    Gnuplot queueDisc3GnuPlot ("queue_disc_3.png");
-    queueDisc3GnuPlot.SetTitle("Queue Disc 3");
-    queueDisc3GnuPlot.SetTerminal("png");
-    queueDisc3GnuPlot.AddDataset (queueDisc3Dataset);
-    std::ofstream queueDisc3PlotFile ("queue_disc_3.plt");
-    queueDisc3GnuPlot.GenerateOutput (queueDisc3PlotFile);
-    queueDisc3PlotFile.close();
+    Gnuplot queue2GnuPlot ("queue_2.png");
+    queue2GnuPlot.SetTitle("Queue");
+    queue2GnuPlot.SetTerminal("png");
+    queue2GnuPlot.AddDataset (queue2Dataset);
+    std::ofstream queue2PlotFile ("queue_2.plt");
+    queue2GnuPlot.GenerateOutput (queue2PlotFile);
+    queue2PlotFile.close();
 
     Gnuplot queue3GnuPlot ("queue_3.png");
     queue3GnuPlot.SetTitle("Queue 3");
@@ -72,6 +69,33 @@ DoGnuPlot () {
     queue3GnuPlot.GenerateOutput (queue3PlotFile);
     queue3PlotFile.close();
 
+    if (transportProt.compare ("DcTcp") == 0)
+    {
+        Gnuplot queueDiscGnuPlot ("queue_disc.png");
+        queueDiscGnuPlot.SetTitle("Queue Disc");
+        queueDiscGnuPlot.SetTerminal("png");
+        queueDiscGnuPlot.AddDataset (queueDiscDataset);
+        std::ofstream queueDiscPlotFile ("queue_disc.plt");
+        queueDiscGnuPlot.GenerateOutput (queueDiscPlotFile);
+        queueDiscPlotFile.close();
+
+        Gnuplot queueDisc2GnuPlot ("queue_disc_2.png");
+        queueDisc2GnuPlot.SetTitle("Queue Disc 2");
+        queueDisc2GnuPlot.SetTerminal("png");
+        queueDisc2GnuPlot.AddDataset (queueDisc2Dataset);
+        std::ofstream queueDisc2PlotFile ("queue_disc2.plt");
+        queueDisc2GnuPlot.GenerateOutput (queueDisc2PlotFile);
+        queueDisc2PlotFile.close();
+
+        Gnuplot queueDisc3GnuPlot ("queue_disc_3.png");
+        queueDisc3GnuPlot.SetTitle("Queue Disc 3");
+        queueDisc3GnuPlot.SetTerminal("png");
+        queueDisc3GnuPlot.AddDataset (queueDisc3Dataset);
+        std::ofstream queueDisc3PlotFile ("queue_disc_3.plt");
+        queueDisc3GnuPlot.GenerateOutput (queueDisc3PlotFile);
+        queueDisc3PlotFile.close();
+    }
+
     Gnuplot throughputGnuPlot ("throughput.png");
     throughputGnuPlot.SetTitle("Throughtput");
     throughputGnuPlot.SetTerminal("png");
@@ -79,7 +103,6 @@ DoGnuPlot () {
     std::ofstream throughputPlotFile ("throughput.plt");
     throughputGnuPlot.GenerateOutput (throughputPlotFile);
     throughputPlotFile.close();
-
 }
 
 static void
@@ -257,7 +280,7 @@ int main (int argc, char *argv[])
     tc.Install (d1d2);
 
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
-    tc.Install (d2d4);
+    QueueDiscContainer qd2d4 = tc.Install (d2d4);
 
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
     tc.Install (d4d5);
@@ -346,6 +369,8 @@ int main (int argc, char *argv[])
     remove(congPlot.c_str ());
     remove(queueDiscPlot.c_str ());
     remove(queuePlot.c_str ());
+    remove(queuePlot2.c_str ());
+    remove(queueDiscPlot2.c_str ());
     remove(queueDiscPlot3.c_str ());
     remove(queuePlot3.c_str ());
     remove(throughputPlot.c_str ());
@@ -359,6 +384,13 @@ int main (int argc, char *argv[])
 
     queueDiscDataset.SetTitle("Queue Disc");
     queueDiscDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queue2Dataset.SetTitle("Queue");
+    queue2Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queueDisc2Dataset.SetTitle("Queue Disc");
+    queueDisc2Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
 
     queue3Dataset.SetTitle("Queue 3");
     queue3Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
@@ -379,6 +411,10 @@ int main (int argc, char *argv[])
 
         Ptr<QueueDisc> queueDisc3 = qd3d4.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3, &queueDisc3Dataset);
+
+        Ptr<QueueDisc> queueDisc2 = qd2d4.Get (0);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc2, queueDiscPlot2, &queueDisc2Dataset);
+
     }
 
     Ptr<NetDevice> nd = d0d1.Get (0);
@@ -388,6 +424,10 @@ int main (int argc, char *argv[])
     Ptr<NetDevice> nd3 = d3d4.Get (0);
     Ptr<Queue> queue3 = DynamicCast<PointToPointNetDevice>(nd3)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue3, queuePlot3, &queue3Dataset);
+
+    Ptr<NetDevice> nd2 = d2d4.Get (0);
+    Ptr<Queue> queue2 = DynamicCast<PointToPointNetDevice>(nd2)->GetQueue ();
+    Simulator::ScheduleNow (&CheckQueueSize, queue2, queuePlot2, &queue2Dataset);
 
     Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
     Simulator::ScheduleNow (&CheckThroughput, pktSink);
@@ -399,7 +439,7 @@ int main (int argc, char *argv[])
     Simulator::Run ();
     Simulator::Destroy ();
 
-    DoGnuPlot ();
+    DoGnuPlot (transportProt);
 
     return 0;
 }
