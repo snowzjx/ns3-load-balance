@@ -24,6 +24,9 @@ std::string queuePlot3 = "queue_3.plotme";
 std::string queueDiscPlot2 = "queue_disc_2.plotme";
 std::string queuePlot2 = "queue_2.plotme";
 
+std::string queuePlot4 = "queue_4.plotme";
+std::string queueDiscPlot4 = "queue_disc_4.plotme";
+
 std::string throughputPlot = "throughput.plotme";
 
 Gnuplot2dDataset cwndDataset;
@@ -33,6 +36,8 @@ Gnuplot2dDataset queueDisc2Dataset;
 Gnuplot2dDataset queue2Dataset;
 Gnuplot2dDataset queueDisc3Dataset;
 Gnuplot2dDataset queue3Dataset;
+Gnuplot2dDataset queueDisc4Dataset;
+Gnuplot2dDataset queue4Dataset;
 Gnuplot2dDataset throughputDataset;
 
 void
@@ -69,6 +74,14 @@ DoGnuPlot (std::string transportProt) {
     queue3GnuPlot.GenerateOutput (queue3PlotFile);
     queue3PlotFile.close();
 
+    Gnuplot queue4GnuPlot ("queue_4.png");
+    queue4GnuPlot.SetTitle("Queue 4");
+    queue4GnuPlot.SetTerminal("png");
+    queue4GnuPlot.AddDataset (queue4Dataset);
+    std::ofstream queue4PlotFile ("queue_4.plt");
+    queue4GnuPlot.GenerateOutput (queue4PlotFile);
+    queue4PlotFile.close();
+
     if (transportProt.compare ("DcTcp") == 0)
     {
         Gnuplot queueDiscGnuPlot ("queue_disc.png");
@@ -94,6 +107,14 @@ DoGnuPlot (std::string transportProt) {
         std::ofstream queueDisc3PlotFile ("queue_disc_3.plt");
         queueDisc3GnuPlot.GenerateOutput (queueDisc3PlotFile);
         queueDisc3PlotFile.close();
+
+        Gnuplot queueDisc4GnuPlot ("queue_disc_4.png");
+        queueDisc4GnuPlot.SetTitle("Queue Disc 4");
+        queueDisc4GnuPlot.SetTerminal("png");
+        queueDisc4GnuPlot.AddDataset (queueDisc4Dataset);
+        std::ofstream queueDisc4PlotFile ("queue_disc_4.plt");
+        queueDisc4GnuPlot.GenerateOutput (queueDisc4PlotFile);
+        queueDisc4PlotFile.close();
     }
 
     Gnuplot throughputGnuPlot ("throughput.png");
@@ -283,7 +304,7 @@ int main (int argc, char *argv[])
     QueueDiscContainer qd2d4 = tc.Install (d2d4);
 
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
-    tc.Install (d4d5);
+    QueueDiscContainer qd4d5 = tc.Install (d4d5);
 
     p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
 
@@ -374,6 +395,8 @@ int main (int argc, char *argv[])
     remove(queueDiscPlot3.c_str ());
     remove(queuePlot3.c_str ());
     remove(throughputPlot.c_str ());
+    remove(queuePlot4.c_str ());
+    remove(queueDiscPlot4.c_str ());
 
     // Gnuplot Settings
     cwndDataset.SetTitle("Cwnd");
@@ -385,10 +408,10 @@ int main (int argc, char *argv[])
     queueDiscDataset.SetTitle("Queue Disc");
     queueDiscDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
-    queue2Dataset.SetTitle("Queue");
+    queue2Dataset.SetTitle("Queue 2");
     queue2Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
-    queueDisc2Dataset.SetTitle("Queue Disc");
+    queueDisc2Dataset.SetTitle("Queue Disc 2");
     queueDisc2Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
 
@@ -397,6 +420,12 @@ int main (int argc, char *argv[])
 
     queueDisc3Dataset.SetTitle("Queue Disc 3");
     queueDisc3Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queue4Dataset.SetTitle("Queue 4");
+    queue4Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    queueDisc4Dataset.SetTitle("Queue Disc 4");
+    queueDisc4Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
     throughputDataset.SetTitle("Throughput");
     throughputDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
@@ -415,6 +444,8 @@ int main (int argc, char *argv[])
         Ptr<QueueDisc> queueDisc2 = qd2d4.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc2, queueDiscPlot2, &queueDisc2Dataset);
 
+        Ptr<QueueDisc> queueDisc4 = qd4d5.Get(0);
+        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc4, queueDiscPlot4, &queueDisc4Dataset);
     }
 
     Ptr<NetDevice> nd = d0d1.Get (0);
@@ -429,9 +460,14 @@ int main (int argc, char *argv[])
     Ptr<Queue> queue2 = DynamicCast<PointToPointNetDevice>(nd2)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue2, queuePlot2, &queue2Dataset);
 
+    Ptr<NetDevice> nd4 = d4d5.Get (0);
+    Ptr<Queue> queue4 = DynamicCast<PointToPointNetDevice>(nd4)->GetQueue ();
+    Simulator::ScheduleNow (&CheckQueueSize, queue4, queuePlot4, &queue4Dataset);
+
     Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
     Simulator::ScheduleNow (&CheckThroughput, pktSink);
 
+    p2p.EnablePcapAll ("load-balance");
 
     NS_LOG_INFO ("Run Simulations");
 
