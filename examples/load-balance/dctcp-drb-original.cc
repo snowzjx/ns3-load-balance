@@ -129,7 +129,7 @@ DoGnuPlot (std::string transportProt) {
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
-    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.001)
+    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
     {
         NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
@@ -169,7 +169,7 @@ CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot, Gnuplot2dDataset *da
 {
   uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
 
-  Simulator::Schedule (Seconds (0.001), &CheckQueueDiscSize, queue, plot, dataset);
+  Simulator::Schedule (Seconds (0.0001), &CheckQueueDiscSize, queue, plot, dataset);
 
   NS_LOG_UNCOND ("Queue disc size: " << qSize);
 
@@ -184,7 +184,7 @@ CheckQueueSize (Ptr<Queue> queue, std::string plot, Gnuplot2dDataset *dataset)
 {
   uint32_t qSize = queue->GetNPackets ();
 
-  Simulator::Schedule (Seconds (0.001), &CheckQueueSize, queue, plot, dataset);
+  Simulator::Schedule (Seconds (0.0001), &CheckQueueSize, queue, plot, dataset);
 
   NS_LOG_UNCOND ("Queue size: " << qSize);
 
@@ -204,14 +204,14 @@ CheckThroughput (Ptr<PacketSink> sink)
 
   accumRecvBytes = totalRecvBytes;
 
-  Simulator::Schedule (Seconds (0.001), &CheckThroughput, sink);
+  Simulator::Schedule (Seconds (0.0001), &CheckThroughput, sink);
 
-  NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.01 << "bps");
+  NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.0001 << "bps");
 
   std::ofstream fThroughputPlot (throughputPlot.c_str (), std::ios::out|std::ios::app);
-  fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.01 <<std::endl;
+  fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.0001 <<std::endl;
 
-  throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.01);
+  throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.0001);
 }
 
 
