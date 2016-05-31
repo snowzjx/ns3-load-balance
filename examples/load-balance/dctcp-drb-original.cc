@@ -223,6 +223,7 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
+    Config::SetDefault ("ns3::TcpSocket::MinRto", TimeValue (Seconds (0.01)));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
@@ -265,6 +266,7 @@ int main (int argc, char *argv[])
     internet.Install (c.Get (2));
     internet.Install (c.Get (3));
     internet.Install (c.Get (5));
+    //internet.Install (c.Get (4));
     if (drbCount1 != 0 || drbCount2 != 0) {
         internet.SetDrb (true);
     }
@@ -292,7 +294,7 @@ int main (int argc, char *argv[])
     }
 
     p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
-    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(0.1)));
+    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
     QueueDiscContainer qd0d1 = tc.Install (d0d1);
