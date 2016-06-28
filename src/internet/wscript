@@ -218,7 +218,8 @@ def build(bld):
         'model/rip.cc',
         'model/rip-header.cc',
         'helper/rip-helper.cc',
-        'helper/ipv4-drb-helper.cc'
+        'helper/ipv4-drb-helper.cc',
+        'helper/ipv4-conga-helper.cc'
         ]
 
     internet_test = bld.create_ns3_module_test_library('internet')
@@ -378,7 +379,8 @@ def build(bld):
         'model/rip.h',
         'model/rip-header.h',
         'helper/rip-helper.h',
-        'helper/ipv4-drb-helper.h'
+        'helper/ipv4-drb-helper.h',
+        'helper/ipv4-conga-helper.h'
        ]
 
     if bld.env['NSC_ENABLED']:

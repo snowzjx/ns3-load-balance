@@ -6,6 +6,8 @@
 #include "ns3/object.h"
 #include "ns3/packet.h"
 #include "ns3/ipv4-header.h"
+#include "ns3/nstime.h"
+#include "ns3/event-id.h"
 
 namespace ns3
 {
@@ -13,11 +15,11 @@ namespace ns3
 struct Flowlet {
   uint32_t pathId;
   /* bool isValid; */
-  double activeTime;
+  Time activeTime;
 };
 
 struct FeedbackInfo {
-  uint8_t ce;
+  uint32_t ce;
   uint32_t change;
 };
 
@@ -32,7 +34,9 @@ public:
 
   void SetLeafId (uint32_t leafId);
 
-  void SetFlowletTimeout (double timeout);
+  void SetTDre (Time time);
+
+  void SetFlowletTimeout (Time timeout);
 
   void AddAddressToLeafIdMap (Ipv4Address addr, uint32_t leafId);
 
@@ -44,32 +48,47 @@ public:
    * \param availPath The number of all available paths
    * \return True if the routine is corrected executed, the path should be referred for the correct path.
    */
-  bool ProcessPacket (Ptr<Packet> packet, Ipv4Header ipv4Header, uint32_t &path, uint32_t availPath);
+  bool ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint32_t &path, uint32_t availPath);
 
 private:
+  // Parameters
+
   // Used to determine whether this switch is leaf switch
   bool m_isLeaf;
   uint32_t m_leafId;
+
+  // DRE algorithm related parameters
+  Time m_tdre;
+  double m_alpha;
+
+  // Flowlet Timeout
+  Time m_flowletTimeout;
 
   // Ip and leaf switch map,
   // used to determine the which leaf swithc the packet would go through
   std::map<Ipv4Address, uint32_t> m_ipLeafIdMap;
 
-  // Congestion to Leaf Table
+  // Congestion To Leaf Table
   std::map<uint32_t, std::vector<double> > m_congaToLeafTable;
 
   // Congestion From Leaf Table
-  std::map<uint32_t, std::vector<FeedbackInfo *> > m_congaFromLeafTable;
+  std::map<uint32_t, std::map<uint32_t, FeedbackInfo> > m_congaFromLeafTable;
 
   // Flowlet Table
   std::map<uint32_t, Flowlet *> m_flowletTable;
 
   // Parameters
   // DRE
-  uint8_t m_X;
+  std::map<uint32_t, uint32_t> m_XMap;
 
-  // Flowlet Timeout
-  double m_flowletTimeout;
+  EventId m_dreEvent;
+
+  // DRE algorithm
+  void DreEvent();
+
+  void PrintCongaToLeafTable ();
+  void PrintCongaFromLeafTable ();
+  void PrintFlowletTable ();
 };
 
 }

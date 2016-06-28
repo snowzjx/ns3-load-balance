@@ -223,7 +223,7 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocket::MinRto", TimeValue (Seconds (0.01)));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;

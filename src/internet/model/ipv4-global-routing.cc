@@ -31,6 +31,7 @@
 #include "ipv4-global-routing.h"
 #include "global-route-manager.h"
 #include "ns3/flow-id-tag.h"
+#include "ns3/ipv4-conga.h"
 
 namespace ns3 {
 
@@ -54,6 +55,11 @@ Ipv4GlobalRouting::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&Ipv4GlobalRouting::m_perFlowEcmpRouting),
                    MakeBooleanChecker ())
+    .AddAttribute("CongaRouting",
+                  "Set to true if Conga is enabled",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&Ipv4GlobalRouting::m_congaRouting),
+                   MakeBooleanChecker ())
     .AddAttribute ("RespondToInterfaceEvents",
                    "Set to true if you want to dynamically recompute the global routes upon Interface notification events (up/down, or add/remove address)",
                    BooleanValue (false),
@@ -66,11 +72,14 @@ Ipv4GlobalRouting::GetTypeId (void)
 Ipv4GlobalRouting::Ipv4GlobalRouting ()
   : m_randomEcmpRouting (false),
     m_perFlowEcmpRouting (false),
+    m_congaRouting (false),
     m_respondToInterfaceEvents (false)
 {
   NS_LOG_FUNCTION (this);
 
   m_rand = CreateObject<UniformRandomVariable> ();
+
+  m_ipv4Conga = CreateObject<Ipv4Conga> ();
 }
 
 Ipv4GlobalRouting::~Ipv4GlobalRouting ()
@@ -144,7 +153,7 @@ Ipv4GlobalRouting::AddASExternalRouteTo (Ipv4Address network,
 
 
 Ptr<Ipv4Route>
-Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, uint32_t flowId, Ptr<NetDevice> oif)
+Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, Ptr<Packet> packet, const Ipv4Header &header, uint32_t flowId, Ptr<NetDevice> oif)
 {
   NS_LOG_FUNCTION (this << dest << oif);
   NS_LOG_LOGIC ("Looking for route for destination " << dest);
@@ -235,6 +244,11 @@ Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, uint32_t flowId, Ptr<NetDevic
         {                                           // available route to indicate the address is not local
           selectIndex = flowId % allRoutes.size();
           NS_LOG_LOGIC ("Per flow ECMP is enabled, select index: " << selectIndex << " for flow: " << flowId);
+        }
+      else if (m_congaRouting && packet != NULL)
+        {
+          m_ipv4Conga->ProcessPacket (packet, header, selectIndex, allRoutes.size ());
+          NS_LOG_LOGIC ("Conga is enabled, select index: " << selectIndex);
         }
       else
         {
@@ -492,7 +506,7 @@ Ipv4GlobalRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<Net
 // See if this is a unicast packet we have a route for.
 //
   NS_LOG_LOGIC ("Unicast destination- looking up");
-  Ptr<Ipv4Route> rtentry = LookupGlobal (header.GetDestination (), flowId, oif);
+  Ptr<Ipv4Route> rtentry = LookupGlobal (header.GetDestination (), p, header, flowId, oif);
   if (rtentry)
     {
       sockerr = Socket::ERROR_NOTERROR;
@@ -505,14 +519,16 @@ Ipv4GlobalRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<Net
 }
 
 bool
-Ipv4GlobalRouting::RouteInput  (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
+Ipv4GlobalRouting::RouteInput  (Ptr<const Packet> packet, const Ipv4Header &header, Ptr<const NetDevice> idev,
                                 UnicastForwardCallback ucb, MulticastForwardCallback mcb,
                                 LocalDeliverCallback lcb, ErrorCallback ecb)
 {
-  NS_LOG_FUNCTION (this << p << header << header.GetSource () << header.GetDestination () << idev << &lcb << &ecb);
+  NS_LOG_FUNCTION (this << packet << header << header.GetSource () << header.GetDestination () << idev << &lcb << &ecb);
   // Check if input device supports IP
   NS_ASSERT (m_ipv4->GetInterfaceForDevice (idev) >= 0);
   uint32_t iif = m_ipv4->GetInterfaceForDevice (idev);
+
+  Ptr<Packet> p = packet->Copy ();
 
   uint32_t flowId = 0;
     if (m_perFlowEcmpRouting && p != NULL) {
@@ -553,7 +569,7 @@ Ipv4GlobalRouting::RouteInput  (Ptr<const Packet> p, const Ipv4Header &header, P
     }
   // Next, try to find a route
   NS_LOG_LOGIC ("Unicast destination- looking up global route");
-  Ptr<Ipv4Route> rtentry = LookupGlobal (header.GetDestination (), flowId);
+  Ptr<Ipv4Route> rtentry = LookupGlobal (header.GetDestination (), p, header, flowId);
   if (rtentry != 0)
     {
       NS_LOG_LOGIC ("Found unicast destination- calling unicast callback");
@@ -621,6 +637,12 @@ Ipv4GlobalRouting::SetIpv4 (Ptr<Ipv4> ipv4)
   NS_LOG_FUNCTION (this << ipv4);
   NS_ASSERT (m_ipv4 == 0 && ipv4 != 0);
   m_ipv4 = ipv4;
+}
+
+Ptr<Ipv4Conga>
+Ipv4GlobalRouting::GetIpv4Conga (void)
+{
+  return m_ipv4Conga;
 }
 
 

@@ -12,21 +12,21 @@ public:
 
     static TypeId GetTypeId (void);
 
-    void SetLbTag (uint8_t lbTag);
+    void SetLbTag (uint32_t lbTag);
 
-    uint8_t GetLbTag (void) const;
+    uint32_t GetLbTag (void) const;
 
-    void SetCe (uint8_t ce);
+    void SetCe (uint32_t ce);
 
-    uint8_t GetCe (void) const;
+    uint32_t GetCe (void) const;
 
-    void SetFbLbTag (uint8_t fbLbTag);
+    void SetFbLbTag (uint32_t fbLbTag);
 
-    uint8_t GetFbLbTag (void) const;
+    uint32_t GetFbLbTag (void) const;
 
-    void SetFbMetric (uint8_t fbMetric);
+    void SetFbMetric (uint32_t fbMetric);
 
-    uint8_t GetFbMetric (void) const;
+    uint32_t GetFbMetric (void) const;
 
     virtual TypeId GetInstanceTypeId (void) const;
 
@@ -39,10 +39,10 @@ public:
     virtual void Print (std::ostream &os) const;
 
 private:
-    uint8_t m_lbTag;
-    uint8_t m_ce;
-    uint8_t m_fbLbTag;
-    uint8_t m_fbMetric;
+    uint32_t m_lbTag;
+    uint32_t m_ce;
+    uint32_t m_fbLbTag;
+    uint32_t m_fbMetric;
 };
 
 }
