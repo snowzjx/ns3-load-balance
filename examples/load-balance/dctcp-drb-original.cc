@@ -13,6 +13,37 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("DcTcpDrbOriginal");
 
+/* === Link Rate Check === */
+
+/* Check link rate for d0d1 */
+
+std::string d0d1Rate = "d0d1.out";
+uint32_t d0d1TotalBytes = 0;
+double lastd0d1CheckTime;
+
+void Linkd0d1SendPacket (Ptr<const Packet> packet)
+{
+  NS_LOG_UNCOND ("Sending packet: " << packet);
+
+  double now = Simulator::Now().GetSeconds();
+
+  d0d1TotalBytes += packet->GetSize ();
+
+  if (now - lastd0d1CheckTime > 0.0001)
+  {
+    std::ofstream out (d0d1Rate.c_str (), std::ios::out|std::ios::app);
+    out << Simulator::Now ().GetSeconds () << " " << d0d1TotalBytes * 8 / (now - lastd0d1CheckTime) << std::endl;
+    lastd0d1CheckTime = now;
+    d0d1TotalBytes = 0;
+  }
+
+}
+
+
+
+/* ======================= */
+
+
 double lastCwndCheckTime;
 
 std::string cwndPlot = "cwnd.plotme";
@@ -296,7 +327,13 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
     p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
+    remove (d0d1Rate.c_str ());
+
     NetDeviceContainer d0d1 = p2p.Install (n0n1);
+
+    Ptr<PointToPointNetDevice> pD0 = DynamicCast<PointToPointNetDevice>(d0d1.Get(0));
+    pD0->TraceConnectWithoutContext("PhyTxBegin", MakeCallback(&Linkd0d1SendPacket));
+
     QueueDiscContainer qd0d1 = tc.Install (d0d1);
 
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
