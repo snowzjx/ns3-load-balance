@@ -9,18 +9,18 @@
 #include <vector>
 
 // There are 32 servers connecting to each leaf switch
-#define LEAF_NODE_COUNT 32
+#define LEAF_NODE_COUNT 8
 
 // The simulation starting and ending time
 #define START_TIME 0.1
-#define END_TIME 10.0
+#define END_TIME 2.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 2333
 #define PORT_END 6666
 
 // Request rate per second
-#define REQUEST_RATE 5
+#define REQUEST_RATE 2
 
 // Flow configuration
 //
@@ -58,7 +58,7 @@ T rand_range (T min, T max)
     return min + ((double)max - min) * rand () / RAND_MAX;
 }
 
-void install_applications (NodeContainer fromServers, std::vector<Ipv4Address> toAddresses)
+void install_applications (NodeContainer fromServers, NodeContainer destServers, std::vector<Ipv4Address> toAddresses)
 {
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
     {
@@ -66,9 +66,9 @@ void install_applications (NodeContainer fromServers, std::vector<Ipv4Address> t
         while (startTime < END_TIME)
         {
             uint16_t port = rand_range (PORT_START, PORT_END);
-            int destAddrIndex = rand_range (0, LEAF_NODE_COUNT - 1);
+            int destIndex = rand_range (0, LEAF_NODE_COUNT - 1);
             BulkSendHelper source ("ns3::TcpSocketFactory",
-                    InetSocketAddress (toAddresses[destAddrIndex], port));
+                    InetSocketAddress (toAddresses[destIndex], port));
 
             uint32_t flowSize = 0;
 
@@ -89,9 +89,20 @@ void install_applications (NodeContainer fromServers, std::vector<Ipv4Address> t
                 flowSize = rand_range (LARGE_FLOW_MIN, LARGE_FLOW_MAX);
             }
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
-            ApplicationContainer sourceApps = source.Install (fromServers.Get (i));
-            sourceApps.Start (Seconds (startTime));
-            sourceApps.Stop (Seconds (END_TIME));
+
+            // Install apps
+            ApplicationContainer sourceApp = source.Install (fromServers.Get (i));
+            sourceApp.Start (Seconds (startTime));
+            sourceApp.Stop (Seconds (END_TIME));
+
+            // Install packet sinks
+
+            PacketSinkHelper sink ("ns3::TcpSocketFactory",
+                    InetSocketAddress (Ipv4Address::GetAny (), port));
+            ApplicationContainer sinkApp = sink.Install (destServers. Get (destIndex));
+            sinkApp.Start (Seconds (startTime));
+            sinkApp.Stop (Seconds (END_TIME));
+
             startTime += poission_gen_interval (REQUEST_RATE);
         }
     }
@@ -151,6 +162,7 @@ int main (int argc, char *argv[])
     // Setting switches
     p2p.SetDeviceAttribute ("DataRate", StringValue ("40Gbps"));
     p2p.SetChannelAttribute ("Delay", TimeValue(MicroSeconds (100)));
+    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
 
     NodeContainer leaf0_spine0_1 = NodeContainer (leaf0, spine0);
     NodeContainer leaf0_spine0_2 = NodeContainer (leaf0, spine0);
@@ -245,21 +257,9 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Create applications");
 
-    // Install packet sink on every node which is used to absorb every packet
-    PacketSinkHelper sink ("ns3::TcpSocketFactory",
-            InetSocketAddress (Ipv4Address::GetAny (), 0));
-    ApplicationContainer sinkApps0 = sink.Install (servers0);
-    ApplicationContainer sinkApps1 = sink.Install (servers1);
-
-    sinkApps0.Start (Seconds (START_TIME));
-    sinkApps0.Stop (Seconds (END_TIME));
-
-    sinkApps1.Start (Seconds (START_TIME));
-    sinkApps1.Stop (Seconds (END_TIME));
-
     // Install apps on servers under switch leaf0
-    install_applications(servers0, serversAddr1);
-    install_applications(servers1, serversAddr0);
+    install_applications(servers0, servers1, serversAddr1);
+    install_applications(servers1, servers0, serversAddr0);
 
     NS_LOG_INFO ("Enabling flow monitor");
 
