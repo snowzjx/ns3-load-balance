@@ -8,4 +8,9 @@ def build(bld):
     obj = bld.create_ns3_program('conga-test',
                                  ['point-to-point', 'applications', 'internet'])
     obj.source = 'conga-test.cc'
+    
+    obj = bld.create_ns3_program('conga-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor'])
+    obj.source = 'conga-simulation.cc'
+
 
