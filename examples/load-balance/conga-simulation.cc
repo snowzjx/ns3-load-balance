@@ -42,14 +42,20 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("CongaSimulation");
 
+enum RunMode {
+    CONGA,
+    CONGA_FLOW,
+    ECMP
+};
+
 // Port from Traffic Generator
 // Acknowledged to https://github.com/HKUST-SING/TrafficGenerator/blob/master/src/common/common.c
 double poission_gen_interval(double avg_rate)
 {
     if (avg_rate > 0)
-        return -logf(1.0 - (double)rand() / RAND_MAX) / avg_rate;
+       return -logf(1.0 - (double)rand() / RAND_MAX) / avg_rate;
     else
-        return 0;
+       return 0;
 }
 
 template<typename T>
@@ -114,6 +120,33 @@ int main (int argc, char *argv[])
     LogComponentEnable ("CongaSimulation", LOG_LEVEL_INFO);
 #endif
 
+    // Command line parameters parsing
+
+    std::string runModeStr = "Conga";
+
+    CommandLine cmd;
+    cmd.AddValue ("runMode", "Running Mode of this simulation: Conga, Conga-flow, ECMP", runModeStr);
+    cmd.Parse (argc, argv);
+
+    RunMode runMode;
+    if (runModeStr.compare ("Conga") == 0)
+    {
+        runMode = CONGA;
+    }
+    else if (runModeStr.compare ("Conga-flow") == 0)
+    {
+        runMode = CONGA_FLOW;
+    }
+    else if (runModeStr.compare ("ECMP") == 0)
+    {
+        runMode = ECMP;
+    }
+    else
+    {
+        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow and ECMP");
+        return 0;
+    }
+
     NS_LOG_INFO ("Declare data structures");
     std::vector<Ipv4Address> serversAddr0 = std::vector<Ipv4Address> (LEAF_NODE_COUNT);
     std::vector<Ipv4Address> serversAddr1 = std::vector<Ipv4Address> (LEAF_NODE_COUNT);
@@ -147,8 +180,15 @@ int main (int argc, char *argv[])
     internet.Install (servers0);
     internet.Install (servers1);
 
-    // Enable Conga switch
-    Config::SetDefault ("ns3::Ipv4GlobalRouting::CongaRouting", BooleanValue (true));
+    // Enable Conga or per flow ECMP switch
+    if (runMode == CONGA || runMode == CONGA_FLOW)
+    {
+        Config::SetDefault ("ns3::Ipv4GlobalRouting::CongaRouting", BooleanValue (true));
+    }
+    else
+    {
+        Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
+    }
     internet.Install (leaf0);
     internet.Install (leaf1);
     internet.Install (spine0);
@@ -160,7 +200,7 @@ int main (int argc, char *argv[])
     Ipv4AddressHelper ipv4;
 
     // Setting switches
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("40Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("4Gbps"));
     p2p.SetChannelAttribute ("Delay", TimeValue(MicroSeconds (100)));
     p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
 
@@ -202,7 +242,7 @@ int main (int argc, char *argv[])
     ipv4.Assign (netdevice_leaf1_spine1_2);
 
     // Setting servers under leaf 0
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
 
     ipv4.SetBase ("10.1.2.0", "255.255.255.0");
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
@@ -238,21 +278,34 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Populate global routing tables");
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-    NS_LOG_INFO ("Setting up Conga switch");
-    Ipv4CongaHelper conga;
-
-    Ptr<Ipv4Conga> conga0 = conga.GetIpv4Conga (leaf0->GetObject<Ipv4> ());
-    conga0->SetLeafId (0);
-
-    Ptr<Ipv4Conga> conga1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
-    conga1->SetLeafId (1);
-
-    for (int i = 0; i < LEAF_NODE_COUNT; i++)
+    if (runMode == CONGA || runMode == CONGA_FLOW)
     {
-        conga0->AddAddressToLeafIdMap (serversAddr0[i], 0);
-        conga0->AddAddressToLeafIdMap (serversAddr1[i], 1);
-        conga1->AddAddressToLeafIdMap (serversAddr0[i], 0);
-        conga1->AddAddressToLeafIdMap (serversAddr1[i], 1);
+        NS_LOG_INFO ("Setting up Conga switch");
+        Ipv4CongaHelper conga;
+
+        Ptr<Ipv4Conga> conga0 = conga.GetIpv4Conga (leaf0->GetObject<Ipv4> ());
+        conga0->SetLeafId (0);
+
+        Ptr<Ipv4Conga> conga1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
+        conga1->SetLeafId (1);
+
+        for (int i = 0; i < LEAF_NODE_COUNT; i++)
+        {
+            conga0->AddAddressToLeafIdMap (serversAddr0[i], 0);
+            conga0->AddAddressToLeafIdMap (serversAddr1[i], 1);
+            conga1->AddAddressToLeafIdMap (serversAddr0[i], 0);
+            conga1->AddAddressToLeafIdMap (serversAddr1[i], 1);
+        }
+        if (runMode == CONGA)
+        {
+            conga0->SetFlowletTimeout (MicroSeconds (500));
+            conga1->SetFlowletTimeout (MicroSeconds (500));
+        }
+        if (runMode == CONGA_FLOW)
+        {
+            conga0->SetFlowletTimeout (MilliSeconds (13));
+            conga1->SetFlowletTimeout (MilliSeconds (13));
+        }
     }
 
     NS_LOG_INFO ("Create applications");
@@ -272,5 +325,20 @@ int main (int argc, char *argv[])
     Simulator::Run ();
     Simulator::Destroy ();
 
-    flowMonitor->SerializeToXmlFile("conga-simulation.xml", true, true);
+    std::string fileName = "default.xml";
+
+    if (runMode == CONGA)
+    {
+        fileName = "conga-simulation.xml";
+    }
+    else if (runMode == CONGA_FLOW)
+    {
+        fileName = "conga-flow-simulation.xml";
+    }
+    else if (runMode == ECMP)
+    {
+        fileName = "ecmp-simulation.xml";
+    }
+
+    flowMonitor->SerializeToXmlFile(fileName, true, true);
 }
