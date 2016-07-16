@@ -35,8 +35,8 @@
 #define LARGE_FLOW_MIN 10000000     // 10MB
 #define LARGE_FLOW_MAX 100000000    // 100MB
 
-#define SMALL_FLOW_POSS 0.8         // 80%
-#define LARGE_FLOW_POSS 0.05        // 5%
+#define SMALL_FLOW_POSS 0.5         // 50%
+#define LARGE_FLOW_POSS 0.2         // 20%
 
 using namespace ns3;
 
