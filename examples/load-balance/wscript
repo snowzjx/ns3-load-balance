@@ -7,6 +7,6 @@ def build(bld):
 
     obj = bld.create_ns3_program('conga-simulation',
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor'])
-    obj.source = 'conga-simulation.cc'
+    obj.source = ['conga-simulation.cc', 'cdf.c']
 
 
