@@ -45,7 +45,10 @@ class Flow(object):
         txBytes = long(flow_el.get('txBytes'))
         self.txBytes = txBytes
         self.rx_duration = rx_duration
-        self.fct = fct
+        if fct > 0:
+            self.fct = fct
+        else:
+            self.fct = None
         self.probe_stats_unsorted = []
         if rxPackets:
             self.hopCount = float(flow_el.get('timesForwarded')) / rxPackets + 1
@@ -138,6 +141,8 @@ def main(argv):
     small_flow_count = 0
     for sim in sim_list:
         for flow in sim.flows:
+            if flow.fct == None or flow.txBitrate == None or flow.rxBitrate == None:
+                continue
             flow_count += 1
             total_fct += flow.fct
             if flow.txBytes > 10000000:
