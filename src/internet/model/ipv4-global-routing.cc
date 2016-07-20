@@ -248,7 +248,8 @@ Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, Ptr<Packet> packet, const Ipv
       else if (m_congaRouting && packet != NULL)
         {
           m_ipv4Conga->ProcessPacket (packet, header, selectIndex, allRoutes.size ());
-          NS_LOG_LOGIC ("Conga is enabled, select index: " << selectIndex);
+          NS_LOG_LOGIC ("Conga is enabled, select index: " << selectIndex
+                  << ", forwarding to: " << allRoutes.at (selectIndex)->GetGateway ());
         }
       else
         {

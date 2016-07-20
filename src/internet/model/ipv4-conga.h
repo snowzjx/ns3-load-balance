@@ -50,6 +50,9 @@ public:
    */
   bool ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint32_t &path, uint32_t availPath);
 
+  // Dev use
+  void InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table);
+
 private:
   // Parameters
 
@@ -65,7 +68,7 @@ private:
   Time m_flowletTimeout;
 
   // Ip and leaf switch map,
-  // used to determine the which leaf swithc the packet would go through
+  // used to determine the which leaf switch the packet would go through
   std::map<Ipv4Address, uint32_t> m_ipLeafIdMap;
 
   // Congestion To Leaf Table

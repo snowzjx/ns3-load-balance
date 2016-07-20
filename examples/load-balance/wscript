@@ -9,4 +9,7 @@ def build(bld):
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor'])
     obj.source = ['conga-simulation.cc', 'cdf.c']
 
-
+    obj = bld.create_ns3_program('spark-shuffle',
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor'])
+    obj.source = ['conga-simulation.cc', 'cdf.c']
+    obj.source = 'spark-shuffle.cc'

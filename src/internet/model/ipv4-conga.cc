@@ -378,6 +378,12 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
 }
 
 void
+Ipv4Conga::InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table)
+{
+  m_congaToLeafTable[destLeafId] = table;
+}
+
+void
 Ipv4Conga::DreEvent ()
 {
   std::map<uint32_t, uint32_t>::iterator itr = m_XMap.begin ();
