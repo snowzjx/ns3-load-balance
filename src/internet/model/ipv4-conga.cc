@@ -30,8 +30,9 @@ Ipv4Conga::Ipv4Conga ():
     m_isLeaf (false),
     m_leafId (0),
     m_tdre (MicroSeconds(200)),
-    m_alpha(0.9),
-    m_flowletTimeout(MicroSeconds(50)) // The default value of flowlet timeout is small for experimental purpose
+    m_alpha (0.9),
+    m_flowletTimeout (MicroSeconds(50)), // The default value of flowlet timeout is small for experimental purpose
+    m_dreEvent ()
 {
   NS_LOG_FUNCTION (this);
   srand((unsigned)time(NULL));
@@ -337,7 +338,8 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
     // Turn on DRE event scheduler if it is not running
     if (!m_dreEvent.IsRunning ())
     {
-     Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+      NS_LOG_LOGIC ("Recover dre event");
+      Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
     }
 
     // Determine the path using standard ECMP
@@ -386,14 +388,29 @@ Ipv4Conga::InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> tabl
 void
 Ipv4Conga::DreEvent ()
 {
+  bool moveToIdleStatus = true;
+
   std::map<uint32_t, uint32_t>::iterator itr = m_XMap.begin ();
   for ( ; itr != m_XMap.end (); ++itr )
   {
-    itr->second = itr->second * (1-m_alpha);
+    uint32_t newX = itr->second * (1 - m_alpha);
+    itr->second = newX;
+    if (newX != 0)
+    {
+      moveToIdleStatus = false;
+    }
   }
 
-  Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+  if (!moveToIdleStatus)
+  {
+    Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+  }
+  else
+  {
+    NS_LOG_LOGIC ("Dre event goes into idle status");
+  }
 }
+
 
 void
 Ipv4Conga::PrintCongaToLeafTable ()

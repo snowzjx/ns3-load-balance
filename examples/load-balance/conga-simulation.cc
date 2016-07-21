@@ -25,11 +25,13 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 0.5
+#define END_TIME 20.0
+
+#define FLOW_LAUNCH_END_TIME 0.01
 
 // The flow port range, each flow will be assigned a random port number within this range
-#define PORT_START 2333
-#define PORT_END 6666
+#define PORT_START 10000
+#define PORT_END 20000
 
 #define PRESTO_RATIO 64
 
@@ -63,10 +65,11 @@ T rand_range (T min, T max)
 void install_applications (NodeContainer fromServers, NodeContainer destServers, double requestRate,
         struct cdf_table *cdfTable, std::vector<Ipv4Address> toAddresses)
 {
+    NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
     {
         double startTime = START_TIME + poission_gen_interval (requestRate);
-        while (startTime < END_TIME)
+        while (startTime < FLOW_LAUNCH_END_TIME)
         {
             uint16_t port = rand_range (PORT_START, PORT_END);
             int destIndex = rand_range (0, LEAF_NODE_COUNT - 1);
@@ -88,6 +91,10 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
             ApplicationContainer sinkApp = sink.Install (destServers. Get (destIndex));
             sinkApp.Start (Seconds (startTime));
             sinkApp.Stop (Seconds (END_TIME));
+
+            NS_LOG_INFO ("\tFlow from server: " << i << " to server: "
+                    << destIndex << " on port: " << port << " with flow size: "
+                    << flowSize << "[start time: " << startTime <<" ]");
 
             startTime += poission_gen_interval (requestRate);
         }
@@ -151,16 +158,6 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-
-    NS_LOG_INFO ("Initialize random seed");
-    if (randomSeed == 0)
-    {
-        srand ((unsigned)time (NULL));
-    }
-    else
-    {
-        srand (randomSeed);
-    }
 
     NS_LOG_INFO ("Initialize CDF table");
     struct cdf_table* cdfTable = new cdf_table ();
@@ -345,6 +342,16 @@ int main (int argc, char *argv[])
         drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_2.GetAddress (1));
     }
 
+    NS_LOG_INFO ("Initialize random seed: " << randomSeed);
+    if (randomSeed == 0)
+    {
+        srand ((unsigned)time (NULL));
+    }
+    else
+    {
+        srand (randomSeed);
+    }
+
     NS_LOG_INFO ("Create applications");
 
     // Install apps on servers under switch leaf0
@@ -362,26 +369,28 @@ int main (int argc, char *argv[])
     Simulator::Run ();
     Simulator::Destroy ();
 
-    std::string fileName = "default.xml";
+    std::stringstream fileName;
+
+    fileName << "load-" << load <<"-";
 
     if (runMode == CONGA)
     {
-        fileName = "conga-simulation.xml";
+        fileName << "conga-simulation.xml";
     }
     else if (runMode == CONGA_FLOW)
     {
-        fileName = "conga-flow-simulation.xml";
+        fileName << "conga-flow-simulation.xml";
     }
     else if (runMode == PRESTO)
     {
-        fileName = "presto-simulation.xml";
+        fileName << "presto-simulation.xml";
     }
     else if (runMode == ECMP)
     {
-        fileName = "ecmp-simulation.xml";
+        fileName << "ecmp-simulation.xml";
     }
 
-    flowMonitor->SerializeToXmlFile(fileName, true, true);
+    flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
     free_cdf (cdfTable);
 }
