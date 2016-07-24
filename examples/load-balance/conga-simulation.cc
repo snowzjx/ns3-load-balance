@@ -21,13 +21,13 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  4000000000           // 4Gbps
 #define LEAF_SERVER_CAPACITY 4000000000           // 4Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 100 MicroSeconds
-#define BUFFER_SIZE 100                           // 100 Packets
+#define BUFFER_SIZE 1000                          // 100 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
 #define END_TIME 20.0
 
-#define FLOW_LAUNCH_END_TIME 0.01
+#define FLOW_LAUNCH_END_TIME 0.1
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000

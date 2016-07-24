@@ -529,7 +529,7 @@ Ipv4GlobalRouting::RouteInput  (Ptr<const Packet> packet, const Ipv4Header &head
   NS_ASSERT (m_ipv4->GetInterfaceForDevice (idev) >= 0);
   uint32_t iif = m_ipv4->GetInterfaceForDevice (idev);
 
-  Ptr<Packet> p = packet->Copy ();
+  Ptr<Packet> p = ConstCast<Packet> (packet);
 
   uint32_t flowId = 0;
     if (m_perFlowEcmpRouting && p != NULL) {

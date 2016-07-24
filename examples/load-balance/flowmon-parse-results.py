@@ -34,7 +34,7 @@ class Histogram(object):
 class Flow(object):
     __slots__ = ['flowId', 'delayMean', 'packetLossRatio', 'rxBitrate', 'txBitrate',
                  'fiveTuple', 'packetSizeMean', 'probe_stats_unsorted',
-                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes']
+                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets']
     def __init__(self, flow_el):
         self.flowId = int(flow_el.get('flowId'))
         rxPackets = long(flow_el.get('rxPackets'))
@@ -44,6 +44,7 @@ class Flow(object):
         fct = float(long(flow_el.get('timeLastRxPacket')[:-4]) - long(flow_el.get('timeFirstTxPacket')[:-4]))*1e-9
         txBytes = long(flow_el.get('txBytes'))
         self.txBytes = txBytes
+        self.txPackets = txPackets
         self.rx_duration = rx_duration
         if fct > 0:
             self.fct = fct
@@ -159,6 +160,8 @@ def main(argv):
             print "\tRX bitrate: %.2f kbit/s" % (flow.rxBitrate*1e-3,)
             print "\tMean Delay: %.2f ms" % (flow.delayMean*1e3,)
             print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
+            print "\tFlow size: %i bytes, %i packets" % (flow.txBytes, flow.txPackets)
+            print "\tFCT: %.4f" % (flow.fct)
     print "Avg FCT: %.4f" % (total_fct / flow_count)
     print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
     print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)

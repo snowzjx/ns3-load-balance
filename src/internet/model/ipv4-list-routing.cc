@@ -141,7 +141,7 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
   NS_ASSERT (m_ipv4->GetInterfaceForDevice (idev) >= 0);
   uint32_t iif = m_ipv4->GetInterfaceForDevice (idev);
 
-  Ptr<Packet> packet = p->Copy ();
+  Ptr<Packet> packet = ConstCast<Packet> (p);
   Ipv4Header ipHeader = header;
 
   // XXX DRB support
@@ -183,14 +183,14 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
           NS_LOG_LOGIC ("Address "<< header.GetDestination () << " is a match for local delivery");
           if (header.GetDestination ().IsMulticast ())
             {
-              Ptr<Packet> packetCopy = p->Copy ();
+              Ptr<Packet> packetCopy = packet->Copy ();
               lcb (packetCopy, header, iif);
               retVal = true;
               // Fall through
             }
           else
             {
-              lcb (p, header, iif);
+              lcb (packet, header, iif);
               return true;
             }
         }
@@ -199,7 +199,7 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
   if (m_ipv4->IsForwarding (iif) == false)
     {
       NS_LOG_LOGIC ("Forwarding disabled for this interface");
-      ecb (p, header, Socket::ERROR_NOROUTETOHOST);
+      ecb (packet, header, Socket::ERROR_NOROUTETOHOST);
       return false;
     }
   // Next, try to find a route
