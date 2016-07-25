@@ -21,7 +21,7 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  4000000000           // 4Gbps
 #define LEAF_SERVER_CAPACITY 4000000000           // 4Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 100 MicroSeconds
-#define BUFFER_SIZE 1000                          // 100 Packets
+#define BUFFER_SIZE 1000                          // 1000 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
@@ -42,6 +42,7 @@ NS_LOG_COMPONENT_DEFINE ("CongaSimulation");
 enum RunMode {
     CONGA,
     CONGA_FLOW,
+    CONGA_ECMP,
     PRESTO,
     ECMP
 };
@@ -115,7 +116,7 @@ int main (int argc, char *argv[])
     double load = 0.0;
 
     CommandLine cmd;
-    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Presto, ECMP", runModeStr);
+    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
@@ -130,6 +131,10 @@ int main (int argc, char *argv[])
     {
         runMode = CONGA_FLOW;
     }
+    else if (runModeStr.compare ("Conga-ECMP") == 0)
+    {
+        runMode = CONGA_ECMP;
+    }
     else if (runModeStr.compare ("Presto") == 0)
     {
         runMode = PRESTO;
@@ -140,7 +145,7 @@ int main (int argc, char *argv[])
     }
     else
     {
-        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Presto and ECMP");
+        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto and ECMP");
         return 0;
     }
 
@@ -190,7 +195,7 @@ int main (int argc, char *argv[])
     internet.Install (servers1);
 
     // Enable Conga or per flow ECMP switch
-    if (runMode == CONGA || runMode == CONGA_FLOW)
+    if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
         Config::SetDefault ("ns3::Ipv4GlobalRouting::CongaRouting", BooleanValue (true));
     }
@@ -306,6 +311,12 @@ int main (int argc, char *argv[])
         Ptr<Ipv4Conga> conga1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
         conga1->SetLeafId (1);
 
+        // T Dre / alpha(0.9) should be larger than network RTT
+        conga0->SetTDre (MicroSeconds (200));
+        conga1->SetTDre (MicroSeconds (200));
+        conga0->SetAlpha (0.2);
+        conga1->SetAlpha (0.2);
+
         for (int i = 0; i < LEAF_NODE_COUNT; i++)
         {
             conga0->AddAddressToLeafIdMap (serversAddr0[i], 0);
@@ -322,6 +333,11 @@ int main (int argc, char *argv[])
         {
             conga0->SetFlowletTimeout (MilliSeconds (13));
             conga1->SetFlowletTimeout (MilliSeconds (13));
+        }
+        if (runMode == CONGA_ECMP)
+        {
+            conga0->EnableEcmpMode ();
+            conga1->EnableEcmpMode ();
         }
     }
 
@@ -380,6 +396,10 @@ int main (int argc, char *argv[])
     else if (runMode == CONGA_FLOW)
     {
         fileName << "conga-flow-simulation.xml";
+    }
+    else if (runMode == CONGA_ECMP)
+    {
+        fileName << "conga-ecmp-simulation.xml";
     }
     else if (runMode == PRESTO)
     {

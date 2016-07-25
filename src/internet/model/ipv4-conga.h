@@ -20,7 +20,7 @@ struct Flowlet {
 
 struct FeedbackInfo {
   uint32_t ce;
-  uint32_t change;
+  bool change;
 };
 
 class Ipv4Conga : public Object
@@ -33,6 +33,8 @@ public:
   ~Ipv4Conga ();
 
   void SetLeafId (uint32_t leafId);
+
+  void SetAlpha (double alpha);
 
   void SetTDre (Time time);
 
@@ -53,7 +55,13 @@ public:
   // Dev use
   void InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table);
 
+  void EnableEcmpMode ();
+
 private:
+  // Variables
+  // Used to maintain the round robin
+  unsigned long m_feedbackIndex;
+
   // Parameters
 
   // Used to determine whether this switch is leaf switch
@@ -85,6 +93,9 @@ private:
   std::map<uint32_t, uint32_t> m_XMap;
 
   EventId m_dreEvent;
+
+  // Dev use
+  bool m_ecmpMode;
 
   // DRE algorithm
   void DreEvent();

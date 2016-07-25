@@ -27,12 +27,14 @@ Ipv4Conga::GetTypeId (void)
 }
 
 Ipv4Conga::Ipv4Conga ():
+    m_feedbackIndex (0),
     m_isLeaf (false),
     m_leafId (0),
     m_tdre (MicroSeconds(200)),
-    m_alpha (0.9),
+    m_alpha (0.2),
     m_flowletTimeout (MicroSeconds(50)), // The default value of flowlet timeout is small for experimental purpose
-    m_dreEvent ()
+    m_dreEvent (),
+    m_ecmpMode (false)
 {
   NS_LOG_FUNCTION (this);
   srand((unsigned)time(NULL));
@@ -60,6 +62,12 @@ void
 Ipv4Conga::SetFlowletTimeout (Time timeout)
 {
   m_flowletTimeout = timeout;
+}
+
+void
+Ipv4Conga::SetAlpha (double alpha)
+{
+  m_alpha = alpha;
 }
 
 void
@@ -92,6 +100,13 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
     return false;
   }
   flowId = flowIdTag.GetFlowId ();
+
+  // Dev use
+  if (m_ecmpMode)
+  {
+    path = flowId % availPath;
+    return true;
+  }
 
   // First, check if this switch if leaf switch
   if (m_isLeaf)
@@ -128,22 +143,30 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       uint32_t fbLbTag = 0;
       uint32_t fbMetric = 0;
 
-      // Piggyback the last changed one
+      // Piggyback according to round robin and favoring those that has been changed
       if (fbItr != m_congaFromLeafTable.end ())
       {
-        uint32_t maxChange = 0;
         std::map<uint32_t, FeedbackInfo>::iterator innerFbItr = (fbItr->second).begin ();
-        for ( ; innerFbItr != (fbItr->second).end (); ++innerFbItr)
+        std::advance (innerFbItr, m_feedbackIndex++ % (fbItr->second).size ()); // round robin
+
+        if ((innerFbItr->second).change == false)  // prefer the changed ones
         {
-          if ((innerFbItr->second).change > maxChange)
+          for (unsigned loopIndex = 0; loopIndex < (fbItr->second).size (); loopIndex ++) // prevent infinite looping
           {
-            fbLbTag = innerFbItr->first;
-            fbMetric = (innerFbItr->second).ce;
-            maxChange = (innerFbItr->second).change;
+            if (++innerFbItr == (fbItr->second).end ()) {
+              innerFbItr = (fbItr->second).begin (); // start from the beginning
+            }
+            if ((innerFbItr->second).change == true)
+            {
+              break;
+            }
           }
         }
-        // Update the Conga From Leaf Table
-        (fbItr->second)[fbLbTag].change = 0;
+
+        fbLbTag = innerFbItr->first;
+        fbMetric = (innerFbItr->second).ce;
+        (innerFbItr->second).change = false;
+
       }
 
       // Path determination logic:
@@ -289,7 +312,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
         std::map<uint32_t, FeedbackInfo > newMap;
         FeedbackInfo feedbackInfo;
         feedbackInfo.ce = ipv4CongaTag.GetCe ();
-        feedbackInfo.change = 1;
+        feedbackInfo.change = true;
         newMap[ipv4CongaTag.GetLbTag ()] = feedbackInfo;
         m_congaFromLeafTable[sourceLeafId] = newMap;
       }
@@ -300,13 +323,13 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
         {
           FeedbackInfo feedbackInfo;
           feedbackInfo.ce = ipv4CongaTag.GetCe ();
-          feedbackInfo.change = 1;
+          feedbackInfo.change = true;
           (fromLeafItr->second)[ipv4CongaTag.GetLbTag ()] = feedbackInfo;
         }
         else
         {
           (innerItr->second).ce = ipv4CongaTag.GetCe ();
-          (innerItr->second).change ++;
+          (innerItr->second).change = true;
         }
       }
 
@@ -332,9 +355,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
   }
   else
   {
-
     // If the switch is not leaf swith, DRE algorithm works here
-
     // Turn on DRE event scheduler if it is not running
     if (!m_dreEvent.IsRunning ())
     {
@@ -383,6 +404,12 @@ void
 Ipv4Conga::InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table)
 {
   m_congaToLeafTable[destLeafId] = table;
+}
+
+void
+Ipv4Conga::EnableEcmpMode ()
+{
+  m_ecmpMode = true;
 }
 
 void
