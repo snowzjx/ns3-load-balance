@@ -21,13 +21,13 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  4000000000           // 4Gbps
 #define LEAF_SERVER_CAPACITY 4000000000           // 4Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 100 MicroSeconds
-#define BUFFER_SIZE 100                           // 1000 Packets
+#define BUFFER_SIZE 1000                          // 1000 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
 #define END_TIME 20.0
 
-#define FLOW_LAUNCH_END_TIME 0.1
+#define FLOW_LAUNCH_END_TIME 1.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -170,7 +170,7 @@ int main (int argc, char *argv[])
     load_cdf (cdfTable, cdfFileName.c_str ());
 
     NS_LOG_INFO ("Calculating request rate");
-    double requestRate = load * SPINE_LEAF_CAPACITY  / avg_cdf (cdfTable);
+    double requestRate = load * SPINE_LEAF_CAPACITY  / (8 * avg_cdf (cdfTable));
     NS_LOG_INFO ("Average request rate: " << requestRate << " per second");
 
     NS_LOG_INFO ("Create nodes");
@@ -305,39 +305,54 @@ int main (int argc, char *argv[])
         NS_LOG_INFO ("Setting up Conga switch");
         Ipv4CongaHelper conga;
 
-        Ptr<Ipv4Conga> conga0 = conga.GetIpv4Conga (leaf0->GetObject<Ipv4> ());
-        conga0->SetLeafId (0);
+        Ptr<Ipv4Conga> congaLeaf0 = conga.GetIpv4Conga (leaf0->GetObject<Ipv4> ());
+        congaLeaf0->SetLeafId (0);
 
-        Ptr<Ipv4Conga> conga1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
-        conga1->SetLeafId (1);
+        Ptr<Ipv4Conga> congaLeaf1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
+        congaLeaf1->SetLeafId (1);
+
+        Ptr<Ipv4Conga> congaSpine0 = conga.GetIpv4Conga (spine0->GetObject<Ipv4> ());
+        Ptr<Ipv4Conga> congaSpine1 = conga.GetIpv4Conga (spine1->GetObject<Ipv4> ());
 
         // T Dre / alpha(0.9) should be larger than network RTT
-        conga0->SetTDre (MicroSeconds (200));
-        conga1->SetTDre (MicroSeconds (200));
-        conga0->SetAlpha (0.2);
-        conga1->SetAlpha (0.2);
+        congaLeaf0->SetTDre (MicroSeconds (200));
+        congaLeaf1->SetTDre (MicroSeconds (200));
+        congaSpine0->SetTDre (MicroSeconds (200));
+        congaSpine1->SetTDre (MicroSeconds (200));
+
+        congaLeaf0->SetAlpha (0.2);
+        congaLeaf1->SetAlpha (0.2);
+        congaSpine0->SetAlpha (0.2);
+        congaSpine1->SetAlpha (0.2);
+
+        congaLeaf0->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+        congaLeaf1->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+        congaSpine0->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+        congaSpine1->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 
         for (int i = 0; i < LEAF_NODE_COUNT; i++)
         {
-            conga0->AddAddressToLeafIdMap (serversAddr0[i], 0);
-            conga0->AddAddressToLeafIdMap (serversAddr1[i], 1);
-            conga1->AddAddressToLeafIdMap (serversAddr0[i], 0);
-            conga1->AddAddressToLeafIdMap (serversAddr1[i], 1);
+            congaLeaf0->AddAddressToLeafIdMap (serversAddr0[i], 0);
+            congaLeaf0->AddAddressToLeafIdMap (serversAddr1[i], 1);
+            congaLeaf1->AddAddressToLeafIdMap (serversAddr0[i], 0);
+            congaLeaf1->AddAddressToLeafIdMap (serversAddr1[i], 1);
         }
         if (runMode == CONGA)
         {
-            conga0->SetFlowletTimeout (MicroSeconds (500));
-            conga1->SetFlowletTimeout (MicroSeconds (500));
+            congaLeaf0->SetFlowletTimeout (MicroSeconds (400));
+            congaLeaf1->SetFlowletTimeout (MicroSeconds (400));
         }
         if (runMode == CONGA_FLOW)
         {
-            conga0->SetFlowletTimeout (MilliSeconds (13));
-            conga1->SetFlowletTimeout (MilliSeconds (13));
+            congaLeaf0->SetFlowletTimeout (MilliSeconds (13));
+            congaLeaf1->SetFlowletTimeout (MilliSeconds (13));
         }
         if (runMode == CONGA_ECMP)
         {
-            conga0->EnableEcmpMode ();
-            conga1->EnableEcmpMode ();
+            congaLeaf0->EnableEcmpMode ();
+            congaLeaf1->EnableEcmpMode ();
+            congaSpine0->EnableEcmpMode ();
+            congaSpine1->EnableEcmpMode ();
         }
     }
 

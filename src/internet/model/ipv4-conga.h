@@ -6,6 +6,7 @@
 #include "ns3/object.h"
 #include "ns3/packet.h"
 #include "ns3/ipv4-header.h"
+#include "ns3/data-rate.h"
 #include "ns3/nstime.h"
 #include "ns3/event-id.h"
 
@@ -37,6 +38,10 @@ public:
   void SetAlpha (double alpha);
 
   void SetTDre (Time time);
+
+  void SetLinkCapacity (DataRate dataRate);
+
+  void SetQ (uint32_t q);
 
   void SetFlowletTimeout (Time timeout);
 
@@ -72,6 +77,11 @@ private:
   Time m_tdre;
   double m_alpha;
 
+  // Link capacity used to quantizing X
+  DataRate m_C;
+  // Quantizing bits
+  uint32_t m_Q;
+
   // Flowlet Timeout
   Time m_flowletTimeout;
 
@@ -100,6 +110,10 @@ private:
   // DRE algorithm
   uint32_t UpdateLocalDre (Ptr<Packet> packet, uint32_t path);
   void DreEvent();
+
+  // Quantizing X to metrics degree
+  // X is bytes here and we quantizing it to 0 - 2^Q
+  uint32_t QuantizingX (uint32_t X);
 
   void PrintCongaToLeafTable ();
   void PrintCongaFromLeafTable ();

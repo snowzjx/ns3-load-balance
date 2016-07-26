@@ -32,6 +32,8 @@ Ipv4Conga::Ipv4Conga ():
     m_leafId (0),
     m_tdre (MicroSeconds(200)),
     m_alpha (0.2),
+    m_C (DataRate("1Gbps")),
+    m_Q (3),
     m_flowletTimeout (MicroSeconds(50)), // The default value of flowlet timeout is small for experimental purpose
     m_dreEvent (),
     m_ecmpMode (false)
@@ -77,6 +79,18 @@ Ipv4Conga::SetTDre (Time time)
 }
 
 void
+Ipv4Conga::SetLinkCapacity (DataRate dataRate)
+{
+  m_C = dataRate;
+}
+
+void
+Ipv4Conga::SetQ (uint32_t q)
+{
+  m_Q = q;
+}
+
+void
 Ipv4Conga::AddAddressToLeafIdMap (Ipv4Address addr, uint32_t leafId)
 {
   m_ipLeafIdMap[addr] = leafId;
@@ -112,7 +126,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
   if (!m_dreEvent.IsRunning ())
   {
     NS_LOG_LOGIC ("Recover dre event");
-    Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+    m_dreEvent = Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
   }
 
   // First, check if this switch if leaf switch
@@ -244,15 +258,15 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       std::vector<uint32_t> pathCandidates;
       for (uint32_t pathId = 0; pathId < pathCongestions.size(); pathId ++)
       {
-        uint32_t localDre = 0;
+        uint32_t localCongestion = 0;
 
         std::map<uint32_t, uint32_t>::iterator localDreItr = m_XMap.find (pathId);
         if (localDreItr != m_XMap.end ())
         {
-          localDre = localDreItr->second;
+          localCongestion = Ipv4Conga::QuantizingX (localDreItr->second);
         }
 
-        uint32_t congestionDegree = std::max (localDre, pathCongestions[pathId]);
+        uint32_t congestionDegree = std::max (localCongestion, pathCongestions[pathId]);
 
         if (congestionDegree < minPathCongestion)
         {
@@ -401,15 +415,17 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
     // Update local dre
     uint32_t X = Ipv4Conga::UpdateLocalDre (packet, path);
 
-    NS_LOG_LOGIC (this << " Forwarding Conga packet, X on link: " << path
-            << " is: " << X
+    NS_LOG_LOGIC (this << " Forwarding Conga packet, Quantized X on link: " << path
+            << " is: " << Ipv4Conga::QuantizingX (X)
             << ", LbTag in Conga header is: " << ipv4CongaTag.GetLbTag ()
             << ", CE in Conga header is: " << ipv4CongaTag.GetCe ()
             << ", packet size is: " << packet->GetSize ());
 
+    uint32_t quantizingX = Ipv4Conga::QuantizingX (X);
+
     // Compare the X with that in the Conga Header
-    if (X > ipv4CongaTag.GetCe()) {
-      ipv4CongaTag.SetCe(X);
+    if (quantizingX > ipv4CongaTag.GetCe()) {
+      ipv4CongaTag.SetCe(quantizingX);
       packet->ReplacePacketTag(ipv4CongaTag);
     }
 
@@ -438,8 +454,10 @@ Ipv4Conga::UpdateLocalDre (Ptr<Packet> packet, uint32_t path)
   {
     X = XItr->second;
   }
-  m_XMap[path] = X + packet->GetSize ();
-  return X;
+  uint32_t newX = X + packet->GetSize ();
+  NS_LOG_LOGIC ("Update local dre, new X: " << newX);
+  m_XMap[path] = newX;
+  return newX;
 }
 
 void
@@ -463,7 +481,7 @@ Ipv4Conga::DreEvent ()
 
   if (!moveToIdleStatus)
   {
-    Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+    m_dreEvent = Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
   }
   else
   {
@@ -471,6 +489,13 @@ Ipv4Conga::DreEvent ()
   }
 }
 
+uint32_t
+Ipv4Conga::QuantizingX (uint32_t X)
+{
+  double ratio = static_cast<double> (X * 8) / (m_C.GetBitRate () * m_tdre.GetSeconds () / m_alpha);
+  NS_LOG_LOGIC ("ratio: " << ratio);
+  return static_cast<uint32_t>(ratio * std::pow(2, m_Q));
+}
 
 void
 Ipv4Conga::PrintCongaToLeafTable ()
@@ -540,7 +565,9 @@ Ipv4Conga::PrintDreTable ()
   std::map<uint32_t, uint32_t>::iterator itr = m_XMap.begin ();
   for ( ; itr != m_XMap.end (); ++itr)
   {
-    oss << "path: " << itr->first << ", dre: " << itr->second <<std::endl;
+    oss << "path: " << itr->first <<
+      ", X: " << itr->second <<
+      ", dre: " << Ipv4Conga::QuantizingX (itr->second) <<std::endl;
   }
   oss << "=================================";
   NS_LOG_LOGIC (oss.str ());
