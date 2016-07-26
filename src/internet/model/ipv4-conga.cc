@@ -131,6 +131,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       // Build an empty Conga header (as the packet tag)
       // Determine the path and fill the header fields
 
+      Ipv4Conga::PrintDreTable ();
       Ipv4Conga::PrintCongaToLeafTable ();
       Ipv4Conga::PrintFlowletTable ();
 
@@ -206,7 +207,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
           ipv4CongaTag.SetFbMetric (fbMetric);
           packet->AddPacketTag(ipv4CongaTag);
 
-          NS_LOG_LOGIC (this << " Sending Conga on leaf switch: " << m_leafId << " - LbTag: " << path << ", CE: " << 0 << ", FbLbTag: " << fbLbTag << ", FbMetric: " << fbMetric);
+          NS_LOG_LOGIC (this << " Sending Conga on leaf switch (flowlet hit): " << m_leafId << " - LbTag: " << path << ", CE: " << 0 << ", FbLbTag: " << fbLbTag << ", FbMetric: " << fbMetric);
 
           // Update local dre
           Ipv4Conga::UpdateLocalDre (packet, path);
@@ -372,6 +373,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       // Pick path using standard ECMP
       path = flowId % availPath;
 
+      Ipv4Conga::PrintDreTable ();
       Ipv4Conga::PrintCongaToLeafTable ();
       Ipv4Conga::PrintCongaFromLeafTable ();
 
@@ -456,6 +458,9 @@ Ipv4Conga::DreEvent ()
     }
   }
 
+  NS_LOG_LOGIC ("Dre event finished, the dre table is now: ");
+  Ipv4Conga::PrintDreTable ();
+
   if (!moveToIdleStatus)
   {
     Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
@@ -523,6 +528,21 @@ Ipv4Conga::PrintFlowletTable ()
         << "activeTime" << (itr->second)->activeTime << std::endl;
   }
   oss << "===================";
+  NS_LOG_LOGIC (oss.str ());
+}
+
+void
+Ipv4Conga::PrintDreTable ()
+{
+  std::ostringstream oss;
+  std::string switchType = m_isLeaf == true ? "leaf switch" : "spine switch";
+  oss << "==== Local Dre for " << switchType << " ====" <<std::endl;
+  std::map<uint32_t, uint32_t>::iterator itr = m_XMap.begin ();
+  for ( ; itr != m_XMap.end (); ++itr)
+  {
+    oss << "path: " << itr->first << ", dre: " << itr->second <<std::endl;
+  }
+  oss << "=================================";
   NS_LOG_LOGIC (oss.str ());
 }
 

@@ -104,6 +104,7 @@ private:
   void PrintCongaToLeafTable ();
   void PrintCongaFromLeafTable ();
   void PrintFlowletTable ();
+  void PrintDreTable ();
 };
 
 }
