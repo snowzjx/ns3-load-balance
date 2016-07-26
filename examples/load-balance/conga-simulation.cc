@@ -21,7 +21,7 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  4000000000           // 4Gbps
 #define LEAF_SERVER_CAPACITY 4000000000           // 4Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 100 MicroSeconds
-#define BUFFER_SIZE 1000                          // 1000 Packets
+#define BUFFER_SIZE 100                           // 1000 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
@@ -95,7 +95,7 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
 
             NS_LOG_INFO ("\tFlow from server: " << i << " to server: "
                     << destIndex << " on port: " << port << " with flow size: "
-                    << flowSize << "[start time: " << startTime <<" ]");
+                    << flowSize << " [start time: " << startTime <<"]");
 
             startTime += poission_gen_interval (requestRate);
         }

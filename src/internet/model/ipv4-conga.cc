@@ -108,6 +108,13 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
     return true;
   }
 
+  // Turn on DRE event scheduler if it is not running
+  if (!m_dreEvent.IsRunning ())
+  {
+    NS_LOG_LOGIC ("Recover dre event");
+    Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
+  }
+
   // First, check if this switch if leaf switch
   if (m_isLeaf)
   {
@@ -201,6 +208,9 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
 
           NS_LOG_LOGIC (this << " Sending Conga on leaf switch: " << m_leafId << " - LbTag: " << path << ", CE: " << 0 << ", FbLbTag: " << fbLbTag << ", FbMetric: " << fbMetric);
 
+          // Update local dre
+          Ipv4Conga::UpdateLocalDre (packet, path);
+
           return true;
         }
       }
@@ -209,16 +219,16 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       // Not hit. Determine the path
 
       // 1. Select path congestion information based on dest leaf switch id
-      std::map<uint32_t, std::vector<double> >::iterator pathInfoItr = m_congaToLeafTable.find (destLeafId);
+      std::map<uint32_t, std::vector<uint32_t> >::iterator pathInfoItr = m_congaToLeafTable.find (destLeafId);
 
-      std::vector<double> pathCongestions(availPath);
+      std::vector<uint32_t> pathCongestions(availPath);
 
       // Initialize Conga To Leaf Table if no entry is found
       if (pathInfoItr == m_congaToLeafTable.end ())
       {
         for (uint32_t pathId = 0; pathId < availPath; pathId ++)
         {
-          pathCongestions[pathId] = 0.0f;
+          pathCongestions[pathId] = 0;
         }
         m_congaToLeafTable[destLeafId] = pathCongestions;
       }
@@ -228,18 +238,29 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       }
 
       // 2. Prepare the candidate path
-      double minPathCongestion = (std::numeric_limits<double>::max)();
+      // For a new flowlet, we pick the uplink port that minimizes the maximum of the local metric (from the local DREs) and the remote metric (from the Congestion-To-Leaf Table).
+      uint32_t minPathCongestion = (std::numeric_limits<uint32_t>::max)();
       std::vector<uint32_t> pathCandidates;
       for (uint32_t pathId = 0; pathId < pathCongestions.size(); pathId ++)
       {
-        if (pathCongestions[pathId] < minPathCongestion)
+        uint32_t localDre = 0;
+
+        std::map<uint32_t, uint32_t>::iterator localDreItr = m_XMap.find (pathId);
+        if (localDreItr != m_XMap.end ())
+        {
+          localDre = localDreItr->second;
+        }
+
+        uint32_t congestionDegree = std::max (localDre, pathCongestions[pathId]);
+
+        if (congestionDegree < minPathCongestion)
         {
           // Strictly better path
-          minPathCongestion = pathCongestions[pathId];
+          minPathCongestion = congestionDegree;
           pathCandidates.clear();
           pathCandidates.push_back(pathId);
         }
-        if (pathCongestions[pathId] == minPathCongestion)
+        if (congestionDegree == minPathCongestion)
         {
           // Equally good path
           pathCandidates.push_back(pathId);
@@ -281,6 +302,10 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       ipv4CongaTag.SetFbLbTag (fbLbTag);
       ipv4CongaTag.SetFbMetric (fbMetric);
       packet->AddPacketTag(ipv4CongaTag);
+
+
+      // Update local dre
+      Ipv4Conga::UpdateLocalDre (packet, path);
 
       NS_LOG_LOGIC (this << " Sending Conga on leaf switch: " << m_leafId << " - LbTag: " << path << ", CE: " << 0 << ", FbLbTag: " << fbLbTag << ", FbMetric: " << fbMetric);
 
@@ -334,7 +359,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       }
 
       // 2. Update the CongaToLeafTable
-      std::map<uint32_t, std::vector<double> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
+      std::map<uint32_t, std::vector<uint32_t> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
       if (toLeafItr != m_congaToLeafTable.end ())
       {
         (toLeafItr->second)[ipv4CongaTag.GetFbLbTag()] = ipv4CongaTag.GetFbMetric ();
@@ -350,22 +375,15 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       Ipv4Conga::PrintCongaToLeafTable ();
       Ipv4Conga::PrintCongaFromLeafTable ();
 
+      // XXX
+      // We do not update local Dre here
+
       return true;
     }
   }
   else
   {
-    // If the switch is not leaf swith, DRE algorithm works here
-    // Turn on DRE event scheduler if it is not running
-    if (!m_dreEvent.IsRunning ())
-    {
-      NS_LOG_LOGIC ("Recover dre event");
-      Simulator::Schedule(m_tdre, &Ipv4Conga::DreEvent, this);
-    }
-
-    // Determine the path using standard ECMP
-    path = flowId % availPath;
-
+    // If the switch is spine switch
     // Extract Conga Header
     Ipv4CongaTag ipv4CongaTag;
     bool found = packet->PeekPacketTag(ipv4CongaTag);
@@ -375,14 +393,11 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
       return false;
     }
 
-    // Extract the X of the link
-    uint32_t X = 0;
-    std::map<uint32_t, uint32_t>::iterator XItr = m_XMap.find(path);
-    if (XItr != m_XMap.end ())
-    {
-      X = XItr->second;
-    }
-    m_XMap[path] = X + packet->GetSize ();
+    // Determine the path using standard ECMP
+    path = flowId % availPath;
+
+    // Update local dre
+    uint32_t X = Ipv4Conga::UpdateLocalDre (packet, path);
 
     NS_LOG_LOGIC (this << " Forwarding Conga packet, X on link: " << path
             << " is: " << X
@@ -401,7 +416,7 @@ Ipv4Conga::ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint
 }
 
 void
-Ipv4Conga::InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table)
+Ipv4Conga::InsertCongaToLeafTable (uint32_t destLeafId, std::vector<uint32_t> table)
 {
   m_congaToLeafTable[destLeafId] = table;
 }
@@ -410,6 +425,19 @@ void
 Ipv4Conga::EnableEcmpMode ()
 {
   m_ecmpMode = true;
+}
+
+uint32_t
+Ipv4Conga::UpdateLocalDre (Ptr<Packet> packet, uint32_t path)
+{
+  uint32_t X = 0;
+  std::map<uint32_t, uint32_t>::iterator XItr = m_XMap.find(path);
+  if (XItr != m_XMap.end ())
+  {
+    X = XItr->second;
+  }
+  m_XMap[path] = X + packet->GetSize ();
+  return X;
 }
 
 void
@@ -444,11 +472,11 @@ Ipv4Conga::PrintCongaToLeafTable ()
 {
   std::ostringstream oss;
   oss << "===== CongaToLeafTable =====" << std::endl;
-  std::map<uint32_t, std::vector<double> >::iterator itr = m_congaToLeafTable.begin ();
+  std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_congaToLeafTable.begin ();
   for ( ; itr != m_congaToLeafTable.end (); ++itr )
   {
     oss << "Leaf ID: " << itr->first << std::endl<<"\t";
-    std::vector<double> v = itr->second;
+    std::vector<uint32_t> v = itr->second;
     for (uint32_t pathId = 0; pathId < v.size (); ++pathId)
     {
       oss << "{ path: " << pathId << ", ce: " << v[pathId] << " } ";

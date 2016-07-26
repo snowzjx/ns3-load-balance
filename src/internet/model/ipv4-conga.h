@@ -53,7 +53,7 @@ public:
   bool ProcessPacket (Ptr<Packet> packet, const Ipv4Header &ipv4Header, uint32_t &path, uint32_t availPath);
 
   // Dev use
-  void InsertCongaToLeafTable (uint32_t destLeafId, std::vector<double> table);
+  void InsertCongaToLeafTable (uint32_t destLeafId, std::vector<uint32_t> table);
 
   void EnableEcmpMode ();
 
@@ -80,7 +80,7 @@ private:
   std::map<Ipv4Address, uint32_t> m_ipLeafIdMap;
 
   // Congestion To Leaf Table
-  std::map<uint32_t, std::vector<double> > m_congaToLeafTable;
+  std::map<uint32_t, std::vector<uint32_t> > m_congaToLeafTable;
 
   // Congestion From Leaf Table
   std::map<uint32_t, std::map<uint32_t, FeedbackInfo> > m_congaFromLeafTable;
@@ -98,6 +98,7 @@ private:
   bool m_ecmpMode;
 
   // DRE algorithm
+  uint32_t UpdateLocalDre (Ptr<Packet> packet, uint32_t path);
   void DreEvent();
 
   void PrintCongaToLeafTable ();

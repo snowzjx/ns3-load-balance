@@ -248,9 +248,9 @@ int main (int argc, char *argv[])
     {
         NS_LOG_INFO ("Setting up Conga switch");
         Ipv4CongaHelper conga;
-        std::vector<double> congestionVector (SPINE_COUNT, 0);
-        congestionVector[1] = 5.0;
-        congestionVector[2] = 5.0;
+        std::vector<uint32_t> congestionVector (SPINE_COUNT, 0);
+        congestionVector[1] = 5;
+        congestionVector[2] = 5;
 
         for (int i = 0; i < LEAF_COUNT; i++)
         {
