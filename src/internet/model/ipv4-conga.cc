@@ -567,7 +567,7 @@ Ipv4Conga::PrintDreTable ()
   {
     oss << "path: " << itr->first <<
       ", X: " << itr->second <<
-      ", dre: " << Ipv4Conga::QuantizingX (itr->second) <<std::endl;
+      ", Quantized X: " << Ipv4Conga::QuantizingX (itr->second) <<std::endl;
   }
   oss << "=================================";
   NS_LOG_LOGIC (oss.str ());
