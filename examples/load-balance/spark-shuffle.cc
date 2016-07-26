@@ -17,7 +17,7 @@
 #define SPINE_LEAF_CAPACITY  1000000000           // 1Gbps
 #define LEAF_SERVER_CAPACITY 1000000000           // 1Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 150 MicroSeconds
-#define BUFFER_SIZE 100                           // 100 Packets
+#define BUFFER_SIZE 1000                          // 1000 Packets
 
 #define FLOW_SIZE 100000000                       // 100MB
 
@@ -94,11 +94,8 @@ int main (int argc, char *argv[])
 #endif
 
     // Command line parameters parsing
-
     std::string runModeStr = "Conga";
     unsigned randomSeed = 0;
-    std::string cdfFileName = "";
-    double load = 0.0;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Presto, ECMP", runModeStr);
@@ -128,12 +125,6 @@ int main (int argc, char *argv[])
         return 0;
     }
 
-    if (load < 0.0 || load > 1.0)
-    {
-        NS_LOG_ERROR ("The network load should within 0.0 and 1.0");
-        return 0;
-    }
-
     NS_LOG_INFO ("Declare data structures");
     std::vector<Ipv4Address> serversAddr = std::vector<Ipv4Address> (LEAF_COUNT * SERVER_COUNT);
     std::vector<std::vector<Ipv4Address> > leafSpinesAddrMap = std::vector<std::vector<Ipv4Address> > (LEAF_COUNT);
@@ -146,16 +137,6 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-
-    NS_LOG_INFO ("Initialize random seed");
-    if (randomSeed == 0)
-    {
-        srand ((unsigned)time (NULL));
-    }
-    else
-    {
-        srand (randomSeed);
-    }
 
     NS_LOG_INFO ("Create nodes");
 
@@ -256,6 +237,9 @@ int main (int argc, char *argv[])
         {
             Ptr<Ipv4Conga> congaNode = conga.GetIpv4Conga (leaves.Get (i)->GetObject<Ipv4> ());
             congaNode->SetLeafId (i);
+            congaNode->SetTDre (MicroSeconds (200));
+            congaNode->SetAlpha (0.2);
+            congaNode->SetLinkCapacity (DataRate (SPINE_LEAF_CAPACITY));
 
             for (int j = 0; j <LEAF_COUNT; j++)
             {
@@ -275,6 +259,14 @@ int main (int argc, char *argv[])
             }
             congaNode->InsertCongaToLeafTable(2, congestionVector);
         }
+
+        for (int i = 0; i < SPINE_COUNT; i++)
+        {
+            Ptr<Ipv4Conga> congaNode = conga.GetIpv4Conga (spines.Get (i)->GetObject<Ipv4> ());
+            congaNode->SetTDre (MicroSeconds (200));
+            congaNode->SetAlpha (0.2);
+            congaNode->SetLinkCapacity (DataRate (SPINE_LEAF_CAPACITY));
+        }
     }
 
     if (runMode == PRESTO)
@@ -292,6 +284,16 @@ int main (int argc, char *argv[])
                NS_LOG_INFO ("\t" << leafSpinesAddrMap[i][j]);
             }
         }
+    }
+
+    NS_LOG_INFO ("Initialize random seed");
+    if (randomSeed == 0)
+    {
+        srand ((unsigned)time (NULL));
+    }
+    else
+    {
+        srand (randomSeed);
     }
 
     NS_LOG_INFO ("Create applications");
@@ -315,19 +317,19 @@ int main (int argc, char *argv[])
 
     if (runMode == CONGA)
     {
-        fileName = "conga-simulation.xml";
+        fileName = "spark-conga-simulation.xml";
     }
     else if (runMode == CONGA_FLOW)
     {
-        fileName = "conga-flow-simulation.xml";
+        fileName = "spark-conga-flow-simulation.xml";
     }
     else if (runMode == PRESTO)
     {
-        fileName = "presto-simulation.xml";
+        fileName = "spark-presto-simulation.xml";
     }
     else if (runMode == ECMP)
     {
-        fileName = "ecmp-simulation.xml";
+        fileName = "spark-ecmp-simulation.xml";
     }
 
     flowMonitor->SerializeToXmlFile(fileName, true, true);
