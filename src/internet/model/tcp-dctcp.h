@@ -1,5 +1,5 @@
-#ifndef TCPDCTCP_H
-#define TCPDCTCP_H
+#ifndef TCP_DCTCP_H
+#define TCP_DCTCP_H
 
 #include "tcp-congestion-ops.h"
 #include "ns3/traced-value.h"

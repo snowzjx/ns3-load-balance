@@ -133,6 +133,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (true),
                    MakeBooleanAccessor (&TcpSocketBase::m_ecn),
                    MakeBooleanChecker ())
+    .AddAttribute ("ResequenceBuffer", "Enable Resequence Buffer",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_resequenceBufferEnabled),
+                   MakeBooleanChecker ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -316,6 +320,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_limitedTx (false),
     m_retransOut (0),
     m_ecn (true),
+    m_resequenceBufferEnabled (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -332,6 +337,10 @@ TcpSocketBase::TcpSocketBase (void)
   {
     m_tcb -> m_ecnConn = false;
   }
+
+  // Resequence Buffer support
+  m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
+  m_resequenceBuffer->SetTcpForwardUpCallback (MakeCallback (&TcpSocketBase::DoForwardUp, this));
 
   bool ok;
 
@@ -396,6 +405,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_limitedTx (sock.m_limitedTx),
     m_retransOut (sock.m_retransOut),
     m_ecn (sock.m_ecn),
+    m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -427,6 +437,10 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
   {
     m_tcb -> m_ecnConn = false;
   }
+
+  // Resequence Buffer support
+  m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
+  m_resequenceBuffer->SetTcpForwardUpCallback (MakeCallback (&TcpSocketBase::DoForwardUp, this));
 
   if (sock.m_congestionControl)
     {
@@ -1172,7 +1186,16 @@ TcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port,
   ipv4EcnTag.SetEcn(header.GetEcn());
   packet->AddPacketTag(ipv4EcnTag);
 
-  DoForwardUp (packet, fromAddress, toAddress);
+  // Resequence Buffer Support
+  if (m_resequenceBufferEnabled)
+  {
+    // If the resequence buffer is enabled, forwarding the packet is deferred to the resequence buffer
+    m_resequenceBuffer->BufferPacket (packet, fromAddress, toAddress);
+  }
+  else
+  {
+    DoForwardUp (packet, fromAddress, toAddress);
+  }
 }
 
 void

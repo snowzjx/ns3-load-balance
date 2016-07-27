@@ -37,6 +37,7 @@
 #include "tcp-rx-buffer.h"
 #include "rtt-estimator.h"
 #include "tcp-congestion-ops.h"
+#include "tcp-resequence-buffer.h"
 
 namespace ns3 {
 
@@ -994,6 +995,10 @@ protected:
 
   // ECN capable connection
   bool m_ecn;   //!< ECN capability
+
+  // Resequence buffer
+  bool m_resequenceBufferEnabled;   //!< Whether resequence buffer is enabled
+  Ptr<TcpResequenceBuffer>  m_resequenceBuffer;     //!< Resequence buffer
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
