@@ -114,12 +114,14 @@ int main (int argc, char *argv[])
     unsigned randomSeed = 0;
     std::string cdfFileName = "";
     double load = 0.0;
+    bool asym = false;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
+    cmd.AddValue ("asym", "Whether the topology is sym or asym", asym);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -236,7 +238,6 @@ int main (int argc, char *argv[])
     NodeContainer leaf1_spine0_2 = NodeContainer (leaf1, spine0);
 
     NodeContainer leaf1_spine1_1 = NodeContainer (leaf1, spine1);
-    NodeContainer leaf1_spine1_2 = NodeContainer (leaf1, spine1);
 
     NetDeviceContainer netdevice_leaf0_spine0_1 = p2p.Install (leaf0_spine0_1);
     NetDeviceContainer netdevice_leaf0_spine0_2 = p2p.Install (leaf0_spine0_2);
@@ -248,7 +249,6 @@ int main (int argc, char *argv[])
     NetDeviceContainer netdevice_leaf1_spine0_2 = p2p.Install (leaf1_spine0_2);
 
     NetDeviceContainer netdevice_leaf1_spine1_1 = p2p.Install (leaf1_spine1_1);
-    NetDeviceContainer netdevice_leaf1_spine1_2 = p2p.Install (leaf1_spine1_2);
 
     ipv4.SetBase ("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer addr_leaf0_spine0_1 = ipv4.Assign (netdevice_leaf0_spine0_1);
@@ -261,7 +261,20 @@ int main (int argc, char *argv[])
     Ipv4InterfaceContainer addr_leaf1_spine0_2 = ipv4.Assign (netdevice_leaf1_spine0_2);
 
     Ipv4InterfaceContainer addr_leaf1_spine1_1 = ipv4.Assign (netdevice_leaf1_spine1_1);
-    Ipv4InterfaceContainer addr_leaf1_spine1_2 = ipv4.Assign (netdevice_leaf1_spine1_2);
+
+    Ipv4InterfaceContainer addr_leaf1_spine1_2;
+
+    if (asym == false)
+    {
+        NS_LOG_INFO ("Symmetric topology, generating leaf1-spine1-2");
+        NodeContainer leaf1_spine1_2 = NodeContainer (leaf1, spine1);
+        NetDeviceContainer netdevice_leaf1_spine1_2 = p2p.Install (leaf1_spine1_2);
+        addr_leaf1_spine1_2 = ipv4.Assign (netdevice_leaf1_spine1_2);
+    }
+    else
+    {
+        NS_LOG_INFO ("Asymmetric topology, no leaf1-spine1-2");
+    }
 
     // Setting servers under leaf 0
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
@@ -314,7 +327,7 @@ int main (int argc, char *argv[])
         Ptr<Ipv4Conga> congaSpine0 = conga.GetIpv4Conga (spine0->GetObject<Ipv4> ());
         Ptr<Ipv4Conga> congaSpine1 = conga.GetIpv4Conga (spine1->GetObject<Ipv4> ());
 
-        // T Dre / alpha(0.9) should be larger than network RTT
+        // T Dre / alpha(0.2) should be larger than network RTT
         congaLeaf0->SetTDre (MicroSeconds (200));
         congaLeaf1->SetTDre (MicroSeconds (200));
         congaSpine0->SetTDre (MicroSeconds (200));
@@ -370,8 +383,12 @@ int main (int argc, char *argv[])
         drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine0_1.GetAddress (1));
         drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine0_2.GetAddress (1));
         drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_1.GetAddress (1));
-        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_2.GetAddress (1));
+        if (asym == false)
+        {
+            drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_2.GetAddress (1));
+        }
     }
+
 
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
     if (randomSeed == 0)
@@ -406,23 +423,32 @@ int main (int argc, char *argv[])
 
     if (runMode == CONGA)
     {
-        fileName << "conga-simulation.xml";
+        fileName << "conga-simulation";
     }
     else if (runMode == CONGA_FLOW)
     {
-        fileName << "conga-flow-simulation.xml";
+        fileName << "conga-flow-simulation";
     }
     else if (runMode == CONGA_ECMP)
     {
-        fileName << "conga-ecmp-simulation.xml";
+        fileName << "conga-ecmp-simulation";
     }
     else if (runMode == PRESTO)
     {
-        fileName << "presto-simulation.xml";
+        fileName << "presto-simulation";
     }
     else if (runMode == ECMP)
     {
-        fileName << "ecmp-simulation.xml";
+        fileName << "ecmp-simulation";
+    }
+
+    if (asym == true)
+    {
+        fileName <<"-asym.xml";
+    }
+    else
+    {
+        fileName << "-sym.xml";
     }
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
