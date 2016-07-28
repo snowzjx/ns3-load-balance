@@ -3,6 +3,7 @@
 #include "ns3/log.h"
 #include "ns3/simulator.h"
 #include "ns3/tcp-header.h"
+#include "ns3/uinteger.h"
 
 namespace ns3
 {
@@ -17,15 +18,38 @@ TcpResequenceBuffer::GetTypeId (void)
   static TypeId tid = TypeId ("ns3::TcpResequenceBuffer")
     .SetParent<Object> ()
     .SetGroupName ("Internet")
-    .AddConstructor<TcpResequenceBuffer> ();
+    .AddConstructor<TcpResequenceBuffer> ()
+    .AddAttribute ("SizeLimit",
+                   "In order queue max size",
+                   UintegerValue (64000),
+                   MakeUintegerAccessor (&TcpResequenceBuffer::m_sizeLimit),
+                   MakeUintegerChecker<uint32_t> ())
+    .AddAttribute ("InOrderQueueTimerLimit",
+                   "In order queue timer limit",
+                   TimeValue (MicroSeconds (20)),
+                   MakeTimeAccessor (&TcpResequenceBuffer::m_inOrderQueueTimerLimit),
+                   MakeTimeChecker  ())
+    .AddAttribute ("OutOrderQueueTimerLimit",
+                   "Out order queue timer limit",
+                   TimeValue (MicroSeconds (50)),
+                   MakeTimeAccessor (&TcpResequenceBuffer::m_outOrderQueueTimerLimit),
+                   MakeTimeChecker  ())
+    .AddAttribute ("PeriodicalCheckTime",
+                   "Periodical check time",
+                   TimeValue (MicroSeconds (10)),
+                   MakeTimeAccessor (&TcpResequenceBuffer::m_periodicalCheckTime),
+                   MakeTimeChecker  ());
 
   return tid;
 }
 
 TcpResequenceBuffer::TcpResequenceBuffer ():
+	// Parameters
     m_sizeLimit (64000),
     m_inOrderQueueTimerLimit (MicroSeconds (20)),
     m_outOrderQueueTimerLimit (MicroSeconds (50)),
+    m_periodicalCheckTime (MicroSeconds (10)),
+ 	// Variables
     m_size (0),
     m_inOrderQueueTimer (Simulator::Now ()),
     m_outOrderQueueTimer (Simulator::Now ()),
@@ -46,6 +70,15 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
         const Address& fromAddress, const Address& toAddress)
 {
   NS_LOG_FUNCTION (this << "Buffering the packet: " << packet);
+
+  // Turn on the periodical check and reset the timer
+  if (!m_checkEvent.IsRunning ())
+  {
+    NS_LOG_LOGIC ("Turn on periodical check");
+    m_checkEvent = Simulator::Schedule (m_periodicalCheckTime, &TcpResequenceBuffer::PeriodicalCheck, this);
+    m_inOrderQueueTimer = Simulator::Now ();
+    m_outOrderQueueTimer = Simulator::Now ();
+  }
 
   // Extract the Tcp header
   TcpHeader tcpHeader;
@@ -74,6 +107,8 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   // If the seq < first seq, retransmission may occur
   if (element.m_seq < m_firstSeq)
   {
+    NS_LOG_LOGIC ("Receive retransmission packet with seq:" << element.m_seq
+				<< ", while the firstSeq is: " << m_firstSeq);
     TcpResequenceBuffer::FlushInOrderQueue ();
     // Two situation
     // Case 1. The packet is exactly the previous one
@@ -115,6 +150,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
     // If the size exceeds the limit
     if (m_size >= m_sizeLimit)
     {
+		NS_LOG_LOGIC ("In order queue size exceeds the size limit");
         TcpResequenceBuffer::FlushInOrderQueue ();
         m_firstSeq = m_nextSeq;
     }
@@ -162,6 +198,32 @@ TcpResequenceBuffer::CalculateNextSeq (const TcpResequenceBufferElement &element
     newSeq = newSeq + SequenceNumber32 (1);
   }
   return newSeq;
+}
+
+void
+TcpResequenceBuffer::PeriodicalCheck ()
+{
+  if (Simulator::Now () - m_inOrderQueueTimer > m_inOrderQueueTimerLimit)
+  {
+    FlushInOrderQueue ();
+    m_firstSeq = m_nextSeq;
+  }
+
+  if (Simulator::Now () - m_outOrderQueueTimer > m_outOrderQueueTimerLimit)
+  {
+    FlushInOrderQueue ();
+    FlushOutOrderQueue ();
+    m_firstSeq = m_nextSeq;
+  }
+
+  if (!m_inOrderQueue.empty () || !m_outOrderQueue.empty ())
+  {
+    m_checkEvent = Simulator::Schedule (m_periodicalCheckTime, &TcpResequenceBuffer::PeriodicalCheck, this);
+  }
+  else
+  {
+	NS_LOG_LOGIC ("Turn the periodical check into idle status");
+  }
 }
 
 void

@@ -56,6 +56,8 @@ private:
   bool PutInTheInOrderQueue (const TcpResequenceBufferElement &element);
   SequenceNumber32 CalculateNextSeq (const TcpResequenceBufferElement &element);
 
+  void PeriodicalCheck ();
+
   void FlushOneElement (const TcpResequenceBufferElement &element);
   void FlushInOrderQueue ();
   void FlushOutOrderQueue ();
@@ -65,6 +67,8 @@ private:
 
   Time m_inOrderQueueTimerLimit;
   Time m_outOrderQueueTimerLimit;
+
+  Time m_periodicalCheckTime;
 
   // Variables
   uint32_t m_size;

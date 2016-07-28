@@ -38,9 +38,6 @@ void Linkd0d1SendPacket (Ptr<const Packet> packet)
   }
 
 }
-
-
-
 /* ======================= */
 
 
@@ -255,16 +252,17 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
-    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
     uint32_t drbCount2 = 0;
+    bool enableResequenceBuffer = false;
 
     CommandLine cmd;
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("drbCount1", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount1);
     cmd.AddValue ("drbCount2", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount2);
+    cmd.AddValue ("resequenceBuffer", "Enable resequence buffer", enableResequenceBuffer);
 
     cmd.Parse (argc, argv);
 
@@ -279,6 +277,13 @@ int main (int argc, char *argv[])
     else
     {
         return 0;
+    }
+
+    if (enableResequenceBuffer)
+    {
+        Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (20)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (1500)));
     }
 
     NS_LOG_INFO ("Create nodes.");
