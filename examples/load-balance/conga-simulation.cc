@@ -21,17 +21,21 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  4000000000           // 4Gbps
 #define LEAF_SERVER_CAPACITY 4000000000           // 4Gbps
 #define LINK_LATENCY MicroSeconds(100)            // 100 MicroSeconds
-#define BUFFER_SIZE 1000                          // 1000 Packets
+#define BUFFER_SIZE 100                           // 100 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 20.0
+#define END_TIME 2.0
 
 #define FLOW_LAUNCH_END_TIME 1.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
 #define PORT_END 20000
+
+// Adopted from the simulation from WANG PENG
+// Acknowledged to https://williamcityu@bitbucket.org/williamcityu/2016-socc-simulation.git
+#define PACKET_SIZE 1400
 
 #define PRESTO_RATIO 64
 
@@ -74,11 +78,16 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
         {
             uint16_t port = rand_range (PORT_START, PORT_END);
             int destIndex = rand_range (0, LEAF_NODE_COUNT - 1);
-            BulkSendHelper source ("ns3::TcpSocketFactory",
+            OnOffHelper source ("ns3::TcpSocketFactory",
                     InetSocketAddress (toAddresses[destIndex], port));
 
             uint32_t flowSize = gen_random_cdf (cdfTable);
 
+	    source.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
+	    source.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+           
+	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));  
+	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE)); 
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
 
             // Install apps
@@ -415,7 +424,7 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Start simulation");
     Simulator::Stop (Seconds (END_TIME));
     Simulator::Run ();
-    Simulator::Destroy ();
+    flowMonitor->CheckForLostPackets ();
 
     std::stringstream fileName;
 
@@ -453,5 +462,7 @@ int main (int argc, char *argv[])
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
+    Simulator::Destroy ();
     free_cdf (cdfTable);
+    NS_LOG_INFO ("Stop simulation");
 }

@@ -34,7 +34,7 @@ class Histogram(object):
 class Flow(object):
     __slots__ = ['flowId', 'delayMean', 'packetLossRatio', 'rxBitrate', 'txBitrate',
                  'fiveTuple', 'packetSizeMean', 'probe_stats_unsorted',
-                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets']
+                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets', 'lostPackets']
     def __init__(self, flow_el):
         self.flowId = int(flow_el.get('flowId'))
         rxPackets = long(flow_el.get('rxPackets'))
@@ -70,6 +70,7 @@ class Flow(object):
         else:
             self.txBitrate = None
         lost = float(flow_el.get('lostPackets'))
+	self.lostPackets = lost
         #print "rxBytes: %s; txPackets: %s; rxPackets: %s; lostPackets: %s" % (flow_el.get('rxBytes'), txPackets, rxPackets, lost)
         if rxPackets == 0:
             self.packetLossRatio = None
@@ -140,12 +141,18 @@ def main(argv):
     large_flow_count = 0
     small_flow_total_fct = 0
     small_flow_count = 0
+
+    total_lost_packets = 0
+    total_packets = 0
+
     for sim in sim_list:
         for flow in sim.flows:
             if flow.fct == None or flow.txBitrate == None or flow.rxBitrate == None:
                 continue
             flow_count += 1
             total_fct += flow.fct
+	    total_packets += flow.txPackets
+	    total_lost_packets += flow.lostPackets
             if flow.txBytes > 10000000:
                 large_flow_count += 1
                 large_flow_total_fct += flow.fct
@@ -165,6 +172,9 @@ def main(argv):
     print "Avg FCT: %.4f" % (total_fct / flow_count)
     print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
     print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
+
+    print "Total TX Packets: %i" % total_packets
+    print "Total Lost Packets: %i" % total_lost_packets
 
 if __name__ == '__main__':
     main(sys.argv)
