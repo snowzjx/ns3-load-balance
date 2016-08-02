@@ -31,7 +31,6 @@
 #include "ipv4-global-routing.h"
 #include "global-route-manager.h"
 #include "ns3/flow-id-tag.h"
-#include "ns3/ipv4-conga.h"
 
 namespace ns3 {
 
@@ -55,11 +54,6 @@ Ipv4GlobalRouting::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&Ipv4GlobalRouting::m_perFlowEcmpRouting),
                    MakeBooleanChecker ())
-    .AddAttribute("CongaRouting",
-                  "Set to true if Conga is enabled",
-                   BooleanValue (false),
-                   MakeBooleanAccessor (&Ipv4GlobalRouting::m_congaRouting),
-                   MakeBooleanChecker ())
     .AddAttribute ("RespondToInterfaceEvents",
                    "Set to true if you want to dynamically recompute the global routes upon Interface notification events (up/down, or add/remove address)",
                    BooleanValue (false),
@@ -72,14 +66,11 @@ Ipv4GlobalRouting::GetTypeId (void)
 Ipv4GlobalRouting::Ipv4GlobalRouting ()
   : m_randomEcmpRouting (false),
     m_perFlowEcmpRouting (false),
-    m_congaRouting (false),
     m_respondToInterfaceEvents (false)
 {
   NS_LOG_FUNCTION (this);
 
   m_rand = CreateObject<UniformRandomVariable> ();
-
-  m_ipv4Conga = CreateObject<Ipv4Conga> ();
 }
 
 Ipv4GlobalRouting::~Ipv4GlobalRouting ()
@@ -244,12 +235,6 @@ Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, Ptr<Packet> packet, const Ipv
         {                                           // available route to indicate the address is not local
           selectIndex = flowId % allRoutes.size();
           NS_LOG_LOGIC ("Per flow ECMP is enabled, select index: " << selectIndex << " for flow: " << flowId);
-        }
-      else if (m_congaRouting && packet != NULL)
-        {
-          m_ipv4Conga->ProcessPacket (packet, header, selectIndex, allRoutes.size ());
-          NS_LOG_LOGIC ("Conga is enabled, select index: " << selectIndex
-                  << ", forwarding to: " << allRoutes.at (selectIndex)->GetGateway ());
         }
       else
         {
@@ -639,12 +624,5 @@ Ipv4GlobalRouting::SetIpv4 (Ptr<Ipv4> ipv4)
   NS_ASSERT (m_ipv4 == 0 && ipv4 != 0);
   m_ipv4 = ipv4;
 }
-
-Ptr<Ipv4Conga>
-Ipv4GlobalRouting::GetIpv4Conga (void)
-{
-  return m_ipv4Conga;
-}
-
 
 } // namespace ns3

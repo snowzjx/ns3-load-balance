@@ -198,8 +198,6 @@ def build(bld):
         'model/ipv4-global-routing.cc',
         'model/ipv4-drb.cc',
         'model/ipv4-drb-tag.cc',
-        'model/ipv4-conga.cc',
-        'model/ipv4-conga-tag.cc',
         'helper/ipv4-global-routing-helper.cc',
         'helper/internet-stack-helper.cc',
         'helper/internet-trace-helper.cc',
@@ -220,7 +218,6 @@ def build(bld):
         'model/rip-header.cc',
         'helper/rip-helper.cc',
         'helper/ipv4-drb-helper.cc',
-        'helper/ipv4-conga-helper.cc'
         ]
 
     internet_test = bld.create_ns3_module_test_library('internet')
@@ -350,8 +347,6 @@ def build(bld):
         'model/ipv4-global-routing.h',
         'model/ipv4-drb.h',
         'model/ipv4-drb-tag.h',
-        'model/ipv4-conga.h',
-        'model/ipv4-conga-tag.h',
         'helper/ipv4-global-routing-helper.h',
         'helper/internet-stack-helper.h',
         'helper/internet-trace-helper.h',
@@ -382,7 +377,6 @@ def build(bld):
         'model/rip-header.h',
         'helper/rip-helper.h',
         'helper/ipv4-drb-helper.h',
-        'helper/ipv4-conga-helper.h'
        ]
 
     if bld.env['NSC_ENABLED']:

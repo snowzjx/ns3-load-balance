@@ -4,10 +4,14 @@
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/flow-monitor-module.h"
-#include "ns3/ipv4-conga-helper.h"
+#include "ns3/ipv4-conga-routing-helper.h"
+#include "ns3/ipv4-global-routing-helper.h"
+#include "ns3/ipv4-static-routing-helper.h"
+#include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/ipv4-drb-helper.h"
 
 #include <vector>
+#include <utility>
 
 // The CDF in TrafficGenerator
 extern "C"
@@ -25,9 +29,9 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 2.0
+#define END_TIME 1.0
 
-#define FLOW_LAUNCH_END_TIME 1.0
+#define FLOW_LAUNCH_END_TIME 0.5
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -68,7 +72,7 @@ T rand_range (T min, T max)
 }
 
 void install_applications (NodeContainer fromServers, NodeContainer destServers, double requestRate,
-        struct cdf_table *cdfTable, std::vector<Ipv4Address> toAddresses)
+        struct cdf_table *cdfTable, std::vector<std::pair<Ipv4Address, uint32_t> > toAddresses)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
@@ -79,7 +83,7 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
             uint16_t port = rand_range (PORT_START, PORT_END);
             int destIndex = rand_range (0, LEAF_NODE_COUNT - 1);
             OnOffHelper source ("ns3::TcpSocketFactory",
-                    InetSocketAddress (toAddresses[destIndex], port));
+                    InetSocketAddress (toAddresses[destIndex].first, port));
 
             uint32_t flowSize = gen_random_cdf (cdfTable);
 
@@ -167,8 +171,8 @@ int main (int argc, char *argv[])
     }
 
     NS_LOG_INFO ("Declare data structures");
-    std::vector<Ipv4Address> serversAddr0 = std::vector<Ipv4Address> (LEAF_NODE_COUNT);
-    std::vector<Ipv4Address> serversAddr1 = std::vector<Ipv4Address> (LEAF_NODE_COUNT);
+    std::vector<std::pair<Ipv4Address, uint32_t> > serversAddr0 = std::vector<std::pair<Ipv4Address, uint32_t> > (LEAF_NODE_COUNT);
+    std::vector<std::pair<Ipv4Address, uint32_t> > serversAddr1 = std::vector<std::pair<Ipv4Address, uint32_t> > (LEAF_NODE_COUNT);
 
     NS_LOG_INFO ("Config parameters");
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
@@ -201,31 +205,49 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Install Internet stacks");
 
     InternetStackHelper internet;
+    Ipv4StaticRoutingHelper staticRoutingHelper;
+    Ipv4CongaRoutingHelper congaRoutingHelper;
+    Ipv4GlobalRoutingHelper globalRoutingHelper;
+    Ipv4ListRoutingHelper listRoutingHelper;
 
-    internet.Install (servers0);
-    internet.Install (servers1);
-
-    // Enable Conga or per flow ECMP switch
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
-        Config::SetDefault ("ns3::Ipv4GlobalRouting::CongaRouting", BooleanValue (true));
+	internet.SetRoutingHelper (staticRoutingHelper);
+	internet.Install (servers0);
+	internet.Install (servers1);
+
+	internet.SetRoutingHelper (congaRoutingHelper);
+	internet.Install (spine0);
+    	internet.Install (spine1);
+    	internet.Install (leaf0);
+    	internet.Install (leaf1);
     }
-    else
+    else if (runMode == ECMP)
     {
+	internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
+	
+	internet.Install (servers0);
+	internet.Install (servers1);
+	internet.Install (spine0);
+    	internet.Install (spine1);
+    	internet.Install (leaf0);
+    	internet.Install (leaf1);
     }
-
-    internet.Install (spine0);
-    internet.Install (spine1);
-
-    // Enable DRB
-    if (runMode == PRESTO)
+    else if (runMode == PRESTO)
     {
-        internet.SetDrb (true);
-    }
+	listRoutingHelper.Add (globalRoutingHelper, 0);
+	internet.SetRoutingHelper (listRoutingHelper);
 
-    internet.Install (leaf0);
-    internet.Install (leaf1);
+	internet.Install (servers0);
+	internet.Install (servers1);
+    	internet.Install (spine0);
+    	internet.Install (spine1);
+
+	internet.SetDrb (true);
+   	internet.Install (leaf0);
+    	internet.Install (leaf1);
+    }
 
     NS_LOG_INFO ("Install channels and assign addresses");
 
@@ -259,6 +281,8 @@ int main (int argc, char *argv[])
 
     NetDeviceContainer netdevice_leaf1_spine1_1 = p2p.Install (leaf1_spine1_1);
 
+    NetDeviceContainer netdevice_leaf1_spine1_2;
+
     ipv4.SetBase ("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer addr_leaf0_spine0_1 = ipv4.Assign (netdevice_leaf0_spine0_1);
     Ipv4InterfaceContainer addr_leaf0_spine0_2 = ipv4.Assign (netdevice_leaf0_spine0_2);
@@ -277,7 +301,7 @@ int main (int argc, char *argv[])
     {
         NS_LOG_INFO ("Symmetric topology, generating leaf1-spine1-2");
         NodeContainer leaf1_spine1_2 = NodeContainer (leaf1, spine1);
-        NetDeviceContainer netdevice_leaf1_spine1_2 = p2p.Install (leaf1_spine1_2);
+        netdevice_leaf1_spine1_2 = p2p.Install (leaf1_spine1_2);
         addr_leaf1_spine1_2 = ipv4.Assign (netdevice_leaf1_spine1_2);
     }
     else
@@ -294,7 +318,7 @@ int main (int argc, char *argv[])
         NodeContainer nodeContainer = NodeContainer (leaf0, servers0.Get (i));
         NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
         Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
-        serversAddr0[i] = interfaceContainer.GetAddress (1);
+        serversAddr0[i] = std::make_pair(interfaceContainer.GetAddress (1), netDeviceContainer.Get (0)->GetIfIndex ());
     }
 
     // Setting servers under leaf 1
@@ -304,37 +328,101 @@ int main (int argc, char *argv[])
         NodeContainer nodeContainer = NodeContainer (leaf1, servers1.Get (i));
         NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
         Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
-        serversAddr1[i] = interfaceContainer.GetAddress (1);
+        serversAddr1[i] = std::make_pair(interfaceContainer.GetAddress (1), netDeviceContainer.Get (0)->GetIfIndex ());
     }
 
     NS_LOG_INFO ("Ip addresses in servers 0: ");
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
     {
-       NS_LOG_INFO (serversAddr0[i]);
+        NS_LOG_INFO ("Server: " << serversAddr0[i].first << " is connected to leaf0 in port: " << serversAddr0[i].second);
     }
 
     NS_LOG_INFO ("Ip addresses in servers 1: ");
     for (int i = 0; i < LEAF_NODE_COUNT; i++)
     {
-       NS_LOG_INFO (serversAddr1[i]);
+        NS_LOG_INFO ("Server: " << serversAddr1[i].first << " is connected to leaf1 in port: " << serversAddr1[i].second);
     }
 
-    NS_LOG_INFO ("Populate global routing tables");
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
+    {
+        NS_LOG_INFO ("Initing Conga routing tables");
+       
+        // First, init all the servers  
+        for (int serverIndex = 0; serverIndex < LEAF_NODE_COUNT; ++serverIndex)
+        {
+	    staticRoutingHelper.GetStaticRouting (servers0.Get (serverIndex)->GetObject<Ipv4> ())->
+		AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), Ipv4Mask ("0.0.0.0"), 1);
+	
+            congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
+		AddRoute (serversAddr0[serverIndex].first, Ipv4Mask("255.255.255.255"), serversAddr0[serverIndex].second);
+	    
+	    staticRoutingHelper.GetStaticRouting (servers1.Get (serverIndex)->GetObject<Ipv4> ())->
+		AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), Ipv4Mask ("0.0.0.0"), 1);
+
+    	    congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
+		AddRoute (serversAddr1[serverIndex].first, Ipv4Mask("255.255.255.255"), serversAddr1[serverIndex].second);
+        }
+
+	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_1.Get (0)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_2.Get (0)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_1.Get (0)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_2.Get (0)->GetIfIndex ());
+
+	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_1.Get (0)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_2.Get (0)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_1.Get (0)->GetIfIndex ());
+	if (!asym)
+	{
+	    congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
+		    AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_2.Get (0)->GetIfIndex ());
+	}
+
+	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_1.Get (1)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_2.Get (1)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_1.Get (1)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_2.Get (1)->GetIfIndex ());
+
+	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_1.Get (1)->GetIfIndex ());
+	if (!asym)
+	{
+	    congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
+		    AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_2.Get (1)->GetIfIndex ());
+	}
+	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_1.Get (1)->GetIfIndex ());
+	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_2.Get (1)->GetIfIndex ());
+    }
+    else 
+    {
+        NS_LOG_INFO ("Populate global routing tables");
+        Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    }
 
     if (runMode == CONGA || runMode == CONGA_FLOW)
     {
         NS_LOG_INFO ("Setting up Conga switch");
-        Ipv4CongaHelper conga;
 
-        Ptr<Ipv4Conga> congaLeaf0 = conga.GetIpv4Conga (leaf0->GetObject<Ipv4> ());
+        Ptr<Ipv4CongaRouting> congaLeaf0 = congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ());
         congaLeaf0->SetLeafId (0);
 
-        Ptr<Ipv4Conga> congaLeaf1 = conga.GetIpv4Conga (leaf1->GetObject<Ipv4> ());
+        Ptr<Ipv4CongaRouting> congaLeaf1 = congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ());
         congaLeaf1->SetLeafId (1);
 
-        Ptr<Ipv4Conga> congaSpine0 = conga.GetIpv4Conga (spine0->GetObject<Ipv4> ());
-        Ptr<Ipv4Conga> congaSpine1 = conga.GetIpv4Conga (spine1->GetObject<Ipv4> ());
+        Ptr<Ipv4CongaRouting> congaSpine0 = congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ());
+        Ptr<Ipv4CongaRouting> congaSpine1 = congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ());
 
         // T Dre / alpha(0.2) should be larger than network RTT
         congaLeaf0->SetTDre (MicroSeconds (200));
@@ -354,10 +442,10 @@ int main (int argc, char *argv[])
 
         for (int i = 0; i < LEAF_NODE_COUNT; i++)
         {
-            congaLeaf0->AddAddressToLeafIdMap (serversAddr0[i], 0);
-            congaLeaf0->AddAddressToLeafIdMap (serversAddr1[i], 1);
-            congaLeaf1->AddAddressToLeafIdMap (serversAddr0[i], 0);
-            congaLeaf1->AddAddressToLeafIdMap (serversAddr1[i], 1);
+            congaLeaf0->AddAddressToLeafIdMap (serversAddr0[i].first, 0);
+            congaLeaf0->AddAddressToLeafIdMap (serversAddr1[i].first, 1);
+            congaLeaf1->AddAddressToLeafIdMap (serversAddr0[i].first, 0);
+            congaLeaf1->AddAddressToLeafIdMap (serversAddr1[i].first, 1);
         }
         if (runMode == CONGA)
         {
@@ -424,6 +512,7 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Start simulation");
     Simulator::Stop (Seconds (END_TIME));
     Simulator::Run ();
+
     flowMonitor->CheckForLostPackets ();
 
     std::stringstream fileName;
@@ -432,32 +521,34 @@ int main (int argc, char *argv[])
 
     if (runMode == CONGA)
     {
-        fileName << "conga-simulation";
+        fileName << "conga-simulation-";
     }
     else if (runMode == CONGA_FLOW)
     {
-        fileName << "conga-flow-simulation";
+        fileName << "conga-flow-simulation-";
     }
     else if (runMode == CONGA_ECMP)
     {
-        fileName << "conga-ecmp-simulation";
+        fileName << "conga-ecmp-simulation-";
     }
     else if (runMode == PRESTO)
     {
-        fileName << "presto-simulation";
+        fileName << "presto-simulation-";
     }
     else if (runMode == ECMP)
     {
-        fileName << "ecmp-simulation";
+        fileName << "ecmp-simulation-";
     }
+
+    fileName <<randomSeed << "-";
 
     if (asym == true)
     {
-        fileName <<"-asym.xml";
+        fileName <<"asym.xml";
     }
     else
     {
-        fileName << "-sym.xml";
+        fileName << "sym.xml";
     }
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);

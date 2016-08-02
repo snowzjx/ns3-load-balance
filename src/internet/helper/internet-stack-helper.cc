@@ -254,14 +254,8 @@ InternetStackHelper::Initialize ()
   Ipv4ListRoutingHelper listRouting;
   Ipv6StaticRoutingHelper staticRoutingv6;
 
-  //TODO Currently, Conga is implemented with global routing.
-  //To ensure it works well, we have to make global routing have a higher prioirity.
-  /*
   listRouting.Add (staticRouting, 0);
   listRouting.Add (globalRouting, -10);
-  */
-  listRouting.Add (staticRouting, -10);
-  listRouting.Add (globalRouting, 0);
 
   SetRoutingHelper (listRouting);
   SetRoutingHelper (staticRoutingv6);

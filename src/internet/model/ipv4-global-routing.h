@@ -28,7 +28,6 @@
 #include "ns3/ipv4.h"
 #include "ns3/ipv4-routing-protocol.h"
 #include "ns3/random-variable-stream.h"
-#include "ns3/ipv4-conga.h"
 
 namespace ns3 {
 
@@ -227,8 +226,6 @@ public:
    */
   int64_t AssignStreams (int64_t stream);
 
-  Ptr<Ipv4Conga> GetIpv4Conga (void);
-
 protected:
   void DoDispose (void);
 
@@ -238,14 +235,10 @@ private:
 
   bool m_perFlowEcmpRouting;
 
-  bool m_congaRouting;
-
   /// Set to true if this interface should respond to interface events by globallly recomputing routes
   bool m_respondToInterfaceEvents;
   /// A uniform random number generator for randomly routing packets among ECMP
   Ptr<UniformRandomVariable> m_rand;
-
-  Ptr<Ipv4Conga> m_ipv4Conga;
 
   /// container of Ipv4RoutingTableEntry (routes to hosts)
   typedef std::list<Ipv4RoutingTableEntry *> HostRoutes;
