@@ -20,12 +20,12 @@ extern "C"
 }
 
 // There are 8 servers connecting to each leaf switch
-#define LEAF_NODE_COUNT 8
+#define LEAF_NODE_COUNT 4
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define BUFFER_SIZE 150                           // 150 Packets
+#define BUFFER_SIZE 100                           // 100 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
@@ -45,7 +45,7 @@ extern "C"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("CongaSimulation");
+NS_LOG_COMPONENT_DEFINE ("CongaSimulationSmall");
 
 enum RunMode {
     CONGA,
@@ -119,7 +119,7 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
 int main (int argc, char *argv[])
 {
 #if 1
-    LogComponentEnable ("CongaSimulation", LOG_LEVEL_INFO);
+    LogComponentEnable ("CongaSimulationSmall", LOG_LEVEL_INFO);
 #endif
 
     // Command line parameters parsing
@@ -128,14 +128,12 @@ int main (int argc, char *argv[])
     unsigned randomSeed = 0;
     std::string cdfFileName = "";
     double load = 0.0;
-    bool asym = false;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
-    cmd.AddValue ("asym", "Whether the topology is sym or asym", asym);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -180,13 +178,14 @@ int main (int argc, char *argv[])
     Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue (0));
     Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
 
-    double oversubRatio = (LEAF_NODE_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * 4); // Each leaf has 4 up links to spine
+    double oversubRatio = (LEAF_NODE_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * 2); // Each leaf has 2 up links to spine
     NS_LOG_INFO ("Over-subscription ratio: " << oversubRatio);
 
     NS_LOG_INFO ("Initialize CDF table");
     struct cdf_table* cdfTable = new cdf_table ();
     init_cdf (cdfTable);
     load_cdf (cdfTable, cdfFileName.c_str ());
+    NS_LOG_INFO ("Avg CDF: " << avg_cdf (cdfTable));
 
     NS_LOG_INFO ("Calculating request rate");
     double requestRate = load * LEAF_SERVER_CAPACITY * LEAF_NODE_COUNT / oversubRatio / (8 * avg_cdf (cdfTable));
@@ -263,55 +262,30 @@ int main (int argc, char *argv[])
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
     p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
 
-    NodeContainer leaf0_spine0_1 = NodeContainer (leaf0, spine0);
-    NodeContainer leaf0_spine0_2 = NodeContainer (leaf0, spine0);
+    NodeContainer leaf0_spine0 = NodeContainer (leaf0, spine0);
 
-    NodeContainer leaf0_spine1_1 = NodeContainer (leaf0, spine1);
-    NodeContainer leaf0_spine1_2 = NodeContainer (leaf0, spine1);
+    NodeContainer leaf0_spine1 = NodeContainer (leaf0, spine1);
 
-    NodeContainer leaf1_spine0_1 = NodeContainer (leaf1, spine0);
-    NodeContainer leaf1_spine0_2 = NodeContainer (leaf1, spine0);
+    NodeContainer leaf1_spine0 = NodeContainer (leaf1, spine0);
 
-    NodeContainer leaf1_spine1_1 = NodeContainer (leaf1, spine1);
+    NodeContainer leaf1_spine1 = NodeContainer (leaf1, spine1);
 
-    NetDeviceContainer netdevice_leaf0_spine0_1 = p2p.Install (leaf0_spine0_1);
-    NetDeviceContainer netdevice_leaf0_spine0_2 = p2p.Install (leaf0_spine0_2);
+    NetDeviceContainer netdevice_leaf0_spine0 = p2p.Install (leaf0_spine0);
 
-    NetDeviceContainer netdevice_leaf0_spine1_1 = p2p.Install (leaf0_spine1_1);
-    NetDeviceContainer netdevice_leaf0_spine1_2 = p2p.Install (leaf0_spine1_2);
+    NetDeviceContainer netdevice_leaf0_spine1 = p2p.Install (leaf0_spine1);
 
-    NetDeviceContainer netdevice_leaf1_spine0_1 = p2p.Install (leaf1_spine0_1);
-    NetDeviceContainer netdevice_leaf1_spine0_2 = p2p.Install (leaf1_spine0_2);
+    NetDeviceContainer netdevice_leaf1_spine0 = p2p.Install (leaf1_spine0);
 
-    NetDeviceContainer netdevice_leaf1_spine1_1 = p2p.Install (leaf1_spine1_1);
-
-    NetDeviceContainer netdevice_leaf1_spine1_2;
+    NetDeviceContainer netdevice_leaf1_spine1 = p2p.Install (leaf1_spine1);
 
     ipv4.SetBase ("10.1.1.0", "255.255.255.0");
-    Ipv4InterfaceContainer addr_leaf0_spine0_1 = ipv4.Assign (netdevice_leaf0_spine0_1);
-    Ipv4InterfaceContainer addr_leaf0_spine0_2 = ipv4.Assign (netdevice_leaf0_spine0_2);
+    Ipv4InterfaceContainer addr_leaf0_spine0 = ipv4.Assign (netdevice_leaf0_spine0);
 
-    Ipv4InterfaceContainer addr_leaf0_spine1_1 = ipv4.Assign (netdevice_leaf0_spine1_1);
-    Ipv4InterfaceContainer addr_leaf0_spine1_2 = ipv4.Assign (netdevice_leaf0_spine1_2);
+    Ipv4InterfaceContainer addr_leaf0_spine1 = ipv4.Assign (netdevice_leaf0_spine1);
 
-    Ipv4InterfaceContainer addr_leaf1_spine0_1 = ipv4.Assign (netdevice_leaf1_spine0_1);
-    Ipv4InterfaceContainer addr_leaf1_spine0_2 = ipv4.Assign (netdevice_leaf1_spine0_2);
+    Ipv4InterfaceContainer addr_leaf1_spine0 = ipv4.Assign (netdevice_leaf1_spine0);
 
-    Ipv4InterfaceContainer addr_leaf1_spine1_1 = ipv4.Assign (netdevice_leaf1_spine1_1);
-
-    Ipv4InterfaceContainer addr_leaf1_spine1_2;
-
-    if (asym == false)
-    {
-        NS_LOG_INFO ("Symmetric topology, generating leaf1-spine1-2");
-        NodeContainer leaf1_spine1_2 = NodeContainer (leaf1, spine1);
-        netdevice_leaf1_spine1_2 = p2p.Install (leaf1_spine1_2);
-        addr_leaf1_spine1_2 = ipv4.Assign (netdevice_leaf1_spine1_2);
-    }
-    else
-    {
-        NS_LOG_INFO ("Asymmetric topology, no leaf1-spine1-2");
-    }
+    Ipv4InterfaceContainer addr_leaf1_spine1 = ipv4.Assign (netdevice_leaf1_spine1);
 
     // Setting servers under leaf 0
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
@@ -368,46 +342,28 @@ int main (int argc, char *argv[])
         }
 
 	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_1.Get (0)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0.Get (0)->GetIfIndex ());
+
 	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_2.Get (0)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_1.Get (0)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_2.Get (0)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1.Get (0)->GetIfIndex ());
 
 	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_1.Get (0)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0.Get (0)->GetIfIndex ());
+
 	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_2.Get (0)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_1.Get (0)->GetIfIndex ());
-	if (!asym)
-	{
-	    congaRoutingHelper.GetCongaRouting (leaf1->GetObject<Ipv4> ())->
-		    AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_2.Get (0)->GetIfIndex ());
-	}
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1.Get (0)->GetIfIndex ());
 
 	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_1.Get (1)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0.Get (1)->GetIfIndex ());
+
 	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine0_2.Get (1)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_1.Get (1)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (spine0->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0_2.Get (1)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine0.Get (1)->GetIfIndex ());
 
 	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_1.Get (1)->GetIfIndex ());
-	if (!asym)
-	{
-	    congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
-		    AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1_2.Get (1)->GetIfIndex ());
-	}
+		AddRoute (Ipv4Address ("10.1.3.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf1_spine1.Get (1)->GetIfIndex ());
+
 	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_1.Get (1)->GetIfIndex ());
-	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
-		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_2.Get (1)->GetIfIndex ());
+		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1.Get (1)->GetIfIndex ());
     }
     else 
     {
@@ -429,10 +385,10 @@ int main (int argc, char *argv[])
         Ptr<Ipv4CongaRouting> congaSpine1 = congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ());
 
         // T Dre / alpha(0.2) should be larger than network RTT
-        congaLeaf0->SetTDre (MicroSeconds (30));
-        congaLeaf1->SetTDre (MicroSeconds (30));
-        congaSpine0->SetTDre (MicroSeconds (30));
-        congaSpine1->SetTDre (MicroSeconds (30));
+        congaLeaf0->SetTDre (MicroSeconds (200));
+        congaLeaf1->SetTDre (MicroSeconds (200));
+        congaSpine0->SetTDre (MicroSeconds (200));
+        congaSpine1->SetTDre (MicroSeconds (200));
 
         congaLeaf0->SetAlpha (0.2);
         congaLeaf1->SetAlpha (0.2);
@@ -475,21 +431,13 @@ int main (int argc, char *argv[])
         NS_LOG_INFO ("Setting up DRB switch");
         Ipv4DrbHelper drb;
         Ptr<Ipv4Drb> drb0 = drb.GetIpv4Drb (leaf0->GetObject<Ipv4> ());
-        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine0_1.GetAddress (1));
-        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine0_2.GetAddress (1));
-        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine1_1.GetAddress (1));
-        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine1_2.GetAddress (1));
+        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine0.GetAddress (1));
+        drb0->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf0_spine1.GetAddress (1));
 
         Ptr<Ipv4Drb> drb1 = drb.GetIpv4Drb (leaf1->GetObject<Ipv4> ());
-        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine0_1.GetAddress (1));
-        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine0_2.GetAddress (1));
-        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_1.GetAddress (1));
-        if (asym == false)
-        {
-            drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1_2.GetAddress (1));
-        }
+        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine0.GetAddress (1));
+        drb1->AddCoreSwitchAddress (PRESTO_RATIO, addr_leaf1_spine1.GetAddress (1));
     }
-
 
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
     if (randomSeed == 0)
@@ -550,14 +498,7 @@ int main (int argc, char *argv[])
 
     fileName <<randomSeed << "-";
 
-    if (asym == true)
-    {
-        fileName <<"asym.xml";
-    }
-    else
-    {
-        fileName << "sym.xml";
-    }
+    fileName << "sym.xml";
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
