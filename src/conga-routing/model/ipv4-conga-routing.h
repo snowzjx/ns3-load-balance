@@ -53,13 +53,12 @@ public:
   void SetFlowletTimeout (Time timeout);
 
   void AddAddressToLeafIdMap (Ipv4Address addr, uint32_t leafId);
-  void EnableEcmpMode ();
 
   void AddRoute (Ipv4Address network, Ipv4Mask networkMask, uint32_t port);
 
-  std::vector<CongaRouteEntry> LookupCongaRouteEntries (Ipv4Address dest);
+  void InitCongestion (uint32_t destLeafId, uint32_t port, uint32_t congestion);
 
-  Ptr<Ipv4Route> ConstructIpv4Route (uint32_t port, Ipv4Address destAddress);
+  void EnableEcmpMode ();
 
   /* Inherit From Ipv4RoutingProtocol */
   virtual Ptr<Ipv4Route> RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr);
@@ -137,6 +136,10 @@ private:
   // Quantizing X to metrics degree
   // X is bytes here and we quantizing it to 0 - 2^Q
   uint32_t QuantizingX (uint32_t X);
+
+  std::vector<CongaRouteEntry> LookupCongaRouteEntries (Ipv4Address dest);
+
+  Ptr<Ipv4Route> ConstructIpv4Route (uint32_t port, Ipv4Address destAddress);
 
   // Debug use
   void PrintCongaToLeafTable ();

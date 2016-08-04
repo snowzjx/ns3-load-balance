@@ -12,16 +12,10 @@
 #include <vector>
 #include <utility>
 
-// The CDF in TrafficGenerator
-extern "C"
-{
-#include "cdf.h"
-}
-
-// There are 8 servers connecting to each leaf switch
-#define SERVER_COUNT 8
-#define SPINE_COUNT 4
-#define LEAF_COUNT 4
+// Server leaf spine configuration
+#define SERVER_COUNT 3
+#define SPINE_COUNT 3
+#define LEAF_COUNT 3
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
@@ -30,9 +24,7 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 5.0
-
-#define FLOW_LAUNCH_END_TIME 0.5
+#define END_TIME 1.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -42,9 +34,12 @@ extern "C"
 // Acknowledged to https://williamcityu@bitbucket.org/williamcityu/2016-socc-simulation.git
 #define PACKET_SIZE 1400
 
+// Flow size
+#define FLOW_SIZE 20000000                        // 20MB
+
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("CongaSimulationLarge");
+NS_LOG_COMPONENT_DEFINE ("SparkShuffle");
 
 enum RunMode {
     CONGA,
@@ -53,74 +48,56 @@ enum RunMode {
     ECMP
 };
 
-// Port from Traffic Generator
-// Acknowledged to https://github.com/HKUST-SING/TrafficGenerator/blob/master/src/common/common.c
-double poission_gen_interval(double avg_rate)
-{
-    if (avg_rate > 0)
-       return -logf(1.0 - (double)rand() / RAND_MAX) / avg_rate;
-    else
-       return 0;
-}
-
 template<typename T>
 T rand_range (T min, T max)
 {
     return min + ((double)max - min) * rand () / RAND_MAX;
 }
 
-void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable, int &flowCount)
+void install_applications (int fromLeafId, int toLeafId, NodeContainer servers, int &flowCount)
 {
-    NS_LOG_INFO ("Install applications:");
-    for (int i = 0; i < SERVER_COUNT; i++)
-    {
-        int fromServerIndex = fromLeafId * SERVER_COUNT + i;
+    int fromStartServerIndex = fromLeafId * SERVER_COUNT;
+    int fromEndServerIndex = fromLeafId  * SERVER_COUNT + SERVER_COUNT;
 
-        double startTime = START_TIME + poission_gen_interval (requestRate);
-        while (startTime < FLOW_LAUNCH_END_TIME)
+    int toStartServerIndex = toLeafId * SERVER_COUNT;
+    int toEndServerIndex = toLeafId * SERVER_COUNT + SERVER_COUNT;
+
+    for (int fromServerIndex = fromStartServerIndex; fromServerIndex < fromEndServerIndex; fromServerIndex++)
+    {
+        NS_LOG_INFO ("Install application for server: " << fromServerIndex);
+        for (int toServerIndex = toStartServerIndex; toServerIndex < toEndServerIndex; toServerIndex++)
         {
-            flowCount ++;
+            double flowStartTime = START_TIME + rand_range (0.0, 0.01);
             uint16_t port = rand_range (PORT_START, PORT_END);
 
-            int destServerIndex = fromServerIndex;
-	    while (destServerIndex >= fromLeafId * SERVER_COUNT && destServerIndex < fromLeafId * SERVER_COUNT + SERVER_COUNT)
-            {
-		destServerIndex = rand_range (0, SERVER_COUNT * LEAF_COUNT);
-            }
-
-	    Ptr<Node> destServer = servers.Get (destServerIndex);
+	    Ptr<Node> destServer = servers.Get (toServerIndex);
 	    Ptr<Ipv4> ipv4 = destServer->GetObject<Ipv4> ();
 	    Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
 	    Ipv4Address destAddress = destInterface.GetLocal ();
 
             OnOffHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
 
-            uint32_t flowSize = gen_random_cdf (cdfTable);
-
 	    source.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
 	    source.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
            
 	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));  
 	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE)); 
-            source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
+            source.SetAttribute ("MaxBytes", UintegerValue(FLOW_SIZE));
 
-            // Install apps
+            // Install applications
             ApplicationContainer sourceApp = source.Install (servers.Get (fromServerIndex));
-            sourceApp.Start (Seconds (startTime));
+            sourceApp.Start (Seconds (flowStartTime));
             sourceApp.Stop (Seconds (END_TIME));
 
             // Install packet sinks
             PacketSinkHelper sink ("ns3::TcpSocketFactory",
                     InetSocketAddress (Ipv4Address::GetAny (), port));
-            ApplicationContainer sinkApp = sink.Install (servers. Get (destServerIndex));
-            sinkApp.Start (Seconds (startTime));
+            ApplicationContainer sinkApp = sink.Install (servers.Get (toServerIndex));
+            sinkApp.Start (Seconds (flowStartTime));
             sinkApp.Stop (Seconds (END_TIME));
 
             NS_LOG_INFO ("\tFlow from server: " << fromServerIndex << " to server: "
-                    << destServerIndex << " on port: " << port << " with flow size: "
-                    << flowSize << " [start time: " << startTime <<"]");
-
-            startTime += poission_gen_interval (requestRate);
+                    << toServerIndex << " on port: " << port << " [start time: " << flowStartTime <<"]");
         }
     }
 }
@@ -128,21 +105,17 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
 int main (int argc, char *argv[])
 {
 #if 1
-    LogComponentEnable ("CongaSimulationLarge", LOG_LEVEL_INFO);
+    LogComponentEnable ("SparkShuffle", LOG_LEVEL_INFO);
 #endif
 
     // Command line parameters parsing
 
     std::string runModeStr = "Conga";
     unsigned randomSeed = 0;
-    std::string cdfFileName = "";
-    double load = 0.0;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
-    cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
-    cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -165,12 +138,6 @@ int main (int argc, char *argv[])
     else
     {
         NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto and ECMP");
-        return 0;
-    }
-
-    if (load < 0.0 || load > 1.0)
-    {
-        NS_LOG_ERROR ("The network load should within 0.0 and 1.0");
         return 0;
     }
 
@@ -322,6 +289,12 @@ int main (int argc, char *argv[])
 		congaSpine->AddRoute (leafNetworks[i], 
 				      Ipv4Mask("255.255.255.0"), 
                                       netDeviceContainer.Get (1)->GetIfIndex ());
+		NS_LOG_INFO ("Leaf: " << i << " is connected to spine: " << j << " through port: " << netDeviceContainer.Get (0)->GetIfIndex ());
+	        if ((i == 0 || i == 1) && (j == 1 || j == 2))
+		{
+		    congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+			InitCongestion (2, netDeviceContainer.Get (0)->GetIfIndex (), 5);
+		}
 	    }
         }
 
@@ -335,15 +308,6 @@ int main (int argc, char *argv[])
 
     double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT);
     NS_LOG_INFO ("Over-subscription ratio: " << oversubRatio);
-
-    NS_LOG_INFO ("Initialize CDF table");
-    struct cdf_table* cdfTable = new cdf_table ();
-    init_cdf (cdfTable);
-    load_cdf (cdfTable, cdfFileName.c_str ());
-
-    NS_LOG_INFO ("Calculating request rate");
-    double requestRate = load * LEAF_SERVER_CAPACITY * SERVER_COUNT / oversubRatio / (8 * avg_cdf (cdfTable));
-    NS_LOG_INFO ("Average request rate: " << requestRate << " per second");
 
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
     if (randomSeed == 0)
@@ -359,10 +323,8 @@ int main (int argc, char *argv[])
 
     int flowCount = 0;
 
-    for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
-    {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount);
-    }
+    install_applications(0, 2, servers, flowCount);
+    install_applications(0, 1, servers, flowCount);
 
     NS_LOG_INFO ("Total flow: " << flowCount);
 
@@ -380,7 +342,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "8-4-large-load-" << load <<"-";
+    fileName << "spark-shuffle-";
 
     if (runMode == CONGA)
     {
@@ -406,6 +368,5 @@ int main (int argc, char *argv[])
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
     Simulator::Destroy ();
-    free_cdf (cdfTable);
     NS_LOG_INFO ("Stop simulation");
 }

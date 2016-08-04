@@ -12,6 +12,9 @@
 
 #include <algorithm>
 
+// I think no switch has more than 65535 ports
+#define MAX_PORT 65535 
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE("Ipv4CongaRouting");
@@ -99,6 +102,22 @@ void
 Ipv4CongaRouting::EnableEcmpMode ()
 {
   m_ecmpMode = true;
+}
+
+void
+Ipv4CongaRouting::InitCongestion (uint32_t leafId, uint32_t port, uint32_t congestion)
+{
+  std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator itr = m_congaToLeafTable.find(leafId);
+  if (itr != m_congaToLeafTable.end ())
+  {
+    (itr->second)[port] = congestion;
+  }
+  else
+  {
+    std::map<uint32_t, uint32_t> newMap;
+    newMap[port] = congestion;
+    m_congaToLeafTable[leafId] = newMap;
+  }
 }
 
 void 
@@ -254,7 +273,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       std::map<uint32_t, std::map<uint32_t, FeedbackInfo> >::iterator fbItr =
           m_congaFromLeafTable.find (destLeafId);
 
-      uint32_t fbLbTag = 0;
+      uint32_t fbLbTag = MAX_PORT; // Trick, we set the MAX_PORT as the initial value of the fbLbTag in order to distinguish no feedback with feedback for port 0
       uint32_t fbMetric = 0;
 
       // Piggyback according to round robin and favoring those that has been changed
@@ -428,7 +447,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       // Forwarding the packet to destination
 
       // Determine the source switch leaf id
-      std::map<Ipv4Address, uint32_t>::iterator itr = m_ipLeafIdMap.find(destAddress);
+      std::map<Ipv4Address, uint32_t>::iterator itr = m_ipLeafIdMap.find(header.GetSource ());
       if (itr == m_ipLeafIdMap.end ())
       {
         NS_LOG_ERROR (this << " Conga routing cannot find leaf switch id");
@@ -442,7 +461,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
 
       if (fromLeafItr == m_congaFromLeafTable.end ())
       {
-        std::map<uint32_t, FeedbackInfo > newMap;
+        std::map<uint32_t, FeedbackInfo> newMap;
         FeedbackInfo feedbackInfo;
         feedbackInfo.ce = ipv4CongaTag.GetCe ();
         feedbackInfo.change = true;
@@ -467,10 +486,19 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       }
 
       // 2. Update the CongaToLeafTable
-      std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
-      if (toLeafItr != m_congaToLeafTable.end ())
+      if (ipv4CongaTag.GetFbLbTag () != MAX_PORT)
       {
-        (toLeafItr->second)[ipv4CongaTag.GetFbLbTag()] = ipv4CongaTag.GetFbMetric ();
+        std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
+        if (toLeafItr != m_congaToLeafTable.end ())
+        {
+          (toLeafItr->second)[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
+        }
+        else 
+        {
+          std::map<uint32_t, uint32_t> newMap;
+          newMap[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
+          m_congaToLeafTable[sourceLeafId] = newMap;
+        }
       }
 
       // Not necessary
@@ -633,8 +661,9 @@ Ipv4CongaRouting::QuantizingX (uint32_t X)
 void
 Ipv4CongaRouting::PrintCongaToLeafTable ()
 {
+/*
   std::ostringstream oss;
-  oss << "===== CongaToLeafTable =====" << std::endl;
+  oss << "===== CongaToLeafTable For Leaf: " << m_leafId <<"=====" << std::endl;
   std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator itr = m_congaToLeafTable.begin ();
   for ( ; itr != m_congaToLeafTable.end (); ++itr )
   {
@@ -650,13 +679,15 @@ Ipv4CongaRouting::PrintCongaToLeafTable ()
   }
   oss << "============================";
   NS_LOG_LOGIC (oss.str ());
+*/
 }
 
 void
 Ipv4CongaRouting::PrintCongaFromLeafTable ()
 {
+/*
   std::ostringstream oss;
-  oss << "===== CongaFromLeafTable =====" <<std::endl;
+  oss << "===== CongaFromLeafTable For Leaf: " << m_leafId << "=====" <<std::endl;
   std::map<uint32_t, std::map<uint32_t, FeedbackInfo> >::iterator itr = m_congaFromLeafTable.begin ();
   for ( ; itr != m_congaFromLeafTable.end (); ++itr )
   {
@@ -673,13 +704,15 @@ Ipv4CongaRouting::PrintCongaFromLeafTable ()
   }
   oss << "==============================";
   NS_LOG_LOGIC (oss.str ());
+*/
 }
 
 void
 Ipv4CongaRouting::PrintFlowletTable ()
 {
+/*
   std::ostringstream oss;
-  oss << "===== Flowlet =====" << std::endl;
+  oss << "===== Flowlet For Leaf: " << m_leafId << "=====" << std::endl;
   std::map<uint32_t, Flowlet*>::iterator itr = m_flowletTable.begin ();
   for ( ; itr != m_flowletTable.end(); ++itr )
   {
@@ -689,11 +722,13 @@ Ipv4CongaRouting::PrintFlowletTable ()
   }
   oss << "===================";
   NS_LOG_LOGIC (oss.str ());
+*/
 }
 
 void
 Ipv4CongaRouting::PrintDreTable ()
 {
+/*
   std::ostringstream oss;
   std::string switchType = m_isLeaf == true ? "leaf switch" : "spine switch";
   oss << "==== Local Dre for " << switchType << " ====" <<std::endl;
@@ -706,6 +741,7 @@ Ipv4CongaRouting::PrintDreTable ()
   }
   oss << "=================================";
   NS_LOG_LOGIC (oss.str ());
+*/
 }
 
 
