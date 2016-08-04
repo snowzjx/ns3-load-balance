@@ -324,7 +324,7 @@ int main (int argc, char *argv[])
     int flowCount = 0;
 
     install_applications(0, 2, servers, flowCount);
-    install_applications(0, 1, servers, flowCount);
+    install_applications(1, 2, servers, flowCount);
 
     NS_LOG_INFO ("Total flow: " << flowCount);
 
