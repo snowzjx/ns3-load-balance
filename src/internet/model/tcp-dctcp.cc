@@ -27,7 +27,7 @@ TcpDCTCP::GetTypeId (void)
 TcpDCTCP::TcpDCTCP (void) :
   TcpNewReno (),
   m_g (0.0625),
-  m_alpha (0),
+  m_alpha (1),
   m_isCE (false),
   m_hasDelayedACK (false),
   m_bytesAcked (0),
@@ -150,14 +150,14 @@ TcpDCTCP::GetSsThresh(Ptr<TcpSocketState> tcb, uint32_t bytesInFlight)
 {
   NS_LOG_FUNCTION (this << tcb << bytesInFlight);
 
-  return std::max (static_cast<uint32_t>((1 - m_alpha) * tcb->m_cWnd), bytesInFlight / 2);
+  return std::max (static_cast<uint32_t>((1 - m_alpha / 2) * tcb->m_cWnd), bytesInFlight / 2);
 }
 
 uint32_t
 TcpDCTCP::GetCwnd(Ptr<TcpSocketState> tcb)
 {
   NS_LOG_FUNCTION (this << tcb);
-  return static_cast<uint32_t>( (1 - m_alpha) * tcb->m_cWnd );
+  return static_cast<uint32_t>((1 - m_alpha / 2) * tcb->m_cWnd );
 }
 
 Ptr<TcpCongestionOps>
