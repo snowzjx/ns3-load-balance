@@ -13,7 +13,7 @@
 #include <utility>
 
 // Server leaf spine configuration
-#define SERVER_COUNT 3
+#define SERVER_COUNT 8
 #define SPINE_COUNT 3
 #define LEAF_COUNT 3
 
