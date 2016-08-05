@@ -223,6 +223,11 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
+ 	    if (transportProt.compare ("DcTcp") == 0)
+	    {
+		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
+	        tc.Install (netDeviceContainer);
+            } 
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
 	    
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
