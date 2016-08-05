@@ -169,9 +169,17 @@ def main(argv):
             print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
             print "\tFlow size: %i bytes, %i packets" % (flow.txBytes, flow.txPackets)
             print "\tFCT: %.4f" % (flow.fct)
+
     print "Avg FCT: %.4f" % (total_fct / flow_count)
-    print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
-    print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
+    if large_flow_count == 0:
+	print "No large flows"
+    else:    
+        print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
+   
+    if small_flow_count == 0:
+   	print "No small flows"
+    else:     
+	print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
 
     print "Total TX Packets: %i" % total_packets
     print "Total Lost Packets: %i" % total_lost_packets
