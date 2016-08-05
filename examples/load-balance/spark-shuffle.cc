@@ -19,7 +19,7 @@
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
-#define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
+#define LINK_LATENCY MicroSeconds(150)            // 150 MicroSeconds, according to 7-22.pdf
 #define BUFFER_SIZE 300                           // 300 Packets
 
 #define RED_QUEUE_MARKING 50 			  // 50 Packets (available only in DcTcp)
@@ -261,7 +261,7 @@ int main (int argc, char *argv[])
 	{
 	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
-	    congaLeaf->SetTDre (MicroSeconds (30));
+	    congaLeaf->SetTDre (MicroSeconds (160));
 	    congaLeaf->SetAlpha (0.2);
 	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	    if (runMode == CONGA)
@@ -307,7 +307,7 @@ int main (int argc, char *argv[])
                 
 		// For each conga spine switch, routing entry to THIS leaf switch should be added
 		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
-		congaSpine->SetTDre (MicroSeconds (30));
+		congaSpine->SetTDre (MicroSeconds (160));
 		congaSpine->SetAlpha (0.2);
 		congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 		if (runMode == CONGA_ECMP)
