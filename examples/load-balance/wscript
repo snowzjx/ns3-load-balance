@@ -9,10 +9,6 @@ def build(bld):
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing'])
     obj.source = ['conga-simulation.cc', 'cdf.c']
 
-    obj = bld.create_ns3_program('conga-simulation-small',
-                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing'])
-    obj.source = ['conga-simulation-small.cc', 'cdf.c']
-
     obj = bld.create_ns3_program('conga-simulation-large',
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing'])
     obj.source = ['conga-simulation-large.cc', 'cdf.c']

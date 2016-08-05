@@ -19,10 +19,10 @@
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
-#define LINK_LATENCY MicroSeconds(150)            // 150 MicroSeconds, according to 7-22.pdf
-#define BUFFER_SIZE 300                           // 300 Packets
+#define LINK_LATENCY MicroSeconds(25)             // 25 MicroSeconds, according to 7-22.pdf
+#define BUFFER_SIZE 500                           // 500 Packets
 
-#define RED_QUEUE_MARKING 50 			  // 50 Packets (available only in DcTcp)
+#define RED_QUEUE_MARKING 65 			  // 65 Packets (available only in DcTcp)
 
 // The simulation starting and ending time
 #define START_TIME 0.0
@@ -37,7 +37,7 @@
 #define PACKET_SIZE 1400
 
 // Flow size
-#define FLOW_SIZE 500000000                        // 50MB
+#define FLOW_SIZE 20000000                         // 20MB
 
 using namespace ns3;
 
@@ -263,7 +263,7 @@ int main (int argc, char *argv[])
 	{
 	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
-	    congaLeaf->SetTDre (MicroSeconds (160));
+	    congaLeaf->SetTDre (MicroSeconds (45));
 	    congaLeaf->SetAlpha (0.2);
 	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	    if (runMode == CONGA)
@@ -309,7 +309,7 @@ int main (int argc, char *argv[])
                 
 		// For each conga spine switch, routing entry to THIS leaf switch should be added
 		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
-		congaSpine->SetTDre (MicroSeconds (160));
+		congaSpine->SetTDre (MicroSeconds (45));
 		congaSpine->SetAlpha (0.2);
 		congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 		if (runMode == CONGA_ECMP)

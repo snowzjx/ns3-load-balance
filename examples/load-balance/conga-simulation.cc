@@ -83,16 +83,11 @@ void install_applications (NodeContainer fromServers, NodeContainer destServers,
             flowCount ++;
             uint16_t port = rand_range (PORT_START, PORT_END);
             int destIndex = rand_range (0, LEAF_NODE_COUNT - 1);
-            OnOffHelper source ("ns3::TcpSocketFactory",
+
+            BulkSendHelper source ("ns3::TcpSocketFactory",
                     InetSocketAddress (toAddresses[destIndex].first, port));
-
             uint32_t flowSize = gen_random_cdf (cdfTable);
-
-	    source.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-	    source.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
-           
-	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));  
-	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE)); 
+ 	    source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
 
             // Install apps
