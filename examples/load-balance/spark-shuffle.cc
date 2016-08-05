@@ -372,7 +372,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "8-5-spark-shuffle-" << transportProt <<"-";
+    fileName << "8-6-spark-shuffle-" << transportProt <<"-";
 
     if (runMode == CONGA)
     {

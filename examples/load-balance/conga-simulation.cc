@@ -25,11 +25,11 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define BUFFER_SIZE 150                           // 150 Packets
+#define BUFFER_SIZE 250                           // 250 Packets
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 1.5
+#define END_TIME 20.0
 
 #define FLOW_LAUNCH_END_TIME 0.5
 
@@ -520,7 +520,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "load-" << load <<"-";
+    fileName << "8-6-load-" << load <<"-";
 
     if (runMode == CONGA)
     {
