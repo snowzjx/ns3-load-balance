@@ -77,14 +77,15 @@ void install_applications (int fromLeafId, int toLeafId, NodeContainer servers, 
 	    Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
 	    Ipv4Address destAddress = destInterface.GetLocal ();
 
- //         OnOffHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
+//          OnOffHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
             BulkSendHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
 
 //	    source.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
 //	    source.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
            
 //	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));  
-	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE)); 
+//	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));
+ 	    source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(FLOW_SIZE));
 
             // Install applications
