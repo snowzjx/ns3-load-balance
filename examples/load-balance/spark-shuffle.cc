@@ -7,7 +7,7 @@
 #include "ns3/ipv4-conga-routing-helper.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/ipv4-static-routing-helper.h"
-#include "ns3/ipv4-drb-helper.h"
+#include "ns3/traffic-control-module.h"
 
 #include <vector>
 #include <utility>
@@ -20,11 +20,13 @@
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define BUFFER_SIZE 150                           // 150 Packets
+#define BUFFER_SIZE 300                           // 300 Packets
+
+#define RED_QUEUE_MARKING 50 			  // 50 Packets (available only in DcTcp)
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 5.0
+#define END_TIME 150.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -35,7 +37,7 @@
 #define PACKET_SIZE 1400
 
 // Flow size
-#define FLOW_SIZE 20000000                        // 20MB
+#define FLOW_SIZE 100000000                        // 100MB
 
 using namespace ns3;
 
@@ -112,9 +114,11 @@ int main (int argc, char *argv[])
 
     std::string runModeStr = "Conga";
     unsigned randomSeed = 0;
+    std::string transportProt = "Tcp";
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
+    cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.Parse (argc, argv);
 
@@ -139,6 +143,15 @@ int main (int argc, char *argv[])
     {
         NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto and ECMP");
         return 0;
+    }
+
+    if (transportProt.compare ("DcTcp") == 0)
+    {
+	NS_LOG_INFO ("Using DcTcp");
+        Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+    	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
+    	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
+    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -185,6 +198,10 @@ int main (int argc, char *argv[])
 
     PointToPointHelper p2p;
     Ipv4AddressHelper ipv4;
+
+    TrafficControlHelper tc;
+    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
+                                              "MaxTh", DoubleValue (RED_QUEUE_MARKING));
 
     NS_LOG_INFO ("Configuring servers");
     // Setting servers
@@ -261,6 +278,12 @@ int main (int argc, char *argv[])
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
+ 	    if (transportProt.compare ("DcTcp") == 0)
+	    {
+		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
+	        tc.Install (netDeviceContainer);
+            } 
+            
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -342,7 +365,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "spark-shuffle-";
+    fileName << "8-5-spark-shuffle-" << transportProt;
 
     if (runMode == CONGA)
     {
