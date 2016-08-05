@@ -37,7 +37,7 @@
 #define PACKET_SIZE 1400
 
 // Flow size
-#define FLOW_SIZE 200000000                        // 200MB
+#define FLOW_SIZE 500000000                        // 50MB
 
 using namespace ns3;
 
