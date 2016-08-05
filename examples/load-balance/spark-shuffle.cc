@@ -37,7 +37,7 @@
 #define PACKET_SIZE 1400
 
 // Flow size
-#define FLOW_SIZE 100000000                        // 100MB
+#define FLOW_SIZE 200000000                        // 200MB
 
 using namespace ns3;
 
@@ -365,7 +365,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "8-5-spark-shuffle-" << transportProt;
+    fileName << "8-5-spark-shuffle-" << transportProt <<"-";
 
     if (runMode == CONGA)
     {
