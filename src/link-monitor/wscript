@@ -1,0 +1,38 @@
+# -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
+
+# def options(opt):
+#     pass
+
+# def configure(conf):
+#     conf.check_nonfatal(header_name='stdint.h', define_name='HAVE_STDINT_H')
+
+def build(bld):
+    module = bld.create_ns3_module('link-monitor', ['internet'])
+    module.source = [
+        'model/link-probe.cc',
+        'model/ipv4-link-probe.cc',
+        'model/ipv4-queue-probe.cc',
+        'model/link-monitor.cc',
+        'helper/link-monitor-helper.cc',
+        ]
+
+    module_test = bld.create_ns3_module_test_library('link-monitor')
+    module_test.source = [
+        'test/link-monitor-test-suite.cc',
+        ]
+
+    headers = bld(features='ns3header')
+    headers.module = 'link-monitor'
+    headers.source = [
+        'model/link-probe.h',
+        'model/ipv4-link-probe.h',
+        'model/ipv4-queue-probe.h',
+        'model/link-monitor.h',
+        'helper/link-monitor-helper.h',
+        ]
+
+    if bld.env.ENABLE_EXAMPLES:
+        bld.recurse('examples')
+
+    # bld.ns3_python_bindings()
+

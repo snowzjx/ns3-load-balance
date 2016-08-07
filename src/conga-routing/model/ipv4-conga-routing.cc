@@ -12,8 +12,7 @@
 
 #include <algorithm>
 
-// I think no switch has more than 65535 ports
-#define MAX_PORT 65535 
+#define LOOPBACK_PORT 0
 
 namespace ns3 {
 
@@ -120,7 +119,7 @@ Ipv4CongaRouting::InitCongestion (uint32_t leafId, uint32_t port, uint32_t conge
   }
 }
 
-void 
+void
 Ipv4CongaRouting::AddRoute (Ipv4Address network, Ipv4Mask networkMask, uint32_t port)
 {
   NS_LOG_LOGIC (this << " Add Conga routing entry: " << network << "/" << networkMask << " would go through port: " << port);
@@ -131,22 +130,22 @@ Ipv4CongaRouting::AddRoute (Ipv4Address network, Ipv4Mask networkMask, uint32_t 
   m_routeEntryList.push_back (congaRouteEntry);
 }
 
-std::vector<CongaRouteEntry> 
+std::vector<CongaRouteEntry>
 Ipv4CongaRouting::LookupCongaRouteEntries (Ipv4Address dest)
 {
   std::vector<CongaRouteEntry> congaRouteEntries;
   std::vector<CongaRouteEntry>::iterator itr = m_routeEntryList.begin ();
   for ( ; itr != m_routeEntryList.end (); ++itr)
   {
-    if((*itr).networkMask.IsMatch(dest, (*itr).network)) 
+    if((*itr).networkMask.IsMatch(dest, (*itr).network))
     {
-      congaRouteEntries.push_back (*itr);   
+      congaRouteEntries.push_back (*itr);
     }
   }
   return congaRouteEntries;
 }
 
-Ptr<Ipv4Route> 
+Ptr<Ipv4Route>
 Ipv4CongaRouting::ConstructIpv4Route (uint32_t port, Ipv4Address destAddress)
 {
   Ptr<NetDevice> dev = m_ipv4->GetNetDevice (port);
@@ -163,14 +162,14 @@ Ipv4CongaRouting::ConstructIpv4Route (uint32_t port, Ipv4Address destAddress)
   return route;
 }
 
-Ptr<Ipv4Route> 
+Ptr<Ipv4Route>
 Ipv4CongaRouting::RouteOutput (Ptr<Packet> packet, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr)
 {
   NS_LOG_ERROR (this << " Conga routing is not support for local routing output");
   return 0;
 }
 
-bool 
+bool
 Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
                            UnicastForwardCallback ucb, MulticastForwardCallback mcb,
                            LocalDeliverCallback lcb, ErrorCallback ecb)
@@ -273,7 +272,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       std::map<uint32_t, std::map<uint32_t, FeedbackInfo> >::iterator fbItr =
           m_congaFromLeafTable.find (destLeafId);
 
-      uint32_t fbLbTag = MAX_PORT; // Trick, we set the MAX_PORT as the initial value of the fbLbTag in order to distinguish no feedback with feedback for port 0
+      uint32_t fbLbTag = LOOPBACK_PORT;
       uint32_t fbMetric = 0;
 
       // Piggyback according to round robin and favoring those that has been changed
@@ -332,7 +331,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
           packet->AddPacketTag(ipv4CongaTag);
 
           // Update local dre
-          Ipv4CongaRouting::UpdateLocalDre (packet, selectedPort);
+          Ipv4CongaRouting::UpdateLocalDre (header, packet, selectedPort);
 
           Ptr<Ipv4Route> route = Ipv4CongaRouting::ConstructIpv4Route (selectedPort, destAddress);
           ucb (route, packet, header);
@@ -350,7 +349,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator congaToLeafItr = m_congaToLeafTable.find (destLeafId);
 
       // 2. Prepare the candidate port
-      // For a new flowlet, we pick the uplink port that minimizes the maximum of the local metric (from the local DREs) 
+      // For a new flowlet, we pick the uplink port that minimizes the maximum of the local metric (from the local DREs)
       // and the remote metric (from the Congestion-To-Leaf Table).
       uint32_t minPortCongestion = (std::numeric_limits<uint32_t>::max)();
 
@@ -362,7 +361,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
         uint32_t port = (*routeEntryItr).port;
         uint32_t localCongestion = 0;
         uint32_t remoteCongestion = 0;
-  
+
         std::map<uint32_t, uint32_t>::iterator localCongestionItr = m_XMap.find (port);
         if (localCongestionItr != m_XMap.end ())
         {
@@ -428,7 +427,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       packet->AddPacketTag(ipv4CongaTag);
 
       // Update local dre
-      Ipv4CongaRouting::UpdateLocalDre (packet, selectedPort);
+      Ipv4CongaRouting::UpdateLocalDre (header, packet, selectedPort);
 
       Ptr<Ipv4Route> route = Ipv4CongaRouting::ConstructIpv4Route (selectedPort, destAddress);
       ucb (route, packet, header);
@@ -486,14 +485,14 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       }
 
       // 2. Update the CongaToLeafTable
-      if (ipv4CongaTag.GetFbLbTag () != MAX_PORT)
+      if (ipv4CongaTag.GetFbLbTag () != LOOPBACK_PORT)
       {
         std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
         if (toLeafItr != m_congaToLeafTable.end ())
         {
           (toLeafItr->second)[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
         }
-        else 
+        else
         {
           std::map<uint32_t, uint32_t> newMap;
           newMap[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
@@ -508,7 +507,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       // Pick port using standard ECMP
       uint32_t selectedPort = routeEntries[flowId % routeEntries.size ()].port;
 
-      Ipv4CongaRouting::UpdateLocalDre (packet, selectedPort);
+      Ipv4CongaRouting::UpdateLocalDre (header, packet, selectedPort);
 
       Ptr<Ipv4Route> route = Ipv4CongaRouting::ConstructIpv4Route (selectedPort, destAddress);
       ucb (route, packet, header);
@@ -537,7 +536,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
     uint32_t selectedPort = routeEntries[flowId % routeEntries.size ()].port;
 
     // Update local dre
-    uint32_t X = Ipv4CongaRouting::UpdateLocalDre (packet, selectedPort);
+    uint32_t X = Ipv4CongaRouting::UpdateLocalDre (header, packet, selectedPort);
 
     NS_LOG_LOGIC (this << " Forwarding Conga packet, Quantized X on port: " << selectedPort
             << " is: " << Ipv4CongaRouting::QuantizingX (X)
@@ -560,22 +559,22 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
   }
 }
 
-void 
+void
 Ipv4CongaRouting::NotifyInterfaceUp (uint32_t interface)
 {
 }
 
-void 
+void
 Ipv4CongaRouting::NotifyInterfaceDown (uint32_t interface)
 {
 }
 
-void 
+void
 Ipv4CongaRouting::NotifyAddAddress (uint32_t interface, Ipv4InterfaceAddress address)
 {
 }
 
-void 
+void
 Ipv4CongaRouting::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress address)
 {
 }
@@ -587,7 +586,7 @@ void Ipv4CongaRouting::SetIpv4 (Ptr<Ipv4> ipv4)
   m_ipv4 = ipv4;
 }
 
-void 
+void
 Ipv4CongaRouting::PrintRoutingTable (Ptr<OutputStreamWrapper> stream) const
 {
 }
@@ -607,7 +606,7 @@ Ipv4CongaRouting::DoDispose (void)
 }
 
 uint32_t
-Ipv4CongaRouting::UpdateLocalDre (Ptr<Packet> packet, uint32_t port)
+Ipv4CongaRouting::UpdateLocalDre (const Ipv4Header &header, Ptr<Packet> packet, uint32_t port)
 {
   uint32_t X = 0;
   std::map<uint32_t, uint32_t>::iterator XItr = m_XMap.find(port);
@@ -615,7 +614,7 @@ Ipv4CongaRouting::UpdateLocalDre (Ptr<Packet> packet, uint32_t port)
   {
     X = XItr->second;
   }
-  uint32_t newX = X + packet->GetSize ();
+  uint32_t newX = X + packet->GetSize () + header.GetSerializedSize ();
   NS_LOG_LOGIC (this << " Update local dre, new X: " << newX);
   m_XMap[port] = newX;
   return newX;

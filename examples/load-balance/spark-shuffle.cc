@@ -231,6 +231,8 @@ int main (int argc, char *argv[])
 	        tc.Install (netDeviceContainer);
             } 
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+
+	    NS_LOG_INFO ("Server: " << j << " is connected to leaf: " << i << " through port: " << netDeviceContainer.Get (0)->GetIfIndex ());
 	    
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {

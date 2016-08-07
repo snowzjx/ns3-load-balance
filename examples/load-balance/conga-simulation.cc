@@ -10,6 +10,9 @@
 #include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/ipv4-drb-helper.h"
 
+#include "ns3/link-monitor.h"
+#include "ns3/ipv4-link-probe.h"
+
 #include <vector>
 #include <utility>
 
@@ -225,7 +228,7 @@ int main (int argc, char *argv[])
     {
 	internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
-	
+
 	internet.Install (servers0);
 	internet.Install (servers1);
 	internet.Install (spine0);
@@ -247,6 +250,7 @@ int main (int argc, char *argv[])
    	internet.Install (leaf0);
     	internet.Install (leaf1);
     }
+
 
     NS_LOG_INFO ("Install channels and assign addresses");
 
@@ -345,16 +349,16 @@ int main (int argc, char *argv[])
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
         NS_LOG_INFO ("Initing Conga routing tables");
-       
-        // First, init all the servers  
+
+        // First, init all the servers
         for (int serverIndex = 0; serverIndex < LEAF_NODE_COUNT; ++serverIndex)
         {
 	    staticRoutingHelper.GetStaticRouting (servers0.Get (serverIndex)->GetObject<Ipv4> ())->
 		AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), Ipv4Mask ("0.0.0.0"), 1);
-	
+
             congaRoutingHelper.GetCongaRouting (leaf0->GetObject<Ipv4> ())->
 		AddRoute (serversAddr0[serverIndex].first, Ipv4Mask("255.255.255.255"), serversAddr0[serverIndex].second);
-	    
+
 	    staticRoutingHelper.GetStaticRouting (servers1.Get (serverIndex)->GetObject<Ipv4> ())->
 		AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), Ipv4Mask ("0.0.0.0"), 1);
 
@@ -404,7 +408,7 @@ int main (int argc, char *argv[])
 	congaRoutingHelper.GetCongaRouting (spine1->GetObject<Ipv4> ())->
 		AddRoute (Ipv4Address ("10.1.2.0"), Ipv4Mask ("255.255.255.0"), netdevice_leaf0_spine1_2.Get (1)->GetIfIndex ());
     }
-    else 
+    else
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
@@ -485,7 +489,6 @@ int main (int argc, char *argv[])
         }
     }
 
-
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
     if (randomSeed == 0)
     {
@@ -503,7 +506,7 @@ int main (int argc, char *argv[])
     // Install apps on servers under switch leaf0
     install_applications(servers0, servers1, requestRate, cdfTable, serversAddr1, flowCount);
     install_applications(servers1, servers0, requestRate, cdfTable, serversAddr0, flowCount);
-    
+
     NS_LOG_INFO ("Total flow: " << flowCount);
 
     NS_LOG_INFO ("Enabling flow monitor");
@@ -511,6 +514,17 @@ int main (int argc, char *argv[])
     Ptr<FlowMonitor> flowMonitor;
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.InstallAll();
+
+
+    // XXX Link Monitor Test Code Starts
+    Ptr<LinkMonitor> linkMonitor = Create<LinkMonitor> ();
+    Ptr<Ipv4LinkProbe> linkProbe = Create<Ipv4LinkProbe> (leaf0, linkMonitor);
+    linkProbe->SetProbeName ("Leaf 0");
+    linkProbe->SetCheckTime (Seconds (0.01));
+    linkProbe->SetDataRateAll (DataRate (SPINE_LEAF_CAPACITY));
+    linkMonitor->Start (Seconds (START_TIME));
+    linkMonitor->Stop (Seconds (END_TIME));
+    // End
 
     NS_LOG_INFO ("Start simulation");
     Simulator::Stop (Seconds (END_TIME));
@@ -555,6 +569,7 @@ int main (int argc, char *argv[])
     }
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
+    linkMonitor->OutputToFile ("link-monitor-out.txt");
 
     Simulator::Destroy ();
     free_cdf (cdfTable);

@@ -6,7 +6,7 @@ def build(bld):
     obj.source = 'dctcp-drb-original.cc'
 
     obj = bld.create_ns3_program('conga-simulation',
-                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing'])
+                                 ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing', 'link-monitor'])
     obj.source = ['conga-simulation.cc', 'cdf.c']
 
     obj = bld.create_ns3_program('conga-simulation-large',

@@ -129,7 +129,7 @@ private:
 
   // ------ Functions ------
   // DRE algorithm
-  uint32_t UpdateLocalDre (Ptr<Packet> packet, uint32_t path);
+  uint32_t UpdateLocalDre (const Ipv4Header &header, Ptr<Packet> packet, uint32_t path);
 
   void DreEvent();
 
