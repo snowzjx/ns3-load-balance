@@ -17,6 +17,8 @@ public:
 
   static TypeId GetTypeId (void);
 
+  static std::string DefaultFormat (struct LinkProbe::LinkStats stat);
+
   LinkMonitor ();
 
   void AddLinkProbe (Ptr<LinkProbe> probe);
@@ -25,7 +27,7 @@ public:
 
   void Stop (Time stopTime);
 
-  void OutputToFile (std::string filename);
+  void OutputToFile (std::string filename, std::string (*formatFunc)(struct LinkProbe::LinkStats));
 
 private:
 

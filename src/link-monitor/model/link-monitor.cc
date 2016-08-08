@@ -6,6 +6,7 @@
 #include "ns3/simulator.h"
 
 #include <fstream>
+#include <sstream>
 
 namespace ns3 {
 
@@ -68,7 +69,7 @@ LinkMonitor::DoStop (void)
 }
 
 void
-LinkMonitor::OutputToFile (std::string filename)
+LinkMonitor::OutputToFile (std::string filename, std::string (*formatFunc)(struct LinkProbe::LinkStats))
 {
   std::ofstream os (filename.c_str (), std::ios::out|std::ios::binary);
 
@@ -87,11 +88,7 @@ LinkMonitor::OutputToFile (std::string filename)
       std::vector<struct LinkProbe::LinkStats>::iterator timeItr = (portItr->second).begin ();
       for ( ; timeItr != (portItr->second).end (); ++timeItr)
       {
-        os << (*timeItr).checkTime << "/"
-           << (*timeItr).accumulatedTxBytes << "/"
-           << (*timeItr).txLinkUtility << "/"
-           << (*timeItr).accumulatedDequeueBytes << "/"
-           << (*timeItr).dequeueLinkUtility << " ";
+        os << formatFunc (*timeItr) << "\t";
       }
       os << std::endl;
     }
@@ -99,6 +96,14 @@ LinkMonitor::OutputToFile (std::string filename)
   }
 
   os.close ();
+}
+
+std::string
+LinkMonitor::DefaultFormat (struct LinkProbe::LinkStats stat)
+{
+  std::ostringstream oss;
+  oss << stat.txLinkUtility;
+  return oss.str ();
 }
 
 }

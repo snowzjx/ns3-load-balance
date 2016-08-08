@@ -569,7 +569,7 @@ int main (int argc, char *argv[])
     }
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
-    linkMonitor->OutputToFile ("link-monitor-out.txt");
+    linkMonitor->OutputToFile ("link-monitor-out.txt", &LinkMonitor::DefaultFormat);
 
     Simulator::Destroy ();
     free_cdf (cdfTable);

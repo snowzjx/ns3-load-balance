@@ -8,6 +8,7 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-drb-helper.h"
+#include "ns3/link-monitor-module.h"
 
 #include <vector>
 #include <utility>
@@ -202,7 +203,7 @@ int main (int argc, char *argv[])
     {
 	internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
-	
+
 	internet.Install (servers);
 	internet.Install (spines);
     	internet.Install (leaves);
@@ -218,7 +219,7 @@ int main (int argc, char *argv[])
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
     p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
-    
+
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");
 
     std::vector<Ipv4Address> leafNetworks (LEAF_COUNT);
@@ -234,18 +235,18 @@ int main (int argc, char *argv[])
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
-	    
+
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
                 // All servers just forward the packet to leaf switch
 		staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
-			AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), 
-					   Ipv4Mask ("0.0.0.0"), 
+			AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					   Ipv4Mask ("0.0.0.0"),
                                            netDeviceContainer.Get (1)->GetIfIndex ());
 		// Conga leaf switches forward the packet to the correct servers
                 congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-			AddRoute (interfaceContainer.GetAddress (1), 
-				           Ipv4Mask("255.255.255.255"), 
+			AddRoute (interfaceContainer.GetAddress (1),
+				           Ipv4Mask("255.255.255.255"),
                                            netDeviceContainer.Get (0)->GetIfIndex ());
                 for (int k = 0; k < LEAF_COUNT; k++)
 	        {
@@ -262,7 +263,7 @@ int main (int argc, char *argv[])
 
     for (int i = 0; i < LEAF_COUNT; i++)
     {
-        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP) 
+        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
 	{
 	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
@@ -291,19 +292,19 @@ int main (int argc, char *argv[])
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
-            { 
+            {
 		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
                 for (int k = 0; k < SPINE_COUNT; k++)
 		{
 		    if (k != i)
 		    {
 			congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-				AddRoute (leafNetworks[k], 
-				  	  Ipv4Mask("255.255.255.0"), 
+				AddRoute (leafNetworks[k],
+				  	  Ipv4Mask("255.255.255.0"),
                                   	  netDeviceContainer.Get (0)->GetIfIndex ());
                     }
                 }
-                
+
 		// For each conga spine switch, routing entry to THIS leaf switch should be added
 		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
 		congaSpine->SetTDre (MicroSeconds (30));
@@ -313,8 +314,8 @@ int main (int argc, char *argv[])
 		{
 	    		congaSpine->EnableEcmpMode ();
 		}
-		congaSpine->AddRoute (leafNetworks[i], 
-				      Ipv4Mask("255.255.255.0"), 
+		congaSpine->AddRoute (leafNetworks[i],
+				      Ipv4Mask("255.255.255.0"),
                                       netDeviceContainer.Get (1)->GetIfIndex ());
 	    }
         }
@@ -366,38 +367,72 @@ int main (int argc, char *argv[])
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.InstallAll();
 
+    NS_LOG_INFO ("Enabling link monitor");
+
+    Ptr<LinkMonitor> linkMonitor = Create<LinkMonitor> ();
+    for (int i = 0; i < SPINE_COUNT; i++)
+    {
+      std::stringstream name;
+      name << "Spine " << i;
+      Ptr<Ipv4LinkProbe> spineLinkProbe = Create<Ipv4LinkProbe> (spines.Get (i), linkMonitor);
+      spineLinkProbe->SetProbeName (name.str ());
+      spineLinkProbe->SetCheckTime (Seconds (0.01));
+      spineLinkProbe->SetDataRateAll (DataRate (SPINE_LEAF_CAPACITY));
+    }
+    for (int i = 0; i < LEAF_COUNT; i++)
+    {
+      std::stringstream name;
+      name << "Leaf " << i;
+      Ptr<Ipv4LinkProbe> leafLinkProbe = Create<Ipv4LinkProbe> (leaves.Get (i), linkMonitor);
+      leafLinkProbe->SetProbeName (name.str ());
+      leafLinkProbe->SetCheckTime (Seconds (0.01));
+      leafLinkProbe->SetDataRateAll (DataRate (SPINE_LEAF_CAPACITY));
+    }
+
+    linkMonitor->Start (Seconds (START_TIME));
+    linkMonitor->Stop (Seconds (END_TIME));
+
     NS_LOG_INFO ("Start simulation");
     Simulator::Stop (Seconds (END_TIME));
     Simulator::Run ();
 
     flowMonitor->CheckForLostPackets ();
 
-    std::stringstream fileName;
+    std::stringstream flowMonitorFilename;
+    std::stringstream linkMonitorFilename;
 
-    fileName << "8-6-large-load-" << load <<"-";
+    flowMonitorFilename << "8-8-large-load-" << load << "-";
+    linkMonitorFilename << "8-8-large-load-" << load << "-";
 
     if (runMode == CONGA)
     {
-        fileName << "conga-simulation-";
+        flowMonitorFilename << "conga-simulation-";
+        linkMonitorFilename << "conga-simulation-";
     }
     else if (runMode == CONGA_FLOW)
     {
-        fileName << "conga-flow-simulation-";
+        flowMonitorFilename << "conga-flow-simulation-";
+        linkMonitorFilename << "conga-flow-simulation-";
     }
     else if (runMode == CONGA_ECMP)
     {
-        fileName << "conga-ecmp-simulation-";
+        flowMonitorFilename << "conga-ecmp-simulation-";
+        linkMonitorFilename << "conga-ecmp-simulation-";
     }
     else if (runMode == ECMP)
     {
-        fileName << "ecmp-simulation-";
+        flowMonitorFilename << "ecmp-simulation-";
+        linkMonitorFilename << "ecmp-simulation-";
     }
 
-    fileName <<randomSeed << "-";
+    flowMonitorFilename << randomSeed << "-";
+    linkMonitorFilename << randomSeed << "-";
 
-    fileName <<"b" << BUFFER_SIZE << ".xml";
+    flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
+    linkMonitorFilename << "b" << BUFFER_SIZE << "-link-utility.out";
 
-    flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
+    flowMonitor->SerializeToXmlFile(flowMonitorFilename.str (), true, true);
+    linkMonitor->OutputToFile (linkMonitorFilename.str (), &LinkMonitor::DefaultFormat);
 
     Simulator::Destroy ();
     free_cdf (cdfTable);
