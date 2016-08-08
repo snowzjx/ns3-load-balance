@@ -104,7 +104,7 @@ private:
 
 };
 
-TypeId 
+TypeId
 Ipv6FlowProbeTag::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::Ipv6FlowProbeTag")
@@ -114,31 +114,31 @@ Ipv6FlowProbeTag::GetTypeId (void)
   ;
   return tid;
 }
-TypeId 
+TypeId
 Ipv6FlowProbeTag::GetInstanceTypeId (void) const
 {
   return GetTypeId ();
 }
-uint32_t 
+uint32_t
 Ipv6FlowProbeTag::GetSerializedSize (void) const
 {
   return 4 + 4 + 4;
 }
-void 
+void
 Ipv6FlowProbeTag::Serialize (TagBuffer buf) const
 {
   buf.WriteU32 (m_flowId);
   buf.WriteU32 (m_packetId);
   buf.WriteU32 (m_packetSize);
 }
-void 
+void
 Ipv6FlowProbeTag::Deserialize (TagBuffer buf)
 {
   m_flowId = buf.ReadU32 ();
   m_packetId = buf.ReadU32 ();
   m_packetSize = buf.ReadU32 ();
 }
-void 
+void
 Ipv6FlowProbeTag::Print (std::ostream &os) const
 {
   os << "FlowId=" << m_flowId;
@@ -146,7 +146,7 @@ Ipv6FlowProbeTag::Print (std::ostream &os) const
   os << "PacketSize=" << m_packetSize;
 }
 Ipv6FlowProbeTag::Ipv6FlowProbeTag ()
-  : Tag () 
+  : Tag ()
 {
 }
 
@@ -179,12 +179,12 @@ uint32_t
 Ipv6FlowProbeTag::GetPacketId (void) const
 {
   return m_packetId;
-} 
+}
 uint32_t
 Ipv6FlowProbeTag::GetPacketSize (void) const
 {
   return m_packetSize;
-} 
+}
 
 ////////////////////////////////////////
 // Ipv6FlowProbe class implementation //
@@ -262,7 +262,7 @@ Ipv6FlowProbe::SendOutgoingLogger (const Ipv6Header &ipHeader, Ptr<const Packet>
       uint32_t size = (ipPayload->GetSize () + ipHeader.GetSerializedSize ());
       NS_LOG_DEBUG ("ReportFirstTx ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<"); "
                                      << ipHeader << *ipPayload);
-      m_flowMonitor->ReportFirstTx (this, flowId, packetId, size);
+      m_flowMonitor->ReportFirstTx (this, flowId, packetId, size, interface);
 
       // tag the packet with the flow id and packet id, so that the packet can be identified even
       // when Ipv6Header is not accessible at some non-IPv6 protocol layer
@@ -284,7 +284,7 @@ Ipv6FlowProbe::ForwardLogger (const Ipv6Header &ipHeader, Ptr<const Packet> ipPa
 
       uint32_t size = (ipPayload->GetSize () + ipHeader.GetSerializedSize ());
       NS_LOG_DEBUG ("ReportForwarding ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<");");
-      m_flowMonitor->ReportForwarding (this, flowId, packetId, size);
+      m_flowMonitor->ReportForwarding (this, flowId, packetId, size, interface);
     }
 }
 
@@ -336,7 +336,7 @@ Ipv6FlowProbe::DropLogger (const Ipv6Header &ipHeader, Ptr<const Packet> ipPaylo
       FlowPacketId packetId = fTag.GetPacketId ();
 
       uint32_t size = (ipPayload->GetSize () + ipHeader.GetSerializedSize ());
-      NS_LOG_DEBUG ("Drop ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<", " << reason 
+      NS_LOG_DEBUG ("Drop ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<", " << reason
                             << ", destIp=" << ipHeader.GetDestinationAddress () << "); "
                             << "HDR: " << ipHeader << " PKT: " << *ipPayload);
 
@@ -386,7 +386,7 @@ Ipv6FlowProbe::DropLogger (const Ipv6Header &ipHeader, Ptr<const Packet> ipPaylo
     }
 }
 
-void 
+void
 Ipv6FlowProbe::QueueDropLogger (Ptr<const Packet> ipPayload)
 {
   Ipv6FlowProbeTag fTag;
@@ -401,7 +401,7 @@ Ipv6FlowProbe::QueueDropLogger (Ptr<const Packet> ipPayload)
   FlowPacketId packetId = fTag.GetPacketId ();
   uint32_t size = fTag.GetPacketSize ();
 
-  NS_LOG_DEBUG ("Drop ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<", " << DROP_QUEUE 
+  NS_LOG_DEBUG ("Drop ("<<this<<", "<<flowId<<", "<<packetId<<", "<<size<<", " << DROP_QUEUE
                         << "); ");
 
   m_flowMonitor->ReportDrop (this, flowId, packetId, size, DROP_QUEUE);

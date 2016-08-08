@@ -36,7 +36,7 @@ NS_LOG_COMPONENT_DEFINE ("FlowMonitor");
 NS_OBJECT_ENSURE_REGISTERED (FlowMonitor);
 
 
-TypeId 
+TypeId
 FlowMonitor::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::FlowMonitor")
@@ -76,7 +76,7 @@ FlowMonitor::GetTypeId (void)
   return tid;
 }
 
-TypeId 
+TypeId
 FlowMonitor::GetInstanceTypeId (void) const
 {
   return GetTypeId ();
@@ -136,7 +136,7 @@ FlowMonitor::GetStatsForFlow (FlowId flowId)
 
 
 void
-FlowMonitor::ReportFirstTx (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetId, uint32_t packetSize)
+FlowMonitor::ReportFirstTx (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetId, uint32_t packetSize, uint32_t interface)
 {
   if (!m_enabled)
     {
@@ -158,13 +158,15 @@ FlowMonitor::ReportFirstTx (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t pack
   if (stats.txPackets == 1)
     {
       stats.timeFirstTxPacket = now;
+      stats.firstPacketId = packetId;
+      stats.ports.push_back (interface);
     }
   stats.timeLastTxPacket = now;
 }
 
 
 void
-FlowMonitor::ReportForwarding (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetId, uint32_t packetSize)
+FlowMonitor::ReportForwarding (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetId, uint32_t packetSize, uint32_t interface)
 {
   if (!m_enabled)
     {
@@ -184,6 +186,12 @@ FlowMonitor::ReportForwarding (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t p
 
   Time delay = (Simulator::Now () - tracked->second.firstSeenTime);
   probe->AddPacketStats (flowId, packetSize, delay);
+
+  FlowStats &stats = GetStatsForFlow (flowId);
+  if (stats.firstPacketId == packetId)
+  {
+    stats.ports.push_back (interface);
+  }
 }
 
 
@@ -217,7 +225,7 @@ FlowMonitor::ReportLastRx (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packe
           stats.jitterSum += jitter;
           stats.jitterHistogram.AddValue (jitter.GetSeconds ());
         }
-      else 
+      else
         {
           stats.jitterSum -= jitter;
           stats.jitterHistogram.AddValue (-jitter.GetSeconds ());
@@ -447,6 +455,13 @@ FlowMonitor::SerializeToXmlStream (std::ostream &os, int indent, bool enableHist
           os << "<bytesDropped reasonCode=\"" << reasonCode << "\""
           << " bytes=\"" << flowI->second.bytesDropped[reasonCode]
           << "\" />\n";
+        }
+      for (uint32_t portIndex = 0; portIndex < flowI->second.ports.size (); portIndex ++)
+        {
+          INDENT (indent);
+          os << "<path time=\"" << portIndex << "\""
+          << " port=\"" << flowI->second.ports[portIndex]
+           << "\" />\n";
         }
       if (enableHistograms)
         {

@@ -135,6 +135,10 @@ public:
     /// comment in attribute packetsDropped.
     std::vector<uint64_t> bytesDropped; // bytesDropped[reasonCode] => number of dropped bytes
     Histogram flowInterruptionsHistogram; //!< histogram of durations of flow interruptions
+
+    // The following code is used to track the path of one flow
+    uint32_t firstPacketId;
+    std::vector<uint32_t> ports;
   };
 
   // --- basic methods ---
@@ -176,14 +180,14 @@ public:
   /// \param flowId flow identification
   /// \param packetId Packet ID
   /// \param packetSize packet size
-  void ReportFirstTx (Ptr<FlowProbe> probe, FlowId flowId, FlowPacketId packetId, uint32_t packetSize);
+  void ReportFirstTx (Ptr<FlowProbe> probe, FlowId flowId, FlowPacketId packetId, uint32_t packetSize, uint32_t interface);
   /// FlowProbe implementations are supposed to call this method to
   /// report that a known packet is being forwarded.
   /// \param probe the reporting probe
   /// \param flowId flow identification
   /// \param packetId Packet ID
   /// \param packetSize packet size
-  void ReportForwarding (Ptr<FlowProbe> probe, FlowId flowId, FlowPacketId packetId, uint32_t packetSize);
+  void ReportForwarding (Ptr<FlowProbe> probe, FlowId flowId, FlowPacketId packetId, uint32_t packetSize, uint32_t interface);
   /// FlowProbe implementations are supposed to call this method to
   /// report that a known packet is being received.
   /// \param probe the reporting probe
