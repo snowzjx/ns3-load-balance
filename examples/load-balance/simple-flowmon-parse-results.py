@@ -34,7 +34,7 @@ class Histogram(object):
 class Flow(object):
     __slots__ = ['flowId', 'delayMean', 'packetLossRatio', 'rxBitrate', 'txBitrate',
                  'fiveTuple', 'packetSizeMean', 'probe_stats_unsorted',
-                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets', 'lostPackets']
+                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets', 'lostPackets', 'rxPackets']
     def __init__(self, flow_el):
         self.flowId = int(flow_el.get('flowId'))
         rxPackets = long(flow_el.get('rxPackets'))
@@ -46,6 +46,7 @@ class Flow(object):
         self.txBytes = txBytes
         self.txPackets = txPackets
         self.rx_duration = rx_duration
+	self.rxPackets = rxPackets
         if fct > 0:
             self.fct = fct
         else:
@@ -144,6 +145,7 @@ def main(argv):
 
     total_lost_packets = 0
     total_packets = 0
+    total_rx_packets = 0
 
     for sim in sim_list:
         for flow in sim.flows:
@@ -153,6 +155,7 @@ def main(argv):
             total_fct += flow.fct
 	    total_packets += flow.txPackets
 	    total_lost_packets += flow.lostPackets
+	    total_rx_packets += flow.rxPackets
             if flow.txBytes > 10000000:
                 large_flow_count += 1
                 large_flow_total_fct += flow.fct
@@ -173,6 +176,7 @@ def main(argv):
 
     print "Total TX Packets: %i" % total_packets
     print "Total Lost Packets: %i" % total_lost_packets
+    print "Total RX Packets: %i" % total_rx_packets
 
 if __name__ == '__main__':
     main(sys.argv)
