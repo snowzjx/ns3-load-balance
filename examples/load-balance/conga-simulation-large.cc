@@ -9,6 +9,7 @@
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-drb-helper.h"
 #include "ns3/link-monitor-module.h"
+#include "ns3/traffic-control-module.h"
 
 #include <vector>
 #include <utility>
@@ -29,6 +30,8 @@ extern "C"
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
 #define BUFFER_SIZE 250                           // 250 Packets
 
+#define RED_QUEUE_MARKING 65 			  // 65 Packets (available only in DcTcp)
+
 // The simulation starting and ending time
 #define START_TIME 0.0
 #define END_TIME 20.0
@@ -43,6 +46,8 @@ extern "C"
 // Acknowledged to https://williamcityu@bitbucket.org/williamcityu/2016-socc-simulation.git
 #define PACKET_SIZE 1400
 
+#define PRESTO_RATIO 64
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("CongaSimulationLarge");
@@ -51,6 +56,7 @@ enum RunMode {
     CONGA,
     CONGA_FLOW,
     CONGA_ECMP,
+    PRESTO,
     ECMP
 };
 
@@ -127,17 +133,18 @@ int main (int argc, char *argv[])
 #endif
 
     // Command line parameters parsing
-
     std::string runModeStr = "Conga";
     unsigned randomSeed = 0;
     std::string cdfFileName = "";
     double load = 0.0;
+    std::string transportProt = "Tcp";
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
+    cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -153,6 +160,10 @@ int main (int argc, char *argv[])
     {
         runMode = CONGA_ECMP;
     }
+    else if (runModeStr.compare ("Presto") == 0)
+    {
+        runMode = PRESTO;
+    }
     else if (runModeStr.compare ("ECMP") == 0)
     {
         runMode = ECMP;
@@ -163,10 +174,19 @@ int main (int argc, char *argv[])
         return 0;
     }
 
-    if (load < 0.0 || load > 1.0)
+    if (load < 0.0 || load >= 1.0)
     {
         NS_LOG_ERROR ("The network load should within 0.0 and 1.0");
         return 0;
+    }
+
+    if (transportProt.compare ("DcTcp") == 0)
+    {
+	NS_LOG_INFO ("Enabling DcTcp");
+        Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
+    	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
+    	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
+    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -188,16 +208,30 @@ int main (int argc, char *argv[])
     Ipv4StaticRoutingHelper staticRoutingHelper;
     Ipv4CongaRoutingHelper congaRoutingHelper;
     Ipv4GlobalRoutingHelper globalRoutingHelper;
+    Ipv4ListRoutingHelper listRoutingHelper;
+    
+    Ipv4DrbHelper drbHelper;
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
 	internet.SetRoutingHelper (staticRoutingHelper);
-	internet.Install (servers);
+        internet.Install (servers);
 
-	internet.SetRoutingHelper (congaRoutingHelper);
-	internet.Install (spines);
+        internet.SetRoutingHelper (congaRoutingHelper);
+        internet.Install (spines);
     	internet.Install (leaves);
 
+    }
+    else if (runMode == PRESTO)
+    {
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+
+        internet.Install (servers);
+        internet.Install (spines);
+
+        internet.SetDrb (true);
+        internet.Install (leaves);
     }
     else if (runMode == ECMP)
     {
@@ -213,6 +247,10 @@ int main (int argc, char *argv[])
 
     PointToPointHelper p2p;
     Ipv4AddressHelper ipv4;
+
+    TrafficControlHelper tc;
+    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
+                                              "MaxTh", DoubleValue (RED_QUEUE_MARKING));
 
     NS_LOG_INFO ("Configuring servers");
     // Setting servers
@@ -234,6 +272,11 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
+ 	    if (transportProt.compare ("DcTcp") == 0)
+	    {
+		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
+	        tc.Install (netDeviceContainer);
+            } 
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -289,6 +332,11 @@ int main (int argc, char *argv[])
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
+ 	    if (transportProt.compare ("DcTcp") == 0)
+	    {
+		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
+	        tc.Install (netDeviceContainer);
+            } 
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -318,11 +366,17 @@ int main (int argc, char *argv[])
 				      Ipv4Mask("255.255.255.0"),
                                       netDeviceContainer.Get (1)->GetIfIndex ());
 	    }
+
+	    if (runMode == PRESTO)
+            {
+		Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
+		drb->AddCoreSwitchAddress (PRESTO_RATIO, ipv4InterfaceContainer.GetAddress (1));
+            }
         }
 
     }
 
-    if (runMode == ECMP)
+    if (runMode == ECMP || runMode == PRESTO)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
@@ -401,8 +455,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "8-8-large-load-" << load << "-";
-    linkMonitorFilename << "8-8-large-load-" << load << "-";
+    flowMonitorFilename << "8-9-large-load-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "8-9-large-load-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -418,6 +472,11 @@ int main (int argc, char *argv[])
     {
         flowMonitorFilename << "conga-ecmp-simulation-";
         linkMonitorFilename << "conga-ecmp-simulation-";
+    }
+    else if (runMode == PRESTO)
+    {
+	flowMonitorFilename << "presto-simulation-";
+        linkMonitorFilename << "presto-ecmp-simulation-";
     }
     else if (runMode == ECMP)
     {
