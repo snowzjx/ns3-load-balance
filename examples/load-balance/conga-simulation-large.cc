@@ -209,7 +209,7 @@ int main (int argc, char *argv[])
     Ipv4CongaRoutingHelper congaRoutingHelper;
     Ipv4GlobalRoutingHelper globalRoutingHelper;
     Ipv4ListRoutingHelper listRoutingHelper;
-    
+
     Ipv4DrbHelper drbHelper;
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -276,7 +276,7 @@ int main (int argc, char *argv[])
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
-            } 
+            }
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -336,7 +336,7 @@ int main (int argc, char *argv[])
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
-            } 
+            }
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
@@ -391,7 +391,7 @@ int main (int argc, char *argv[])
     load_cdf (cdfTable, cdfFileName.c_str ());
 
     NS_LOG_INFO ("Calculating request rate");
-    double requestRate = load * LEAF_SERVER_CAPACITY * SERVER_COUNT / oversubRatio / (8 * avg_cdf (cdfTable));
+    double requestRate = load * LEAF_SERVER_CAPACITY * SERVER_COUNT / oversubRatio / (8 * avg_cdf (cdfTable)) / SERVER_COUNT;
     NS_LOG_INFO ("Average request rate: " << requestRate << " per second");
 
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
