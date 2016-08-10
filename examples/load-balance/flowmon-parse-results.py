@@ -34,7 +34,8 @@ class Histogram(object):
 class Flow(object):
     __slots__ = ['flowId', 'delayMean', 'packetLossRatio', 'rxBitrate', 'txBitrate',
                  'fiveTuple', 'packetSizeMean', 'probe_stats_unsorted',
-                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration', 'fct', 'txBytes', 'txPackets', 'lostPackets']
+                 'hopCount', 'flowInterruptionsHistogram', 'rx_duration',
+                 'fct', 'txBytes', 'txPackets', 'rxPackets', 'rxBytes', 'lostPackets']
     def __init__(self, flow_el):
         self.flowId = int(flow_el.get('flowId'))
         rxPackets = long(flow_el.get('rxPackets'))
@@ -43,8 +44,11 @@ class Flow(object):
         rx_duration = float(long(flow_el.get('timeLastRxPacket')[:-4]) - long(flow_el.get('timeFirstRxPacket')[:-4]))*1e-9
         fct = float(long(flow_el.get('timeLastRxPacket')[:-4]) - long(flow_el.get('timeFirstTxPacket')[:-4]))*1e-9
         txBytes = long(flow_el.get('txBytes'))
+        rxBytes = long(flow_el.get('rxBytes'))
         self.txBytes = txBytes
         self.txPackets = txPackets
+        self.rxBytes = rxBytes
+        self.rxPackets = rxPackets
         self.rx_duration = rx_duration
         if fct > 0:
             self.fct = fct
@@ -70,7 +74,7 @@ class Flow(object):
         else:
             self.txBitrate = None
         lost = float(flow_el.get('lostPackets'))
-	self.lostPackets = lost
+        self.lostPackets = lost
         #print "rxBytes: %s; txPackets: %s; rxPackets: %s; lostPackets: %s" % (flow_el.get('rxBytes'), txPackets, rxPackets, lost)
         if rxPackets == 0:
             self.packetLossRatio = None
@@ -168,17 +172,19 @@ def main(argv):
             print "\tMean Delay: %.2f ms" % (flow.delayMean*1e3,)
             print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
             print "\tFlow size: %i bytes, %i packets" % (flow.txBytes, flow.txPackets)
+            print "\tTx %i bytes, %i packets" % (flow.rxBytes, flow.rxPackets)
+            print "\tLost %i packets" % (flow.lostPackets)
             print "\tFCT: %.4f" % (flow.fct)
 
     print "Avg FCT: %.4f" % (total_fct / flow_count)
     if large_flow_count == 0:
 	print "No large flows"
-    else:    
+    else:
         print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
-   
+
     if small_flow_count == 0:
    	print "No small flows"
-    else:     
+    else:
 	print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
 
     print "Total TX Packets: %i" % total_packets
