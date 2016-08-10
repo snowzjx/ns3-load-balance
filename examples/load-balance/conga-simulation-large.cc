@@ -258,7 +258,14 @@ int main (int argc, char *argv[])
     // Setting servers
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
-    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
+    if (transportProt.compare ("Tcp") == 0)
+    {
+     	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
+    }
+    else 
+    {
+	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (5));
+    }
 
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");
 
@@ -274,12 +281,16 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    if (transportProt.compare ("DcTcp") == 0)
+            Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
             }
-            Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+	    else 
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
@@ -338,12 +349,17 @@ int main (int argc, char *argv[])
     		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
 	    }
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    if (transportProt.compare ("DcTcp") == 0)
+ 	    Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
             }
-            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+	    else 
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
+
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
@@ -461,8 +477,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "8-11-large-load-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "8-11-large-load-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "9-1-large-load-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "9-1-large-load-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {

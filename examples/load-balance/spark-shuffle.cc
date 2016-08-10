@@ -13,13 +13,13 @@
 #include <utility>
 
 // Server leaf spine configuration
-#define SERVER_COUNT 8
+#define SERVER_COUNT 3
 #define SPINE_COUNT 3
 #define LEAF_COUNT 3
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
-#define LINK_LATENCY MicroSeconds(25)             // 25 MicroSeconds, according to 7-22.pdf
+#define LINK_LATENCY MicroSeconds(10)             // 25 MicroSeconds, according to 7-22.pdf
 #define BUFFER_SIZE 500                           // 500 Packets
 
 #define RED_QUEUE_MARKING 65 			  // 65 Packets (available only in DcTcp)
@@ -37,7 +37,7 @@
 #define PACKET_SIZE 1400
 
 // Flow size
-#define FLOW_SIZE 20000000                         // 20MB
+#define FLOW_SIZE 100000000                         // 100MB
 
 using namespace ns3;
 
@@ -69,7 +69,8 @@ void install_applications (int fromLeafId, int toLeafId, NodeContainer servers, 
         NS_LOG_INFO ("Install application for server: " << fromServerIndex);
         for (int toServerIndex = toStartServerIndex; toServerIndex < toEndServerIndex; toServerIndex++)
         {
-            double flowStartTime = START_TIME + rand_range (0.0, 0.01);
+            //double flowStartTime = START_TIME + rand_range (0.0, 0.01);
+            double flowStartTime = START_TIME;
             uint16_t port = rand_range (PORT_START, PORT_END);
 
 	    Ptr<Node> destServer = servers.Get (toServerIndex);
@@ -82,8 +83,8 @@ void install_applications (int fromLeafId, int toLeafId, NodeContainer servers, 
 
 //	    source.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
 //	    source.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
-           
-//	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));  
+
+//	    source.SetAttribute ("DataRate", DataRateValue (DataRate(LEAF_SERVER_CAPACITY)));
 //	    source.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));
  	    source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(FLOW_SIZE));
@@ -190,7 +191,7 @@ int main (int argc, char *argv[])
     {
 	internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
-	
+
 	internet.Install (servers);
 	internet.Install (spines);
     	internet.Install (leaves);
@@ -209,8 +210,16 @@ int main (int argc, char *argv[])
     // Setting servers
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
-    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
-    
+
+    if (transportProt.compare ("Tcp") == 0)
+    {
+     	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
+    }
+    else 
+    {
+	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (5));
+    }
+
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");
 
     std::vector<Ipv4Address> leafNetworks (LEAF_COUNT);
@@ -225,26 +234,30 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    if (transportProt.compare ("DcTcp") == 0)
+ 	    Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
-            } 
-            Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+            }
+            else 
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
 
 	    NS_LOG_INFO ("Server: " << j << " is connected to leaf: " << i << " through port: " << netDeviceContainer.Get (0)->GetIfIndex ());
-	    
+
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
                 // All servers just forward the packet to leaf switch
 		staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
-			AddNetworkRouteTo (Ipv4Address ("0.0.0.0"), 
-					   Ipv4Mask ("0.0.0.0"), 
+			AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					   Ipv4Mask ("0.0.0.0"),
                                            netDeviceContainer.Get (1)->GetIfIndex ());
 		// Conga leaf switches forward the packet to the correct servers
                 congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-			AddRoute (interfaceContainer.GetAddress (1), 
-				           Ipv4Mask("255.255.255.255"), 
+			AddRoute (interfaceContainer.GetAddress (1),
+				           Ipv4Mask("255.255.255.255"),
                                            netDeviceContainer.Get (0)->GetIfIndex ());
                 for (int k = 0; k < LEAF_COUNT; k++)
 	        {
@@ -261,7 +274,7 @@ int main (int argc, char *argv[])
 
     for (int i = 0; i < LEAF_COUNT; i++)
     {
-        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP) 
+        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
 	{
 	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
@@ -270,7 +283,7 @@ int main (int argc, char *argv[])
 	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	    if (runMode == CONGA)
 	    {
-	        congaLeaf->SetFlowletTimeout (MicroSeconds (200));
+	        congaLeaf->SetFlowletTimeout (MicroSeconds (500));
 	    }
 	    if (runMode == CONGA_FLOW)
 	    {
@@ -287,28 +300,33 @@ int main (int argc, char *argv[])
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    if (transportProt.compare ("DcTcp") == 0)
+            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer); 	    
+	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
-            } 
-            
-            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+            }
+	    else 
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
+
+
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
-            { 
+            {
 		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
                 for (int k = 0; k < SPINE_COUNT; k++)
 		{
 		    if (k != i)
 		    {
 			congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-				AddRoute (leafNetworks[k], 
-				  	  Ipv4Mask("255.255.255.0"), 
+				AddRoute (leafNetworks[k],
+				  	  Ipv4Mask("255.255.255.0"),
                                   	  netDeviceContainer.Get (0)->GetIfIndex ());
                     }
                 }
-                
+
 		// For each conga spine switch, routing entry to THIS leaf switch should be added
 		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
 		congaSpine->SetTDre (MicroSeconds (45));
@@ -318,14 +336,14 @@ int main (int argc, char *argv[])
 		{
 	    		congaSpine->EnableEcmpMode ();
 		}
-		congaSpine->AddRoute (leafNetworks[i], 
-				      Ipv4Mask("255.255.255.0"), 
+		congaSpine->AddRoute (leafNetworks[i],
+				      Ipv4Mask("255.255.255.0"),
                                       netDeviceContainer.Get (1)->GetIfIndex ());
 		NS_LOG_INFO ("Leaf: " << i << " is connected to spine: " << j << " through port: " << netDeviceContainer.Get (0)->GetIfIndex ());
 	        if ((i == 0 || i == 1) && (j == 1 || j == 2))
 		{
 		    congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-			InitCongestion (2, netDeviceContainer.Get (0)->GetIfIndex (), 5);
+			InitCongestion (2, netDeviceContainer.Get (0)->GetIfIndex (), 8);
 		}
 	    }
         }
@@ -374,7 +392,7 @@ int main (int argc, char *argv[])
 
     std::stringstream fileName;
 
-    fileName << "8-6-spark-shuffle-" << transportProt <<"-";
+    fileName << "9-1-spark-shuffle-" << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -395,7 +413,11 @@ int main (int argc, char *argv[])
 
     fileName <<randomSeed << "-";
 
-    fileName <<"b" << BUFFER_SIZE << ".xml";
+    fileName <<"b" << BUFFER_SIZE;
+
+    p2p.EnablePcapAll (fileName.str ());
+
+    fileName << ".xml";
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
