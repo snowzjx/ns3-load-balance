@@ -172,7 +172,7 @@ def main(argv):
             print "\tMean Delay: %.2f ms" % (flow.delayMean*1e3,)
             print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
             print "\tFlow size: %i bytes, %i packets" % (flow.txBytes, flow.txPackets)
-            print "\tTx %i bytes, %i packets" % (flow.rxBytes, flow.rxPackets)
+            print "\tRx %i bytes, %i packets" % (flow.rxBytes, flow.rxPackets)
             print "\tLost %i packets" % (flow.lostPackets)
             print "\tFCT: %.4f" % (flow.fct)
 
