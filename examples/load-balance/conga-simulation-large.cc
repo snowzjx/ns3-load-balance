@@ -36,7 +36,7 @@ extern "C"
 #define START_TIME 0.0
 #define END_TIME 20.0
 
-#define FLOW_LAUNCH_END_TIME 0.5
+#define FLOW_LAUNCH_END_TIME 4.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -138,6 +138,7 @@ int main (int argc, char *argv[])
     std::string cdfFileName = "";
     double load = 0.0;
     std::string transportProt = "Tcp";
+    bool asym = false;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
@@ -145,6 +146,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+    cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -331,6 +333,10 @@ int main (int argc, char *argv[])
         for (int j = 0; j < SPINE_COUNT; j++)
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
+	    if (asym && i == LEAF_COUNT - 1 && j == SPINE_COUNT - 1)
+	    {
+    		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
+	    }
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
  	    if (transportProt.compare ("DcTcp") == 0)
 	    {
@@ -455,8 +461,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "8-9-large-load-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "8-9-large-load-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "8-11-large-load-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "8-11-large-load-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -475,8 +481,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == PRESTO)
     {
-	flowMonitorFilename << "presto-simulation-";
-        linkMonitorFilename << "presto-ecmp-simulation-";
+	    flowMonitorFilename << "presto-simulation-";
+        linkMonitorFilename << "presto-simulation-";
     }
     else if (runMode == ECMP)
     {
@@ -486,6 +492,12 @@ int main (int argc, char *argv[])
 
     flowMonitorFilename << randomSeed << "-";
     linkMonitorFilename << randomSeed << "-";
+
+    if (asym)
+    {
+	flowMonitorFilename << "asym-";
+	linkMonitorFilename << "asym-";
+    }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
     linkMonitorFilename << "b" << BUFFER_SIZE << "-link-utility.out";
