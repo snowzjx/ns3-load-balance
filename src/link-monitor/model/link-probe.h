@@ -33,6 +33,10 @@ public:
 
     // The utility of this link based on dequeue
     double      dequeueLinkUtility;
+
+    uint32_t    packetsInQueue;
+
+    uint32_t    bytesInQueue;
   };
 
   static TypeId GetTypeId (void);

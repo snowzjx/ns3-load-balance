@@ -30,6 +30,10 @@ public:
 
   void DequeueLogger (Ptr<const Packet> packet, uint32_t interface);
 
+  void PacketsInQueueLogger (uint32_t NPackets, uint32_t interface);
+
+  void BytesInQueueLogger (uint32_t NBytes, uint32_t interface);
+
   void CheckCurrentStatus ();
 
   void Start ();
@@ -47,6 +51,9 @@ private:
 
   std::map<uint32_t, uint64_t> m_accumulatedTxBytes;
   std::map<uint32_t, uint64_t> m_accumulatedDequeueBytes;
+
+  std::map<uint32_t, uint32_t> m_NPacketsInQueue;
+  std::map<uint32_t, uint32_t> m_NBytesInQueue;
 
   std::map<uint32_t, DataRate> m_dataRate;
 
