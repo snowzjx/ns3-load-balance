@@ -381,10 +381,6 @@ int main (int argc, char *argv[])
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.InstallAll();
 
-    NS_LOG_INFO ("Start simulation");
-    Simulator::Stop (Seconds (END_TIME));
-    Simulator::Run ();
-
     flowMonitor->CheckForLostPackets ();
 
     std::stringstream fileName;
@@ -415,6 +411,10 @@ int main (int argc, char *argv[])
     p2p.EnablePcapAll (fileName.str ());
 
     fileName << ".xml";
+
+    NS_LOG_INFO ("Start simulation");
+    Simulator::Stop (Seconds (END_TIME));
+    Simulator::Run ();
 
     flowMonitor->SerializeToXmlFile(fileName.str (), true, true);
 
