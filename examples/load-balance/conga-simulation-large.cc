@@ -57,6 +57,7 @@ enum RunMode {
     CONGA_FLOW,
     CONGA_ECMP,
     PRESTO,
+    DRB,
     ECMP
 };
 
@@ -139,6 +140,7 @@ int main (int argc, char *argv[])
     double load = 0.0;
     std::string transportProt = "Tcp";
     bool asym = false;
+    bool resequenceBuffer = false;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
@@ -146,6 +148,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+    cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
     cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
     cmd.Parse (argc, argv);
 
@@ -166,13 +169,17 @@ int main (int argc, char *argv[])
     {
         runMode = PRESTO;
     }
+    else if (runModeStr.compare ("DRB") == 0)
+    {
+        runMode = DRB;
+    }
     else if (runModeStr.compare ("ECMP") == 0)
     {
         runMode = ECMP;
     }
     else
     {
-        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto and ECMP");
+        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto, DRB and ECMP");
         return 0;
     }
 
@@ -189,6 +196,14 @@ int main (int argc, char *argv[])
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
     	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
+    }
+
+    if (resequenceBuffer)
+    {
+	NS_LOG_INFO ("Enabling Resequence Buffer");
+	Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (100)));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -224,7 +239,7 @@ int main (int argc, char *argv[])
     	internet.Install (leaves);
 
     }
-    else if (runMode == PRESTO)
+    else if (runMode == PRESTO || runMode == DRB)
     {
         listRoutingHelper.Add (globalRoutingHelper, 0);
         internet.SetRoutingHelper (listRoutingHelper);
@@ -262,7 +277,7 @@ int main (int argc, char *argv[])
     {
      	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
     }
-    else 
+    else
     {
 	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (5));
     }
@@ -287,7 +302,7 @@ int main (int argc, char *argv[])
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
             }
-	    else 
+	    else
             {
                 tc.Uninstall (netDeviceContainer);
             }
@@ -355,7 +370,7 @@ int main (int argc, char *argv[])
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
             }
-	    else 
+	    else
             {
                 tc.Uninstall (netDeviceContainer);
             }
@@ -394,11 +409,16 @@ int main (int argc, char *argv[])
 		Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
 		drb->AddCoreSwitchAddress (PRESTO_RATIO, ipv4InterfaceContainer.GetAddress (1));
             }
+ 	    if (runMode == DRB)
+	    {
+		Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
+		drb->AddCoreSwitchAddress (1, ipv4InterfaceContainer.GetAddress (1));
+            }
         }
 
     }
 
-    if (runMode == ECMP || runMode == PRESTO)
+    if (runMode == ECMP || runMode == PRESTO || runMode == DRB)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
@@ -500,6 +520,11 @@ int main (int argc, char *argv[])
 	    flowMonitorFilename << "presto-simulation-";
         linkMonitorFilename << "presto-simulation-";
     }
+    else if (runMode == DRB)
+    {
+        flowMonitorFilename << "drb-simulation-";
+        linkMonitorFilename << "drb-simulation-";
+    }
     else if (runMode == ECMP)
     {
         flowMonitorFilename << "ecmp-simulation-";
@@ -513,6 +538,12 @@ int main (int argc, char *argv[])
     {
 	flowMonitorFilename << "asym-";
 	linkMonitorFilename << "asym-";
+    }
+    
+    if (resequenceBuffer)
+    {
+	flowMonitorFilename << "rb-";
+	linkMonitorFilename << "rb-";
     }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
