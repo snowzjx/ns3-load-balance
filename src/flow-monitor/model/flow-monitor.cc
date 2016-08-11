@@ -280,6 +280,8 @@ FlowMonitor::ReportDrop (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetI
   stats.bytesDropped[reasonCode] += packetSize;
   NS_LOG_DEBUG ("++stats.packetsDropped[" << reasonCode<< "]; // becomes: " << stats.packetsDropped[reasonCode]);
 
+  // XXX It is event not true with QueueDisc Requeue
+  /*
   TrackedPacketMap::iterator tracked = m_trackedPackets.find (std::make_pair (flowId, packetId));
   if (tracked != m_trackedPackets.end ())
     {
@@ -289,6 +291,7 @@ FlowMonitor::ReportDrop (Ptr<FlowProbe> probe, uint32_t flowId, uint32_t packetI
                     << flowId << ", packetId=" << packetId << ").");
       m_trackedPackets.erase (tracked);
     }
+    */
 }
 
 const FlowMonitor::FlowStatsContainer&

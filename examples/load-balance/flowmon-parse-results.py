@@ -11,8 +11,6 @@ def parse_time_ns(tm):
         return long(tm[:-4])
     raise ValueError(tm)
 
-
-
 class FiveTuple(object):
     __slots__ = ['sourceAddress', 'destinationAddress', 'protocol', 'sourcePort', 'destinationPort']
     def __init__(self, el):
@@ -118,7 +116,6 @@ class Simulation(object):
                     s.delayFromFirstProbe = 0
                 flow_map[flowId].probe_stats_unsorted.append(s)
 
-
 def main(argv):
     file_obj = open(argv[1])
     print "Reading XML file ",
@@ -170,10 +167,11 @@ def main(argv):
             print "\tTX bitrate: %.2f kbit/s" % (flow.txBitrate*1e-3,)
             print "\tRX bitrate: %.2f kbit/s" % (flow.rxBitrate*1e-3,)
             print "\tMean Delay: %.2f ms" % (flow.delayMean*1e3,)
-            print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
+            #print "\tPacket Loss Ratio: %.2f %%" % (flow.packetLossRatio*100)
             print "\tFlow size: %i bytes, %i packets" % (flow.txBytes, flow.txPackets)
             print "\tRx %i bytes, %i packets" % (flow.rxBytes, flow.rxPackets)
-            print "\tLost %i packets" % (flow.lostPackets)
+            print "\tDevice Lost %i packets" % (flow.lostPackets)
+            print "\tReal Lost %i packets" % (flow.txPackets - flow.rxPackets)
             print "\tFCT: %.4f" % (flow.fct)
 
     print "Avg FCT: %.4f" % (total_fct / flow_count)
