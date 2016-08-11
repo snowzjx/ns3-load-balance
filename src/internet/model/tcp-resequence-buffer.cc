@@ -66,6 +66,14 @@ TcpResequenceBuffer::~TcpResequenceBuffer ()
 }
 
 void
+TcpResequenceBuffer::DoDispose (void)
+{
+  TcpResequenceBuffer::FlushInOrderQueue ();
+  TcpResequenceBuffer::FlushOutOrderQueue ();
+  m_checkEvent.Cancel ();
+}
+
+void
 TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
         const Address& fromAddress, const Address& toAddress)
 {

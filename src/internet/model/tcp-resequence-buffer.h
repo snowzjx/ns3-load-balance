@@ -47,6 +47,8 @@ public:
   TcpResequenceBuffer ();
   ~TcpResequenceBuffer ();
 
+  virtual void DoDispose (void);
+
   void BufferPacket (Ptr<Packet> packet, const Address& fromAddress, const Address& toAddress);
 
   void SetTcpForwardUpCallback (Callback<void, Ptr<Packet>, const Address&, const Address&> callback);
