@@ -203,6 +203,7 @@ int main (int argc, char *argv[])
 	NS_LOG_INFO ("Enabling Resequence Buffer");
 	Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
         Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
         Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (100)));
     }
 
@@ -296,13 +297,13 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-            Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
 	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
             }
-	    else
+            Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+	    if (transportProt.compare ("Tcp") == 0)
             {
                 tc.Uninstall (netDeviceContainer);
             }
@@ -364,13 +365,13 @@ int main (int argc, char *argv[])
     		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
 	    }
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
 	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
             }
-	    else
+ 	    Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+	    if (transportProt.compare ("Tcp") == 0)
             {
                 tc.Uninstall (netDeviceContainer);
             }
@@ -539,7 +540,7 @@ int main (int argc, char *argv[])
 	flowMonitorFilename << "asym-";
 	linkMonitorFilename << "asym-";
     }
-    
+
     if (resequenceBuffer)
     {
 	flowMonitorFilename << "rb-";

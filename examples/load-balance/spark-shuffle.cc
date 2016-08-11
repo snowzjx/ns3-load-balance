@@ -234,13 +234,13 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
- 	    Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
 	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
             }
-            else 
+ 	    Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+            if (transportProt.compare ("Tcp") == 0) 
             {
                 tc.Uninstall (netDeviceContainer);
             }
@@ -300,19 +300,16 @@ int main (int argc, char *argv[])
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer); 	    
 	    if (transportProt.compare ("DcTcp") == 0)
 	    {
 		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
             }
-	    else 
+            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer); 	    
+	    if (transportProt.compare ("Tcp") == 0) 
             {
                 tc.Uninstall (netDeviceContainer);
             }
-
-
-
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
 		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
