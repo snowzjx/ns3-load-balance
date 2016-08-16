@@ -68,9 +68,15 @@ TcpResequenceBuffer::~TcpResequenceBuffer ()
 void
 TcpResequenceBuffer::DoDispose (void)
 {
-  TcpResequenceBuffer::FlushInOrderQueue ();
-  TcpResequenceBuffer::FlushOutOrderQueue ();
-  m_checkEvent.Cancel ();
+  m_inOrderQueue.clear ();
+  while (!m_outOrderQueue.empty ())
+  {
+    m_outOrderQueue.pop ();
+  }
+  if (m_checkEvent.IsRunning ())
+  {
+    m_checkEvent.Cancel ();
+  }
 }
 
 void
