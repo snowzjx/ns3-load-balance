@@ -68,14 +68,15 @@ TcpResequenceBuffer::~TcpResequenceBuffer ()
 void
 TcpResequenceBuffer::DoDispose (void)
 {
+  if (m_checkEvent.IsRunning ())
+  {
+    m_checkEvent.Cancel ();
+  }
+  m_tcpForwardUp = MakeNullCallback<void, Ptr<Packet>, const Address&, const Address&> ();
   m_inOrderQueue.clear ();
   while (!m_outOrderQueue.empty ())
   {
     m_outOrderQueue.pop ();
-  }
-  if (m_checkEvent.IsRunning ())
-  {
-    m_checkEvent.Cancel ();
   }
 }
 
@@ -111,7 +112,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   element.m_isSyn = (tcpHeader.GetFlags () & TcpHeader::SYN) == TcpHeader::SYN ? true: false;
   element.m_isFin = (tcpHeader.GetFlags () & TcpHeader::FIN) == TcpHeader::FIN ? true: false;
   element.m_dataSize = packet->GetSize () - tcpHeader.GetLength () * 4;
-  element.m_packet = packet;
+  element.m_packet = Create<Packet> (*packet);
   element.m_fromAddress = fromAddress;
   element.m_toAddress = toAddress;
 
@@ -243,6 +244,11 @@ TcpResequenceBuffer::PeriodicalCheck ()
 void
 TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element)
 {
+  if (m_tcpForwardUp.IsNull ())
+  {
+    NS_LOG_ERROR ("The forwarding up callback has been settled to null");
+    return;
+  }
   NS_LOG_INFO ("Flush packet: " << element.m_packet);
   m_tcpForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
 }

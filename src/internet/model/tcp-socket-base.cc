@@ -340,7 +340,8 @@ TcpSocketBase::TcpSocketBase (void)
 
   // Resequence Buffer support
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
-  m_resequenceBuffer->SetTcpForwardUpCallback (MakeCallback (&TcpSocketBase::DoForwardUp, this));
+  m_resequenceBuffer->SetTcpForwardUpCallback (
+          MakeCallback (&TcpSocketBase::DoForwardUp, this));
 
   bool ok;
 
