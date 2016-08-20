@@ -61,4 +61,18 @@ Ipv4QueueProbe::BytesInQueueLogger (uint32_t oldValue, uint32_t newValue)
   m_ipv4LinkProbe->BytesInQueueLogger (newValue, m_interfaceId);
 }
 
+void
+Ipv4QueueProbe::PacketsInQueueDiscLogger (uint32_t oldValue, uint32_t newValue)
+{
+  NS_LOG_FUNCTION (this);
+  m_ipv4LinkProbe->PacketsInQueueDiscLogger (newValue, m_interfaceId);
+}
+
+void
+Ipv4QueueProbe::BytesInQueueDiscLogger (uint32_t oldValue, uint32_t newValue)
+{
+  NS_LOG_FUNCTION (this);
+  m_ipv4LinkProbe->BytesInQueueDiscLogger (newValue, m_interfaceId);
+}
+
 }

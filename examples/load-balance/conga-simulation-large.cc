@@ -380,7 +380,7 @@ int main (int argc, char *argv[])
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
 		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
-                for (int k = 0; k < SPINE_COUNT; k++)
+                for (int k = 0; k < LEAF_COUNT; k++)
 		{
 		    if (k != i)
 		    {

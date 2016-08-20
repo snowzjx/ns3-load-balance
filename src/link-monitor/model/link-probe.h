@@ -37,6 +37,10 @@ public:
     uint32_t    packetsInQueue;
 
     uint32_t    bytesInQueue;
+
+    uint32_t    packetsInQueueDisc;
+
+    uint32_t    bytesInQueueDisc;
   };
 
   static TypeId GetTypeId (void);

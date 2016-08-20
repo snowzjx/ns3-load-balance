@@ -34,6 +34,10 @@ public:
 
   void BytesInQueueLogger (uint32_t NBytes, uint32_t interface);
 
+  void PacketsInQueueDiscLogger (uint32_t NPackets, uint32_t interface);
+
+  void BytesInQueueDiscLogger (uint32_t NBytes, uint32_t interface);
+
   void CheckCurrentStatus ();
 
   void Start ();
@@ -54,6 +58,9 @@ private:
 
   std::map<uint32_t, uint32_t> m_NPacketsInQueue;
   std::map<uint32_t, uint32_t> m_NBytesInQueue;
+
+  std::map<uint32_t, uint32_t> m_NPacketsInQueueDisc;
+  std::map<uint32_t, uint32_t> m_NBytesInQueueDisc;
 
   std::map<uint32_t, DataRate> m_dataRate;
 

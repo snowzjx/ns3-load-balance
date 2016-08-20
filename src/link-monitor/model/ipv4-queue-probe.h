@@ -27,6 +27,10 @@ public:
 
   void BytesInQueueLogger (uint32_t oldValue, uint32_t newValue);
 
+  void PacketsInQueueDiscLogger (uint32_t oldValue, uint32_t newValue);
+
+  void BytesInQueueDiscLogger (uint32_t oldValue, uint32_t newValue);
+
 private:
 
   uint32_t m_interfaceId;

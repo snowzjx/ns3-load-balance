@@ -102,7 +102,11 @@ std::string
 LinkMonitor::DefaultFormat (struct LinkProbe::LinkStats stat)
 {
   std::ostringstream oss;
-  oss << stat.txLinkUtility << "/" << stat.packetsInQueue << "/" << stat.bytesInQueue;
+  oss << stat.txLinkUtility << "/"
+      << stat.packetsInQueue << "/"
+      << stat.bytesInQueue << "/"
+      << stat.packetsInQueueDisc << "/"
+      << stat.bytesInQueueDisc;
   return oss.str ();
 }
 

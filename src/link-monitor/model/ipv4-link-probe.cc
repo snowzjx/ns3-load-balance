@@ -40,6 +40,8 @@ Ipv4LinkProbe::Ipv4LinkProbe (Ptr<Node> node, Ptr<LinkMonitor> linkMonitor)
     m_accumulatedDequeueBytes[interface] = 0;
     m_NPacketsInQueue[interface] = 0;
     m_NBytesInQueue[interface] = 0;
+    m_NPacketsInQueueDisc[interface] = 0;
+    m_NBytesInQueueDisc[interface] = 0;
 
     m_queueProbe[interface] = Create<Ipv4QueueProbe> ();
     m_queueProbe[interface]->SetInterfaceId (interface);
@@ -59,6 +61,16 @@ Ipv4LinkProbe::Ipv4LinkProbe (Ptr<Node> node, Ptr<LinkMonitor> linkMonitor)
     oss3 << "/NodeList/" << node->GetId () << "/DeviceList/" << interface << "/TxQueue/BytesInQueue";
     Config::ConnectWithoutContext (oss3.str (),
             MakeCallback (&Ipv4QueueProbe::BytesInQueueLogger, m_queueProbe[interface]));
+
+    std::ostringstream oss4;
+    oss4 << "/NodeList/" << node->GetId () << "/$ns3::TrafficControlLayer/RootQueueDiscList/" << interface << "/PacketsInQueue";
+    Config::ConnectWithoutContext (oss4.str (),
+            MakeCallback (&Ipv4QueueProbe::PacketsInQueueDiscLogger, m_queueProbe[interface]));
+
+    std::ostringstream oss5;
+    oss5 << "/NodeList/" << node->GetId () << "/$ns3::TrafficControlLayer/RootQueueDiscList/" << interface << "BytesInQueue";
+    Config::ConnectWithoutContext (oss5.str (),
+            MakeCallback (&Ipv4QueueProbe::BytesInQueueDiscLogger, m_queueProbe[interface]));
 
   }
 
@@ -109,6 +121,20 @@ Ipv4LinkProbe::BytesInQueueLogger (uint32_t NBytes, uint32_t interface)
 }
 
 void
+Ipv4LinkProbe::PacketsInQueueDiscLogger (uint32_t NPackets, uint32_t interface)
+{
+  NS_LOG_LOGIC ("Packets in queue are now: " << NPackets);
+  m_NPacketsInQueueDisc[interface] = NPackets;
+}
+
+void
+Ipv4LinkProbe::BytesInQueueDiscLogger (uint32_t NBytes, uint32_t interface)
+{
+  NS_LOG_LOGIC ("Bytes in queue are now: " << NBytes);
+  m_NBytesInQueueDisc[interface] = NBytes;
+}
+
+void
 Ipv4LinkProbe::CheckCurrentStatus ()
 {
   for (uint32_t interface = 1; interface < m_ipv4->GetNInterfaces (); ++interface)
@@ -129,6 +155,8 @@ Ipv4LinkProbe::CheckCurrentStatus ()
           Ipv4LinkProbe::GetLinkUtility (interface, m_accumulatedDequeueBytes[interface] - lastDequeueBytes, m_checkTime);
       newStats.packetsInQueue = m_NPacketsInQueue[interface];
       newStats.bytesInQueue = m_NBytesInQueue[interface];
+      newStats.packetsInQueueDisc = m_NPacketsInQueueDisc[interface];
+      newStats.bytesInQueueDisc = m_NBytesInQueueDisc[interface];
       std::vector<struct LinkProbe::LinkStats> newVector;
       newVector.push_back (newStats);
       m_stats[interface] = newVector;
@@ -147,6 +175,8 @@ Ipv4LinkProbe::CheckCurrentStatus ()
           Ipv4LinkProbe::GetLinkUtility (interface, m_accumulatedDequeueBytes[interface] - lastDequeueBytes, m_checkTime);
       newStats.packetsInQueue = m_NPacketsInQueue[interface];
       newStats.bytesInQueue = m_NBytesInQueue[interface];
+      newStats.packetsInQueueDisc = m_NPacketsInQueueDisc[interface];
+      newStats.bytesInQueueDisc = m_NPacketsInQueueDisc[interface];
       (itr->second).push_back (newStats);
     }
   }
