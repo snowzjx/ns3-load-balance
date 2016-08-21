@@ -3,6 +3,7 @@
 
 #include "tcp-congestion-ops.h"
 #include "ns3/traced-value.h"
+#include "ns3/nstime.h"
 
 namespace ns3 {
 
@@ -17,9 +18,11 @@ public:
 
     ~TcpDCTCP ();
 
+    virtual void DoDispose (void);
+
     std::string GetName () const;
 
-    virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time& rtt, bool withECE);
+    virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time &rtt, bool withECE);
     virtual void UpdateAlpha();
     virtual void CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket);
     virtual void IncreaseWindow(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
@@ -31,6 +34,7 @@ public:
 protected:
     double                            m_g;
     TracedValue<double>               m_alpha;
+    Time                              m_rtt;
     bool                              m_isCE;
     bool                              m_hasDelayedACK;
 

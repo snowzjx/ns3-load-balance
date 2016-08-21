@@ -29,7 +29,6 @@
 #include "ns3/simulator.h"
 #include "ns3/ipv4-route.h"
 #include "ns3/ipv6-route.h"
-#include "ns3/flow-id-tag.h"
 
 #include "tcp-l4-protocol.h"
 #include "tcp-header.h"
@@ -554,20 +553,6 @@ TcpL4Protocol::SendPacketV4 (Ptr<Packet> packet, const TcpHeader &outgoing,
   outgoingHeader.InitializeChecksum (saddr, daddr, PROT_NUMBER);
 
   packet->AddHeader (outgoingHeader);
-
-  // XXX Per flow ECMP support
-  // Calculate the flow id and store it in the packet flow id packet tag
-  // NOTE Here we do not use the byte tag since we want the flow id tag to be applied to each packet
-  // after TCP fragmentation
-  uint32_t flowId = 0;
-
-  flowId ^= saddr.Get();
-  flowId ^= daddr.Get();
-  flowId ^= outgoing.GetSourcePort();
-  flowId ^= (outgoing.GetDestinationPort() << 16);
-  flowId ^= PROT_NUMBER;
-
-  packet->AddPacketTag(FlowIdTag(flowId));
 
   Ptr<Ipv4> ipv4 =
     m_node->GetObject<Ipv4> ();

@@ -38,6 +38,7 @@
 #include "rtt-estimator.h"
 #include "tcp-congestion-ops.h"
 #include "tcp-resequence-buffer.h"
+#include "tcp-flow-bender.h"
 
 namespace ns3 {
 
@@ -918,6 +919,9 @@ protected:
    */
   static uint32_t SafeSubtraction (uint32_t a, uint32_t b);
 
+  void AttachFlowId (Ptr<Packet> packet, Ipv4Address &saddr, Ipv4Address &daddr,
+          uint32_t sport, uint32_t dport);
+
 protected:
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
@@ -999,6 +1003,10 @@ protected:
   // Resequence buffer
   bool m_resequenceBufferEnabled;   //!< Whether resequence buffer is enabled
   Ptr<TcpResequenceBuffer>  m_resequenceBuffer;     //!< Resequence buffer
+
+  // Flow Bender
+  bool m_flowBenderEnabled;         //!< Whether the flow bender is enabled
+  Ptr<TcpFlowBender>        m_flowBender;           //!< Flow Bender
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations

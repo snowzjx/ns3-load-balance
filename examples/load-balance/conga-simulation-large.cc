@@ -196,6 +196,7 @@ int main (int argc, char *argv[])
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
     	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
+        Config::SetDefault ("ns3::TcpDCTCP::RTT", TimeValue (8 * LINK_LATENCY));
     }
 
     if (resequenceBuffer)
@@ -280,7 +281,7 @@ int main (int argc, char *argv[])
     }
     else
     {
-	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (5));
+	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
     }
 
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");

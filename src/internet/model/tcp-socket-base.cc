@@ -51,6 +51,7 @@
 #include "tcp-option-ts.h"
 #include "rtt-estimator.h"
 #include "ipv4-ecn-tag.h"
+#include "ns3/flow-id-tag.h"
 
 #include <math.h>
 #include <algorithm>
@@ -342,6 +343,10 @@ TcpSocketBase::TcpSocketBase (void)
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
   m_resequenceBuffer->SetTcpForwardUpCallback (
           MakeCallback (&TcpSocketBase::DoForwardUp, this));
+
+
+  // Flow Bender support
+  m_flowBender = CreateObject<TcpFlowBender> ();
 
   bool ok;
 
@@ -1507,6 +1512,19 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
   // XXX Pass to the congestion control alogrithm that this ACK is with ECE
   bool withECE = false;
+
+  // XXX FlowBender
+  if (m_flowBenderEnabled)
+  {
+    if (withECE)
+    {
+      m_flowBender->ReceivedMarkedPacket ();
+    }
+    else
+    {
+      m_flowBender->ReceivedPacket ();
+    }
+  }
 
   if (m_bytesAckedNotProcessed >= m_tcb->m_segmentSize)
     {
@@ -3682,6 +3700,34 @@ TcpSocketBase::SafeSubtraction (uint32_t a, uint32_t b)
 
   return 0;
 }
+
+void
+TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
+        Ipv4Address &saddr, Ipv4Address &daddr, uint32_t sport, uint32_t dport)
+{
+  const static uint8_t PROT_NUMBER = 6;
+  // XXX Per flow ECMP support
+  // Calculate the flow id and store it in the packet flow id packet tag
+  // NOTE Here we do not use the byte tag since we want the flow id tag to be applied to each packet
+  // after TCP fragmentation
+  uint32_t flowId = 0;
+
+  flowId ^= saddr.Get();
+  flowId ^= daddr.Get();
+  flowId ^= sport;
+  flowId ^= (dport << 16);
+  flowId ^= PROT_NUMBER;
+
+  // XXX Flow Bender support
+  if (m_flowBenderEnabled)
+  {
+    flowId ^= m_flowBender->GetV ();
+  }
+
+  packet->AddPacketTag(FlowIdTag(flowId));
+
+}
+
 
 //RttHistory methods
 RttHistory::RttHistory (SequenceNumber32 s, uint32_t c, Time t)

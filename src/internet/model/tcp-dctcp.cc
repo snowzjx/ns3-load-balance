@@ -16,10 +16,14 @@ TcpDCTCP::GetTypeId (void)
     .SetParent<TcpNewReno> ()
     .SetGroupName ("Internet")
     .AddConstructor<TcpDCTCP> ()
-    .AddAttribute("DCTCP g", "The g in the DCTCP",
+    .AddAttribute("g", "The g in the DCTCP",
                   DoubleValue (0.0625),
                   MakeDoubleAccessor (&TcpDCTCP::m_g),
-                  MakeDoubleChecker<double> (0));
+                  MakeDoubleChecker<double> (0))
+    .AddAttribute ("RTT", "The network RTT",
+                  TimeValue (MicroSeconds (100)),
+                  MakeTimeAccessor (&TcpDCTCP::m_rtt),
+                  MakeTimeChecker ());
 
   return tid;
 }
@@ -28,6 +32,7 @@ TcpDCTCP::TcpDCTCP (void) :
   TcpNewReno (),
   m_g (0.0625),
   m_alpha (1),
+  m_rtt (MicroSeconds (100)),
   m_isCE (false),
   m_hasDelayedACK (false),
   m_bytesAcked (0),
@@ -42,6 +47,7 @@ TcpDCTCP::TcpDCTCP (const TcpDCTCP &sock) :
     TcpNewReno (sock),
   m_g (sock.m_g),
   m_alpha (sock.m_alpha),
+  m_rtt (sock.m_rtt),
   m_isCE (false),
   m_hasDelayedACK (false),
   m_bytesAcked (sock.m_bytesAcked),
@@ -55,6 +61,11 @@ TcpDCTCP::TcpDCTCP (const TcpDCTCP &sock) :
 
 TcpDCTCP::~TcpDCTCP (void)
 {
+}
+
+void
+TcpDCTCP::DoDispose (void)
+{
   m_alphaUpdateEvent.Cancel();
 }
 
@@ -65,19 +76,16 @@ TcpDCTCP::GetName () const
 }
 
 void
-TcpDCTCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time& rtt, bool withECE)
+TcpDCTCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time &rtt, bool withECE)
 {
   NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE);
   m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
   if (withECE) {
     m_ecnBytesAcked += segmentsAcked * tcb->m_segmentSize;
   }
-
-  // In each rtt, the alpha would be updated
-  if (m_needUpdateAlpha) {
-    m_needUpdateAlpha = false;
-    m_alphaUpdateEvent.Cancel();
-    m_alphaUpdateEvent = Simulator::Schedule (rtt, &TcpDCTCP::UpdateAlpha, this);
+  if (!m_alphaUpdateEvent.IsRunning ())
+  {
+    m_alphaUpdateEvent = Simulator::Schedule (m_rtt, &TcpDCTCP::UpdateAlpha, this);
   }
 
 }
@@ -95,7 +103,7 @@ TcpDCTCP::UpdateAlpha()
   m_bytesAcked = 0;
   m_ecnBytesAcked = 0;
   NS_LOG_DEBUG (this << " alpha updated: " << m_alpha);
-  m_needUpdateAlpha = true;
+  m_alphaUpdateEvent = Simulator::Schedule (m_rtt, &TcpDCTCP::UpdateAlpha, this);
 }
 
 void
