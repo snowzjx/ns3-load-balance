@@ -1391,6 +1391,11 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
           h.SetWindowSize (AdvertisedWindowSize ());
           AddOptions (h);
           m_txTrace (p, h, this);
+          if (m_endPoint)
+          {
+            TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
+                    m_endPoint->GetPeerAddress (), tcpHeader.GetSourcePort (), tcpHeader.GetDestinationPort ());
+          }
           m_tcp->SendPacket (p, h, toAddress, fromAddress, m_boundnetdevice);
         }
       break;
@@ -2383,6 +2388,8 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
 
   if (m_endPoint != 0)
     {
+      TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
     }
@@ -2699,6 +2706,8 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
 
   if (m_endPoint)
     {
+      TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
       NS_LOG_DEBUG ("Send segment of size " << sz << " with remaining data " <<
@@ -3161,6 +3170,9 @@ TcpSocketBase::PersistTimeout ()
 
   if (m_endPoint != 0)
     {
+      TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), tcpHeader.GetSourcePort (), tcpHeader.GetDestinationPort ());
+
       m_tcp->SendPacket (p, tcpHeader, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
     }
@@ -3709,7 +3721,7 @@ TcpSocketBase::SafeSubtraction (uint32_t a, uint32_t b)
 
 void
 TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
-        Ipv4Address &saddr, Ipv4Address &daddr, uint32_t sport, uint32_t dport)
+        const Ipv4Address &saddr, const Ipv4Address &daddr, uint16_t sport, uint16_t dport)
 {
   const static uint8_t PROT_NUMBER = 6;
   // XXX Per flow ECMP support

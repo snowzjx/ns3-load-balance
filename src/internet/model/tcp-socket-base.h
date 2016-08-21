@@ -919,8 +919,8 @@ protected:
    */
   static uint32_t SafeSubtraction (uint32_t a, uint32_t b);
 
-  void AttachFlowId (Ptr<Packet> packet, Ipv4Address &saddr, Ipv4Address &daddr,
-          uint32_t sport, uint32_t dport);
+  void AttachFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
+          uint16_t sport, uint16_t dport);
 
 protected:
   // Counters and events
