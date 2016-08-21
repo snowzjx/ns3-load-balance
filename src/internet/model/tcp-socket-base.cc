@@ -138,6 +138,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_resequenceBufferEnabled),
                    MakeBooleanChecker ())
+    .AddAttribute ("FlowBender", "Enable Flow Bender",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_flowBenderEnabled),
+                   MakeBooleanChecker ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -322,6 +326,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_retransOut (0),
     m_ecn (true),
     m_resequenceBufferEnabled (false),
+    m_flowBenderEnabled (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -412,6 +417,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_retransOut (sock.m_retransOut),
     m_ecn (sock.m_ecn),
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
+    m_flowBenderEnabled (sock.m_flowBenderEnabled),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)

@@ -76,7 +76,7 @@ TcpFlowBender::DoDispose (void)
 void
 TcpFlowBender::ReceivedPacket ()
 {
-    if (m_checkEvent.IsRunning ())
+    if (!m_checkEvent.IsRunning ())
     {
         m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
     }
@@ -86,7 +86,7 @@ TcpFlowBender::ReceivedPacket ()
 void
 TcpFlowBender::ReceivedMarkedPacket ()
 {
-    if (m_checkEvent.IsRunning ())
+    if (!m_checkEvent.IsRunning ())
     {
         m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
     }
