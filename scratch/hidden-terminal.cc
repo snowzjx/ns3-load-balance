@@ -123,6 +123,8 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
     Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue (0));
     Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
+    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
+    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
 
     NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
@@ -277,12 +279,14 @@ int main (int argc, char *argv[])
     Ipv4InterfaceAddress destInterface9 = ipv4Object9->GetAddress (1, 0);
     Ipv4Address destAddress9 = destInterface9.GetLocal ();
 
-    OnOffHelper sourceA ("ns3::TcpSocketFactory", InetSocketAddress (destAddress9, FLOW_A_PORT));
-    sourceA.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));
+    /*OnOffHelper sourceA ("ns3::TcpSocketFactory", InetSocketAddress (destAddress9, FLOW_A_PORT));*/
+    BulkSendHelper sourceA ("ns3::TcpSocketFactory", InetSocketAddress (destAddress9, FLOW_A_PORT));
+    /*sourceA.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));*/
+    sourceA.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
     sourceA.SetAttribute ("MaxBytes", UintegerValue(0));
-    sourceA.SetAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
-    sourceA.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    sourceA.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    /*sourceA.SetAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));*/
+    /*sourceA.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));*/
+    /*sourceA.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppA = sourceA.Install (servers.Get (0));
     sourceAppA.Start (Seconds (START_TIME + 0.003));
@@ -299,12 +303,14 @@ int main (int argc, char *argv[])
     Ipv4InterfaceAddress destInterface10 = ipv4Object10->GetAddress (1, 0);
     Ipv4Address destAddress10 = destInterface10.GetLocal ();
 
-    OnOffHelper sourceB ("ns3::TcpSocketFactory", InetSocketAddress (destAddress10, FLOW_B_PORT));
-    sourceB.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));
+    /*OnOffHelper sourceB ("ns3::TcpSocketFactory", InetSocketAddress (destAddress10, FLOW_B_PORT));*/
+    BulkSendHelper sourceB ("ns3::TcpSocketFactory", InetSocketAddress (destAddress10, FLOW_B_PORT));
+    /*sourceB.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));*/
+    sourceA.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
     sourceB.SetAttribute ("MaxBytes", UintegerValue(0));
-    sourceB.SetAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
-    sourceB.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    sourceB.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+    /*sourceB.SetAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));*/
+    /*sourceB.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));*/
+    /*sourceB.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppB = sourceB.Install (servers.Get (3));
     sourceAppB.Start (Seconds (START_TIME + 0.003));
