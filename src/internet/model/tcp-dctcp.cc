@@ -19,11 +19,7 @@ TcpDCTCP::GetTypeId (void)
     .AddAttribute("g", "The g in the DCTCP",
                   DoubleValue (0.0625),
                   MakeDoubleAccessor (&TcpDCTCP::m_g),
-                  MakeDoubleChecker<double> (0))
-    .AddAttribute ("RTT", "The network RTT",
-                  TimeValue (MicroSeconds (100)),
-                  MakeTimeAccessor (&TcpDCTCP::m_rtt),
-                  MakeTimeChecker ());
+                  MakeDoubleChecker<double> (0));
 
   return tid;
 }
@@ -32,13 +28,11 @@ TcpDCTCP::TcpDCTCP (void) :
   TcpNewReno (),
   m_g (0.0625),
   m_alpha (1),
-  m_rtt (MicroSeconds (100)),
   m_isCE (false),
   m_hasDelayedACK (false),
   m_bytesAcked (0),
   m_ecnBytesAcked (0),
-  m_needUpdateAlpha (true),
-  m_alphaUpdateEvent ()
+  m_highTxMark (0)
 {
   NS_LOG_FUNCTION (this);
 }
@@ -47,13 +41,11 @@ TcpDCTCP::TcpDCTCP (const TcpDCTCP &sock) :
     TcpNewReno (sock),
   m_g (sock.m_g),
   m_alpha (sock.m_alpha),
-  m_rtt (sock.m_rtt),
   m_isCE (false),
   m_hasDelayedACK (false),
   m_bytesAcked (sock.m_bytesAcked),
   m_ecnBytesAcked (sock.m_ecnBytesAcked),
-  m_needUpdateAlpha (true),
-  m_alphaUpdateEvent ()
+  m_highTxMark (sock.m_highTxMark)
 {
   NS_LOG_FUNCTION (this);
   NS_LOG_LOGIC ("Invoked the copy constructor");
@@ -63,12 +55,6 @@ TcpDCTCP::~TcpDCTCP (void)
 {
 }
 
-void
-TcpDCTCP::DoDispose (void)
-{
-  m_alphaUpdateEvent.Cancel();
-}
-
 std::string
 TcpDCTCP::GetName () const
 {
@@ -76,18 +62,19 @@ TcpDCTCP::GetName () const
 }
 
 void
-TcpDCTCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time &rtt, bool withECE)
+TcpDCTCP::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
+        const Time &rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber)
 {
-  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE);
+  NS_LOG_FUNCTION (this << tcb << segmentsAcked << rtt << withECE << highTxMark << ackNumber);
   m_bytesAcked += segmentsAcked * tcb->m_segmentSize;
   if (withECE) {
     m_ecnBytesAcked += segmentsAcked * tcb->m_segmentSize;
   }
-  if (!m_alphaUpdateEvent.IsRunning ())
+  if (ackNumber >= m_highTxMark)
   {
-    m_alphaUpdateEvent = Simulator::Schedule (m_rtt, &TcpDCTCP::UpdateAlpha, this);
+    m_highTxMark = highTxMark;
+    TcpDCTCP::UpdateAlpha ();
   }
-
 }
 
 void
@@ -103,7 +90,6 @@ TcpDCTCP::UpdateAlpha()
   m_bytesAcked = 0;
   m_ecnBytesAcked = 0;
   NS_LOG_DEBUG (this << " alpha updated: " << m_alpha);
-  m_alphaUpdateEvent = Simulator::Schedule (m_rtt, &TcpDCTCP::UpdateAlpha, this);
 }
 
 void

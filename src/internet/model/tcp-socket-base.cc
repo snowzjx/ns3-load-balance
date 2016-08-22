@@ -1630,7 +1630,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         }
 
       // Artificially call PktsAcked. After all, one segment has been ACKed.
-      m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE);
+      m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE, m_highTxMark, ackNumber);
     }
   else if (ackNumber == m_txBuffer->HeadSequence ()
            && ackNumber == m_nextTxSequence)
@@ -1665,7 +1665,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
       if (m_tcb->m_congState == TcpSocketState::CA_OPEN)
         {
-          m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE);
+            m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
         }
       // XXX After the CWR has been acked, the CA_CWR exits
       else if (m_tcb->m_congState == TcpSocketState::CA_CWR)
@@ -1677,14 +1677,14 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             m_dupAckCount = 0;
             m_retransOut = 0;
           }
-          m_congestionControl->PktsAcked(m_tcb, segsAcked, m_lastRtt, withECE);
+          m_congestionControl->PktsAcked(m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
         }
       else if (m_tcb->m_congState == TcpSocketState::CA_DISORDER)
         {
           // The network reorder packets. Linux changes the counting lost
           // packet algorithm from FACK to NewReno. We simply go back in Open.
           m_tcb->m_congState = TcpSocketState::CA_OPEN;
-          m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE);
+          m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
           m_dupAckCount = 0;
           m_retransOut = 0;
 
@@ -1736,7 +1736,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
                * previously lost and now successfully received. All others have
                * been processed when they come under the form of dupACKs
                */
-              m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE);
+              m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE, m_highTxMark, ackNumber);
 
               NS_LOG_INFO ("Partial ACK for seq " << ackNumber <<
                            " in fast recovery: cwnd set to " << m_tcb->m_cWnd <<
@@ -1756,7 +1756,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
                * been processed when they come under the form of dupACKs,
                * except the (maybe) new ACKs which come from a new window
                */
-              m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE);
+              m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
               newSegsAcked = (ackNumber - m_recover) / m_tcb->m_segmentSize;
               m_tcb->m_congState = TcpSocketState::CA_OPEN;
 
@@ -1769,7 +1769,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         {
           // Go back in OPEN state
           m_isFirstPartialAck = true;
-          m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE);
+          m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
           m_dupAckCount = 0;
           m_retransOut = 0;
           m_tcb->m_congState = TcpSocketState::CA_OPEN;

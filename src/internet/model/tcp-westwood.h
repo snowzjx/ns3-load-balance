@@ -104,7 +104,7 @@ public:
                                 uint32_t bytesInFlight);
 
   virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t packetsAcked,
-                          const Time& rtt, bool withECE);
+          const Time& rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber);
 
   virtual Ptr<TcpCongestionOps> Fork ();
 

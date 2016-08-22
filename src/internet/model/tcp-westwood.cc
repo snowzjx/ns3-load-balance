@@ -96,7 +96,7 @@ TcpWestwood::~TcpWestwood (void)
 
 void
 TcpWestwood::PktsAcked (Ptr<TcpSocketState> tcb, uint32_t packetsAcked,
-                        const Time& rtt, bool withECE)
+        const Time& rtt, bool withECE, SequenceNumber32 highTxMark, SequenceNumber32 ackNumber)
 {
   NS_LOG_FUNCTION (this << tcb << packetsAcked << rtt <<withECE);
 

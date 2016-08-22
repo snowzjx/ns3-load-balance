@@ -21,6 +21,7 @@
 
 #include "ns3/object.h"
 #include "ns3/timer.h"
+#include "ns3/sequence-number.h"
 
 namespace ns3 {
 
@@ -127,9 +128,12 @@ public:
    * \param segmentsAcked count of segments acked
    * \param rtt last rtt
    * \param withECE whether the ACK is with ECE codepoint
+   * \param highTxMark highest Tx mark in the network
+   * \param ackNumber the ack number associated with this ACK
    */
   virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked,
-                          const Time& rtt, bool withECE) { }
+                          const Time& rtt, bool withECE,
+                          SequenceNumber32 highTxMark, SequenceNumber32 ackNumber) { }
 
   // Present in Linux but not in ns-3 yet:
   /* call before changing ca_state (optional) */
