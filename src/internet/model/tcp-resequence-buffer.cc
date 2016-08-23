@@ -55,6 +55,7 @@ TcpResequenceBuffer::TcpResequenceBuffer ():
     m_inOrderQueueTimer (Simulator::Now ()),
     m_outOrderQueueTimer (Simulator::Now ()),
     m_checkEvent (),
+    m_hasStopped (false),
     m_firstSeq (SequenceNumber32 (0)),
     m_nextSeq (SequenceNumber32 (0))
 {
@@ -79,7 +80,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   NS_LOG_FUNCTION (this << "Buffering the packet: " << packet);
 
   // Turn on the periodical check and reset the timer
-  if (!m_checkEvent.IsRunning ())
+  if (!m_hasStopped && !m_checkEvent.IsRunning ())
   {
     NS_LOG_LOGIC ("Turn on periodical check");
     m_checkEvent = Simulator::Schedule (m_periodicalCheckTime, &TcpResequenceBuffer::PeriodicalCheck, this);
@@ -179,15 +180,10 @@ TcpResequenceBuffer::SetTcp (TcpSocketBase *tcp)
 void
 TcpResequenceBuffer::Stop (void)
 {
-  if (m_checkEvent.IsRunning ())
-  {
-    m_checkEvent.Cancel ();
-  }
-  m_inOrderQueue.clear ();
-  while (!m_outOrderQueue.empty ())
-  {
-    m_outOrderQueue.pop ();
-  }
+  // After the hasStopped flag turned into true, it would never activate the
+  // periodical check event again to prepare for the destruction
+  m_hasStopped = true;
+  m_checkEvent.Cancel ();
   m_tcp = NULL;
 }
 
@@ -252,11 +248,6 @@ TcpResequenceBuffer::PeriodicalCheck ()
 void
 TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element)
 {
-  if (m_tcp == NULL)
-  {
-    NS_LOG_ERROR ("The forwarding up callback has been set to null");
-    return;
-  }
   NS_LOG_INFO ("Flush packet: " << element.m_packet);
   m_tcp->DoForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
 }
@@ -267,10 +258,12 @@ TcpResequenceBuffer::FlushInOrderQueue ()
   NS_LOG_FUNCTION (this);
   // Flush the data
   std::vector<TcpResequenceBufferElement>::iterator itr = m_inOrderQueue.begin ();
-  for (; itr != m_inOrderQueue.end (); ++itr)
+
+  for ( ; itr != m_inOrderQueue.end (); ++itr)
   {
     TcpResequenceBuffer::FlushOneElement (*itr);
   }
+
   m_inOrderQueue.clear ();
 
   // Reset variables

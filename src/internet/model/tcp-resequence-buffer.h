@@ -82,6 +82,7 @@ private:
   Time m_outOrderQueueTimer;
 
   EventId m_checkEvent;
+  bool m_hasStopped;
 
   SequenceNumber32 m_firstSeq;
   SequenceNumber32 m_nextSeq;
