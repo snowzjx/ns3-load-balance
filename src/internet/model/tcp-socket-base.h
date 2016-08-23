@@ -254,6 +254,7 @@ public:
 class TcpSocketBase : public TcpSocket
 {
 friend class TcpCongestionOps;
+friend class TcpResequenceBuffer;
 public:
   /**
    * Get the type ID.

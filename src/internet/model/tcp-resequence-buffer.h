@@ -13,6 +13,8 @@
 namespace ns3
 {
 
+class TcpSocketBase;
+
 class TcpResequenceBufferElement
 {
 
@@ -51,7 +53,9 @@ public:
 
   void BufferPacket (Ptr<Packet> packet, const Address& fromAddress, const Address& toAddress);
 
-  void SetTcpForwardUpCallback (Callback<void, Ptr<Packet>, const Address&, const Address&> callback);
+  void SetTcp (TcpSocketBase *tcp);
+
+  void Stop (void);
 
 private:
 
@@ -88,7 +92,7 @@ private:
       std::vector<TcpResequenceBufferElement>,
       std::greater<TcpResequenceBufferElement> > m_outOrderQueue;
 
-  Callback<void, Ptr<Packet>, const Address&, const Address&> m_tcpForwardUp;
+  TcpSocketBase *m_tcp;
 };
 
 }

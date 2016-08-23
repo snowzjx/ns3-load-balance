@@ -4,6 +4,7 @@
 #include "ns3/simulator.h"
 #include "ns3/tcp-header.h"
 #include "ns3/uinteger.h"
+#include "ns3/tcp-socket-base.h"
 
 namespace ns3
 {
@@ -68,16 +69,7 @@ TcpResequenceBuffer::~TcpResequenceBuffer ()
 void
 TcpResequenceBuffer::DoDispose (void)
 {
-  if (m_checkEvent.IsRunning ())
-  {
-    m_checkEvent.Cancel ();
-  }
-  m_tcpForwardUp = MakeNullCallback<void, Ptr<Packet>, const Address&, const Address&> ();
-  m_inOrderQueue.clear ();
-  while (!m_outOrderQueue.empty ())
-  {
-    m_outOrderQueue.pop ();
-  }
+  NS_LOG_FUNCTION (this);
 }
 
 void
@@ -112,7 +104,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   element.m_isSyn = (tcpHeader.GetFlags () & TcpHeader::SYN) == TcpHeader::SYN ? true: false;
   element.m_isFin = (tcpHeader.GetFlags () & TcpHeader::FIN) == TcpHeader::FIN ? true: false;
   element.m_dataSize = packet->GetSize () - tcpHeader.GetLength () * 4;
-  element.m_packet = Create<Packet> (*packet);
+  element.m_packet = packet;
   element.m_fromAddress = fromAddress;
   element.m_toAddress = toAddress;
 
@@ -177,10 +169,26 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   }
 }
 
+
 void
-TcpResequenceBuffer::SetTcpForwardUpCallback (Callback<void, Ptr<Packet>, const Address& , const Address&> callback)
+TcpResequenceBuffer::SetTcp (TcpSocketBase *tcp)
 {
-  m_tcpForwardUp = callback;
+  m_tcp = tcp;
+}
+
+void
+TcpResequenceBuffer::Stop (void)
+{
+  if (m_checkEvent.IsRunning ())
+  {
+    m_checkEvent.Cancel ();
+  }
+  m_inOrderQueue.clear ();
+  while (!m_outOrderQueue.empty ())
+  {
+    m_outOrderQueue.pop ();
+  }
+  m_tcp = NULL;
 }
 
 bool
@@ -244,13 +252,13 @@ TcpResequenceBuffer::PeriodicalCheck ()
 void
 TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element)
 {
-  if (m_tcpForwardUp.IsNull ())
+  if (m_tcp == NULL)
   {
-    NS_LOG_ERROR ("The forwarding up callback has been settled to null");
+    NS_LOG_ERROR ("The forwarding up callback has been set to null");
     return;
   }
   NS_LOG_INFO ("Flush packet: " << element.m_packet);
-  m_tcpForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
+  m_tcp->DoForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
 }
 
 void

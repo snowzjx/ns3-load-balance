@@ -346,8 +346,7 @@ TcpSocketBase::TcpSocketBase (void)
 
   // Resequence Buffer support
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
-  m_resequenceBuffer->SetTcpForwardUpCallback (
-          MakeCallback (&TcpSocketBase::DoForwardUp, this));
+  m_resequenceBuffer->SetTcp (this);
 
 
   // Flow Bender support
@@ -452,7 +451,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
 
   // Resequence Buffer support
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
-  m_resequenceBuffer->SetTcpForwardUpCallback (MakeCallback (&TcpSocketBase::DoForwardUp, this));
+  m_resequenceBuffer->SetTcp (this);
 
   if (sock.m_congestionControl)
     {
@@ -1198,7 +1197,7 @@ TcpSocketBase::ForwardUp (Ptr<Packet> packet, Ipv4Header header, uint16_t port,
   ipv4EcnTag.SetEcn(header.GetEcn());
   packet->AddPacketTag(ipv4EcnTag);
 
-  // Resequence Buffer Support
+  // XXX Resequence Buffer Support
   if (m_resequenceBufferEnabled)
   {
     // If the resequence buffer is enabled, forwarding the packet is deferred to the resequence buffer
@@ -2432,12 +2431,15 @@ TcpSocketBase::SendRST (void)
 void
 TcpSocketBase::DeallocateEndPoint (void)
 {
+  // XXX Stop the resequence buffer
+  m_resequenceBuffer->Stop ();
   if (m_endPoint != 0)
     {
       CancelAllTimers ();
       m_endPoint->SetDestroyCallback (MakeNullCallback<void> ());
       m_tcp->DeAllocate (m_endPoint);
       m_endPoint = 0;
+      m_resequenceBuffer->Stop ();
       m_tcp->RemoveSocket (this);
     }
   else if (m_endPoint6 != 0)
