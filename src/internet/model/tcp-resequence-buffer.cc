@@ -71,6 +71,12 @@ void
 TcpResequenceBuffer::DoDispose (void)
 {
   NS_LOG_FUNCTION (this);
+  m_inOrderQueue.clear ();
+  while (!m_outOrderQueue.empty ())
+  {
+    m_outOrderQueue.pop ();
+  }
+
 }
 
 void
@@ -261,6 +267,10 @@ TcpResequenceBuffer::FlushInOrderQueue ()
 
   for ( ; itr != m_inOrderQueue.end (); ++itr)
   {
+    if (m_hasStopped)
+    {
+      break;
+    }
     TcpResequenceBuffer::FlushOneElement (*itr);
   }
 
@@ -281,6 +291,10 @@ TcpResequenceBuffer::FlushOutOrderQueue ()
   // Flush the data
   while (!m_outOrderQueue.empty ())
   {
+    if (m_hasStopped)
+    {
+      break;
+    }
     TcpResequenceBuffer::FlushOneElement (m_outOrderQueue.top ());
     m_outOrderQueue.pop ();
   }
