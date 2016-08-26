@@ -57,7 +57,7 @@ CongestionProbing::GetInstanceTypeId () const
 CongestionProbing::CongestionProbing ()
     : m_V (0),
       m_probeEvent (),
-      m_probeAddress (Ipv4Address("127.0.0.1")),
+      m_probeAddress (Ipv4Address ("127.0.0.1")),
       m_flowId (0),
       m_node (),
       m_maxV (8),
@@ -123,14 +123,14 @@ CongestionProbing::StartProbe ()
 void
 CongestionProbing::DoStartProbe ()
 {
-    NS_LOG_LOGIC (this << "Start probing");
+    NS_LOG_LOGIC (this << "Start probing with interval: " << m_probeInterval);
 
     m_socket = m_node->GetObject<Ipv4RawSocketFactory> ()->CreateSocket ();
     m_socket->SetRecvCallback (MakeCallback (&CongestionProbing::ReceivePacket, this));
     m_socket->Bind (InetSocketAddress (Ipv4Address ("0.0.0.0"), 0));
     m_socket->SetAttribute ("IpHeaderInclude", BooleanValue (true));
 
-    m_probeEvent = Simulator::Schedule (m_probeInterval / m_maxV, &CongestionProbing::ProbeEvent, this);
+    m_probeEvent = Simulator::ScheduleNow (&CongestionProbing::ProbeEvent, this);
 }
 
 void
@@ -151,14 +151,14 @@ CongestionProbing::ProbeEvent ()
     Address to = InetSocketAddress (m_probeAddress, 0);
 
     Ptr<Packet> packet = Create<Packet> (0);
-    Ipv4Header ipHeader;
-    ipHeader.SetSource (m_sourceAddress);
-    ipHeader.SetDestination (m_probeAddress);
-    ipHeader.SetProtocol (0);
-    ipHeader.SetPayloadSize (packet->GetSize ());
-    ipHeader.SetEcn (Ipv4Header::ECN_ECT0);
-    ipHeader.SetTtl (255);
-    packet->AddHeader (ipHeader);
+    Ipv4Header newHeader;
+    newHeader.SetSource (m_sourceAddress);
+    newHeader.SetDestination (m_probeAddress);
+    newHeader.SetProtocol (0);
+    newHeader.SetPayloadSize (packet->GetSize ());
+    newHeader.SetEcn (Ipv4Header::ECN_ECT1);
+    newHeader.SetTtl (255);
+    packet->AddHeader (newHeader);
 
     // Flow Id tag
     FlowIdTag flowIdTag (m_flowId ^ m_V); // When flowId ^ V, the ECMP path is changed
@@ -199,26 +199,27 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
             << "/" << probingTag.GetIsReply ()
             << "/" << probingTag.GetSendTime ());
 
-    NS_LOG_LOGIC (this << "Ipv4 Header: " << ipv4Header);
     */
+
+    NS_LOG_LOGIC (this << "Ipv4 Header: " << ipv4Header);
 
     if (probingTag.GetIsReply () == 0)
     {
         // Reply to this packet
-        Ptr<Packet> packet = Create<Packet> (0);
-        Ipv4Header ipHeader;
-        ipHeader.SetSource (m_sourceAddress);
-        ipHeader.SetDestination (ipHeader.GetSource ());
-        ipHeader.SetProtocol (0);
-        ipHeader.SetPayloadSize (packet->GetSize ());
-        ipHeader.SetTtl (255);
-        packet->AddHeader (ipHeader);
+        Ptr<Packet> newPacket = Create<Packet> (0);
+        Ipv4Header newHeader;
+        newHeader.SetSource (m_sourceAddress);
+        newHeader.SetDestination (ipv4Header.GetSource ());
+        newHeader.SetProtocol (0);
+        newHeader.SetPayloadSize (packet->GetSize ());
+        newHeader.SetTtl (255);
+        newPacket->AddHeader (newHeader);
 
         CongestionProbingTag replyProbingTag;
         replyProbingTag.SetV (probingTag.GetV ());
         replyProbingTag.SetIsReply (1);
         replyProbingTag.SetSendTime (probingTag.GetSendTime ());
-        if (ipHeader.GetEcn () == Ipv4Header::ECN_CE)
+        if (ipv4Header.GetEcn () == Ipv4Header::ECN_CE)
         {
             replyProbingTag.SetIsCE (1);
         }
@@ -226,11 +227,11 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
         {
             replyProbingTag.SetIsCE (0);
         }
-        packet->AddPacketTag (replyProbingTag);
+        newPacket->AddPacketTag (replyProbingTag);
 
         Address to = InetSocketAddress (ipv4Header.GetSource (), 0);
 
-        m_socket->SendTo (packet, 0, to);
+        m_socket->SendTo (newPacket, 0, to);
     }
     else
     {
