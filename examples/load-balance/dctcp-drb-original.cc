@@ -23,7 +23,7 @@ double lastd0d1CheckTime;
 
 void Linkd0d1SendPacket (Ptr<const Packet> packet)
 {
-  NS_LOG_UNCOND ("Sending packet: " << packet);
+  //NS_LOG_UNCOND ("Sending packet: " << packet);
 
   double now = Simulator::Now().GetSeconds();
 
@@ -159,7 +159,7 @@ CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
     if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
     {
-        NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
+        //NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
         std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
@@ -171,7 +171,7 @@ CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 static void
 CongChange (TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
 {
-    NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
+    //NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
     std::ofstream fCongPlot (congPlot.c_str (), std::ios::out|std::ios::app);
     fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
 }
@@ -199,7 +199,7 @@ CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot, Gnuplot2dDataset *da
 
   Simulator::Schedule (Seconds (0.0001), &CheckQueueDiscSize, queue, plot, dataset);
 
-  NS_LOG_UNCOND ("Queue disc size: " << qSize);
+  //NS_LOG_UNCOND ("Queue disc size: " << qSize);
 
   std::ofstream fQueueDiscPlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueueDiscPlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
@@ -214,7 +214,7 @@ CheckQueueSize (Ptr<Queue> queue, std::string plot, Gnuplot2dDataset *dataset)
 
   Simulator::Schedule (Seconds (0.0001), &CheckQueueSize, queue, plot, dataset);
 
-  NS_LOG_UNCOND ("Queue size: " << qSize);
+  //NS_LOG_UNCOND ("Queue size: " << qSize);
 
   std::ofstream fQueuePlot (plot.c_str (), std::ios::out|std::ios::app);
   fQueuePlot << Simulator::Now ().GetSeconds () << " " << qSize << std::endl;
@@ -234,7 +234,7 @@ CheckThroughput (Ptr<PacketSink> sink)
 
   Simulator::Schedule (Seconds (0.0001), &CheckThroughput, sink);
 
-  NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.0001 << "bps");
+  //NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.0001 << "bps");
 
   std::ofstream fThroughputPlot (throughputPlot.c_str (), std::ios::out|std::ios::app);
   fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.0001 <<std::endl;
@@ -251,18 +251,20 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (Seconds (0.01)));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (50)));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
     uint32_t drbCount2 = 0;
     bool enableResequenceBuffer = false;
+    bool enableFlowBender = false;
 
     CommandLine cmd;
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("drbCount1", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount1);
     cmd.AddValue ("drbCount2", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount2);
     cmd.AddValue ("resequenceBuffer", "Enable resequence buffer", enableResequenceBuffer);
+    cmd.AddValue ("flowBender", "Enable flow bender", enableFlowBender);
 
     cmd.Parse (argc, argv);
 
@@ -284,6 +286,12 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
         Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (20)));
         Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (1500)));
+    }
+
+    if (enableFlowBender)
+    {
+        Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (800)));
     }
 
     NS_LOG_INFO ("Create nodes.");
@@ -402,6 +410,11 @@ int main (int argc, char *argv[])
         Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
         ipv4Drb4->AddCoreSwitchAddress(drbCount1, i2i4.GetAddress (0));
         ipv4Drb4->AddCoreSwitchAddress(drbCount2, i3i4.GetAddress (0));
+    }
+    else
+    {
+        NS_LOG_INFO ("Enable per flow ECMP");
+        Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue (true));
     }
 
     NS_LOG_INFO ("Setting up routing table");

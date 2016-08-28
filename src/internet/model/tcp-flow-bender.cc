@@ -105,20 +105,27 @@ void
 TcpFlowBender::CheckEvent ()
 {
     double f = static_cast<double> (m_markedPackets) / m_totalPackets;
+    NS_LOG_LOGIC (this << "\tMarked packet: " << m_markedPackets
+            << "\tTotal packet: " << m_totalPackets
+            << "\tf: " << f);
     if (f > m_T)
     {
         m_numCongestionRtt ++;
         if (m_numCongestionRtt >= m_N)
         {
             m_numCongestionRtt = 0;
+            // XXX Do we need to clear the congestion state
             m_V ++;
         }
-
     }
     else
     {
         m_numCongestionRtt = 0;
     }
+
+    m_markedPackets = 0;
+    m_totalPackets = 0;
+
     m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
 }
 

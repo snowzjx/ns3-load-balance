@@ -453,6 +453,9 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
   m_resequenceBuffer->SetTcp (this);
 
+  // Flow Bender support
+  m_flowBender = CreateObject<TcpFlowBender> ();
+
   if (sock.m_congestionControl)
     {
       m_congestionControl = sock.m_congestionControl->Fork ();
@@ -1523,19 +1526,6 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   // XXX Pass to the congestion control alogrithm that this ACK is with ECE
   bool withECE = false;
 
-  // XXX FlowBender
-  if (m_flowBenderEnabled)
-  {
-    if (withECE)
-    {
-      m_flowBender->ReceivedMarkedPacket ();
-    }
-    else
-    {
-      m_flowBender->ReceivedPacket ();
-    }
-  }
-
   if (m_bytesAckedNotProcessed >= m_tcb->m_segmentSize)
     {
       segsAcked += 1;
@@ -1566,6 +1556,19 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         m_tcb->m_queueCWR = true;
         withECE = true;
       }
+  }
+
+  // XXX FlowBender
+  if (m_flowBenderEnabled)
+  {
+    if (tcpHeader.GetFlags() & TcpHeader::ECE)
+    {
+      m_flowBender->ReceivedMarkedPacket ();
+    }
+    else
+    {
+      m_flowBender->ReceivedPacket ();
+    }
   }
 
   if (ackNumber == m_txBuffer->HeadSequence ()
