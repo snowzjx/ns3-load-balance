@@ -40,10 +40,19 @@ CongestionProbing::GetTypeId (void)
                 TimeValue (MicroSeconds (100)),
                 MakeTimeAccessor (&CongestionProbing::m_probeInterval),
                 MakeTimeChecker ())
+        .AddAttribute ("ProbeTimeout",
+                "The timeout for probing event",
+                TimeValue (Seconds (0.1)),
+                MakeTimeAccessor (&CongestionProbing::m_probeTimeout),
+                MakeTimeChecker ())
         .AddTraceSource ("Probing",
                 "The probing event callback",
                 MakeTraceSourceAccessor (&CongestionProbing::m_probingCallback),
-                "ns3::CongestionProbing::ProbingCallback");
+                "ns3::CongestionProbing::ProbingCallback")
+        .AddTraceSource ("ProbingTimeout",
+                "The probing event timeout",
+                MakeTraceSourceAccessor (&CongestionProbing::m_probingTimeoutCallback),
+                "ns3::CongestionProbing::ProbingTimeoutCallback");
 
     return tid;
 }
@@ -57,11 +66,14 @@ CongestionProbing::GetInstanceTypeId () const
 CongestionProbing::CongestionProbing ()
     : m_V (0),
       m_probeEvent (),
+      m_id (0),
+      m_sourceAddress (Ipv4Address ("127.0.0.1")),
       m_probeAddress (Ipv4Address ("127.0.0.1")),
       m_flowId (0),
       m_node (),
       m_maxV (8),
-      m_probeInterval (MicroSeconds (100))
+      m_probeInterval (MicroSeconds (100)),
+      m_probeTimeout (Seconds (0.1))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -69,12 +81,16 @@ CongestionProbing::CongestionProbing ()
 CongestionProbing::CongestionProbing (const CongestionProbing &other)
     : m_V (0),
       m_probeEvent (),
+      m_id (0),
+      m_sourceAddress (other.m_sourceAddress),
       m_probeAddress (other.m_probeAddress),
       m_flowId (other.m_flowId),
       m_node (),
       m_maxV (other.m_maxV),
       m_probeInterval (other.m_probeInterval),
-      m_probingCallback (other.m_probingCallback)
+      m_probeTimeout (other.m_probeTimeout),
+      m_probingCallback (other.m_probingCallback),
+      m_probingTimeoutCallback (other.m_probingTimeoutCallback)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -166,6 +182,7 @@ CongestionProbing::ProbeEvent ()
 
     // Probing tag
     CongestionProbingTag probingTag;
+    probingTag.SetId (m_id);
     probingTag.SetV (m_V);
     probingTag.SetIsReply (0);
     probingTag.SetSendTime (Simulator::Now ());
@@ -174,8 +191,20 @@ CongestionProbing::ProbeEvent ()
 
     m_socket->SendTo (packet, 0, to);
 
+    // Add timeout
+    m_probingTimeoutMap[m_id] = Simulator::Schedule (m_probeTimeout, &CongestionProbing::ProbeEventTimeout, this, m_V);
+
     m_V = (m_V + 1) % m_maxV;
+    m_id++;
+
     m_probeEvent = Simulator::Schedule (m_probeInterval / m_maxV, &CongestionProbing::ProbeEvent, this);
+}
+
+void
+CongestionProbing::ProbeEventTimeout (uint32_t id)
+{
+    m_probingTimeoutMap.erase (id);
+    m_probingTimeoutCallback (id);
 }
 
 void
@@ -216,6 +245,7 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
         newPacket->AddHeader (newHeader);
 
         CongestionProbingTag replyProbingTag;
+        replyProbingTag.SetId (probingTag.GetId ());
         replyProbingTag.SetV (probingTag.GetV ());
         replyProbingTag.SetIsReply (1);
         replyProbingTag.SetSendTime (probingTag.GetSendTime ());
@@ -235,6 +265,19 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
     }
     else
     {
+        std::map<uint32_t, EventId>::iterator itr =
+                m_probingTimeoutMap.find (probingTag.GetId ());
+
+        if (itr == m_probingTimeoutMap.end ())
+        {
+            // The reply has incurred timeout
+            return;
+        }
+
+        // Cancel the timeout timer
+        (itr->second).Cancel ();
+        m_probingTimeoutMap.erase (itr);
+
         // Raise an event
         uint32_t v = probingTag.GetV ();
         Time rtt = Simulator::Now () - probingTag.GetSendTime ();

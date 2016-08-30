@@ -9,6 +9,7 @@
 #include "ns3/nstime.h"
 #include "ns3/event-id.h"
 #include <vector>
+#include <map>
 
 namespace ns3 {
 
@@ -47,10 +48,15 @@ public:
 
     void ProbeEvent ();
 
+    void ProbeEventTimeout(uint32_t id);
+
     void ReceivePacket (Ptr<Socket> socket);
 
     typedef void (*ProbingCallback)
         (uint32_t v, Ptr<Packet> packet, Ipv4Header header, Time rtt, bool isCE);
+
+    typedef void (*ProbingTimeoutCallback)
+        (uint32_t v);
 
 private:
 
@@ -58,6 +64,12 @@ private:
     uint32_t m_V;   // The current V and V follows a round robin fashion (0 - MaxV)
 
     EventId m_probeEvent;
+
+    std::map <uint32_t, EventId> m_probingTimeoutMap;
+
+    uint32_t m_id;
+
+    Ptr<Socket> m_socket;
 
     // Parameters
     Ipv4Address m_sourceAddress;
@@ -68,9 +80,12 @@ private:
     uint32_t m_maxV;
     Time m_probeInterval;
 
-    Ptr<Socket> m_socket;
+    Time m_probeTimeout;
 
+    // Trace source
     TracedCallback <uint32_t, Ptr<Packet>, Ipv4Header ,Time, bool> m_probingCallback;
+
+    TracedCallback <uint32_t> m_probingTimeoutCallback;
 };
 
 }

@@ -26,6 +26,12 @@ void ProbingEvent (uint32_t v, Ptr<Packet> packet, Ipv4Header header, Time rtt, 
   NS_LOG_UNCOND ("Under V: " << v << ", the RTT is " << rtt << " and CE is " << isCE);
 }
 
+
+void ProbingTimeout (uint32_t v)
+{
+  NS_LOG_UNCOND ("Timeout for V: "<< v);
+}
+
 int
 main (int argc, char *argv[])
 {
@@ -47,7 +53,7 @@ main (int argc, char *argv[])
   Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1040));
   Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
 
-  Config::SetDefault ("ns3::CongestionProbing::ProbingInterval", TimeValue (Seconds (0.001)));
+  Config::SetDefault ("ns3::CongestionProbing::ProbingInterval", TimeValue (Seconds (0.01)));
 
   Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
 
@@ -79,6 +85,12 @@ main (int argc, char *argv[])
 
   bool traceConnectionResult =
         probing1->TraceConnectWithoutContext ("Probing", MakeCallback (&ProbingEvent));
+  if (!traceConnectionResult)
+  {
+    NS_LOG_ERROR ("Connection failed");
+  }
+
+  traceConnectionResult = probing1->TraceConnectWithoutContext ("ProbingTimeout", MakeCallback (&ProbingTimeout));
   if (!traceConnectionResult)
   {
     NS_LOG_ERROR ("Connection failed");
