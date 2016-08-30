@@ -58,6 +58,7 @@ enum RunMode {
     CONGA_ECMP,
     PRESTO,
     DRB,
+    FlowBender,
     ECMP
 };
 
@@ -141,15 +142,19 @@ int main (int argc, char *argv[])
     std::string transportProt = "Tcp";
     bool asym = false;
     bool resequenceBuffer = false;
+    double flowBenderT = 0.05;
+    uint32_t flowBenderN = 5;
 
     CommandLine cmd;
-    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), ECMP", runModeStr);
+    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
     cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
+    cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
+    cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -172,6 +177,10 @@ int main (int argc, char *argv[])
     else if (runModeStr.compare ("DRB") == 0)
     {
         runMode = DRB;
+    }
+    else if (runModeStr.compare ("FlowBender") == 0)
+    {
+        runMode = FlowBender;
     }
     else if (runModeStr.compare ("ECMP") == 0)
     {
@@ -251,14 +260,23 @@ int main (int argc, char *argv[])
         internet.SetDrb (true);
         internet.Install (leaves);
     }
-    else if (runMode == ECMP)
+    else if (runMode == ECMP || runMode == FlowBender)
     {
-	internet.SetRoutingHelper (globalRoutingHelper);
+	    internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
 
-	internet.Install (servers);
-	internet.Install (spines);
+	    internet.Install (servers);
+	    internet.Install (spines);
     	internet.Install (leaves);
+    }
+
+    if (runMode == FlowBender)
+    {
+        NS_LOG_INFO ("Enabling Flow Bender");
+        Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
+        Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
+        Config::SetDefault ("ns3::TcpFlowBender::N", UintegerValue (flowBenderN));
     }
 
     NS_LOG_INFO ("Install channels and assign addresses");
@@ -419,7 +437,7 @@ int main (int argc, char *argv[])
 
     }
 
-    if (runMode == ECMP || runMode == PRESTO || runMode == DRB)
+    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
@@ -530,6 +548,11 @@ int main (int argc, char *argv[])
     {
         flowMonitorFilename << "ecmp-simulation-";
         linkMonitorFilename << "ecmp-simulation-";
+    }
+    else if (runMode == FlowBender)
+    {
+        flowMonitorFilename << "flow-bender-" << flowBenderT << "-" << flowBenderN << "-simulation-";
+        linkMonitorFilename << "flow-bender-" << flowBenderT << "-" << flowBenderN << "-simulation-";
     }
 
     flowMonitorFilename << randomSeed << "-";
