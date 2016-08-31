@@ -251,13 +251,14 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (50)));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (1000)));
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
     uint32_t drbCount2 = 0;
     bool enableResequenceBuffer = false;
     bool enableFlowBender = false;
+    double flowBenderT = 0.05;
 
     CommandLine cmd;
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
@@ -265,6 +266,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("drbCount2", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount2);
     cmd.AddValue ("resequenceBuffer", "Enable resequence buffer", enableResequenceBuffer);
     cmd.AddValue ("flowBender", "Enable flow bender", enableFlowBender);
+    cmd.AddValue ("flowBenderT", "T in the flow bender", flowBenderT);
 
     cmd.Parse (argc, argv);
 
@@ -274,6 +276,7 @@ int main (int argc, char *argv[])
     }
     else if (transportProt.compare ("DcTcp") == 0)
     {
+        NS_LOG_INFO ("Enabling DcTcp");
         Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
     }
     else
@@ -290,8 +293,10 @@ int main (int argc, char *argv[])
 
     if (enableFlowBender)
     {
+        NS_LOG_INFO ("Enabling Flow Bender");
         Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (800)));
+        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
+        Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
     }
 
     NS_LOG_INFO ("Create nodes.");
@@ -322,8 +327,9 @@ int main (int argc, char *argv[])
     PointToPointHelper p2p;
 
     Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
-    Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1040));
-    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
+    Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1400));
+    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (250));
+    Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
 
     TrafficControlHelper tc;
     tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
@@ -339,7 +345,7 @@ int main (int argc, char *argv[])
     }
 
     p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
-    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
+    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(10)));
 
     remove (d0d1Rate.c_str ());
 
@@ -359,11 +365,12 @@ int main (int argc, char *argv[])
     NetDeviceContainer d4d5 = p2p.Install (n4n5);
     QueueDiscContainer qd4d5 = tc.Install (d4d5);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Mbps"));
+    //Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
 
     TrafficControlHelper tc2;
-    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (20),
-                                               "MaxTh", DoubleValue (20));
+    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
+                                               "MaxTh", DoubleValue (65));
 
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
     tc2.Install (d1d3);

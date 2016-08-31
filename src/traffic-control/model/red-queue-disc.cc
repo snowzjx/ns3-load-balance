@@ -322,8 +322,9 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
     }
 
   // simulate number of packets arrival during idle period
-  uint32_t m = 0;
+  //uint32_t m = 0;
 
+  /*
   if (m_idle == 1)
     {
       NS_LOG_DEBUG ("RED Queue Disc is idle.");
@@ -341,8 +342,10 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
 
       m_idle = 0;
     }
+  */
 
-  m_qAvg = Estimator (nQueued, m + 1, m_qAvg, m_qW);
+  //m_qAvg = Estimator (nQueued, m + 1, m_qAvg, m_qW);
+  m_qAvg = nQueued;
 
   NS_LOG_DEBUG ("\t bytesInQueue  " << GetInternalQueue (0)->GetNBytes () << "\tQavg " << m_qAvg);
   NS_LOG_DEBUG ("\t packetsInQueue  " << GetInternalQueue (0)->GetNPackets () << "\tQavg " << m_qAvg);

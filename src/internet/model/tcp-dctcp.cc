@@ -84,12 +84,12 @@ TcpDCTCP::UpdateAlpha()
   if (m_bytesAcked == 0) {
       f = 0.0;
   } else {
-      f = static_cast<double>(m_ecnBytesAcked) / m_bytesAcked;
+      f = static_cast<double>(m_ecnBytesAcked) / static_cast<double>(m_bytesAcked);
   }
   m_alpha = (1 - m_g) * m_alpha + m_g * f;
+  NS_LOG_LOGIC (this << Simulator::Now () << " alpha updated: " << m_alpha << " and f: " << f << " bytes: " << m_bytesAcked << " ece bytes: " << m_ecnBytesAcked);
   m_bytesAcked = 0;
   m_ecnBytesAcked = 0;
-  NS_LOG_DEBUG (this << " alpha updated: " << m_alpha);
 }
 
 void
@@ -97,7 +97,7 @@ TcpDCTCP::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBas
 {
   if (ev == TcpCongestionOps::CA_EVENT_ECN_IS_CE && m_isCE == false) // No CE -> CE
   {
-    NS_LOG_LOGIC (this << " No CE -> CE ");
+    NS_LOG_LOGIC (this << Simulator::Now () << " No CE -> CE ");
     // Note, since the event occurs before writing the data into the buffer,
     // the AckNumber would be the old one, which satisfies our state machine
     if (m_hasDelayedACK)
