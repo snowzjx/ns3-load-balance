@@ -43,7 +43,9 @@ TcpFlowBender::TcpFlowBender ()
      m_checkEvent(),
      m_rtt(MicroSeconds (100)),
      m_T (0.05),
-     m_N (5)
+     m_N (5),
+     m_totalPacketsStatis (0),
+     m_markedPacketsStatis (0)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -57,7 +59,9 @@ TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
      m_checkEvent (),
      m_rtt (other.m_rtt),
      m_T (other.m_T),
-     m_N (other.m_N)
+     m_N (other.m_N),
+     m_totalPacketsStatis (0),
+     m_markedPacketsStatis (0)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -71,6 +75,7 @@ void
 TcpFlowBender::DoDispose (void)
 {
     m_checkEvent.Cancel ();
+    NS_LOG_INFO (this <<"Statistics: " << static_cast<double>(m_markedPacketsStatis) / m_totalPacketsStatis);
 }
 
 void
@@ -81,6 +86,7 @@ TcpFlowBender::ReceivedPacket ()
         m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
     }
     m_totalPackets++;
+    m_totalPacketsStatis++;
 }
 
 void
@@ -92,6 +98,8 @@ TcpFlowBender::ReceivedMarkedPacket ()
     }
     m_totalPackets++;
     m_markedPackets++;
+    m_totalPacketsStatis++;
+    m_markedPacketsStatis++;
 }
 
 uint32_t

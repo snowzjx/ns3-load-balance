@@ -1554,14 +1554,18 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         m_tcb->m_cWnd = m_congestionControl->GetCwnd(m_tcb);
         m_tcb->m_congState = TcpSocketState::CA_CWR;
         m_tcb->m_queueCWR = true;
-        withECE = true;
       }
+  }
+
+  if (tcpHeader.GetFlags() & TcpHeader::ECE)
+  {
+    withECE = true;
   }
 
   // XXX FlowBender
   if (m_flowBenderEnabled)
   {
-    if (tcpHeader.GetFlags() & TcpHeader::ECE)
+    if (withECE)
     {
       m_flowBender->ReceivedMarkedPacket ();
     }

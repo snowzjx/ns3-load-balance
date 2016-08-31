@@ -6,6 +6,7 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
+#include "ns3/congestion-probing-module.h"
 
 #include "ns3/gnuplot.h"
 
@@ -157,15 +158,15 @@ DoGnuPlot (std::string transportProt) {
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
-    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
-    {
+    //if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
+    //{
         //NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
         std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
 
         cwndDataset.Add(Simulator::Now ().GetSeconds (), newCwnd);
-    }
+    //}
 }
 
 static void
@@ -197,7 +198,7 @@ CheckQueueDiscSize (Ptr<QueueDisc> queue, std::string plot, Gnuplot2dDataset *da
 {
   uint32_t qSize = StaticCast<RedQueueDisc> (queue)->GetQueueSize ();
 
-  Simulator::Schedule (Seconds (0.0001), &CheckQueueDiscSize, queue, plot, dataset);
+  Simulator::Schedule (Seconds (0.00001), &CheckQueueDiscSize, queue, plot, dataset);
 
   //NS_LOG_UNCOND ("Queue disc size: " << qSize);
 
@@ -242,6 +243,30 @@ CheckThroughput (Ptr<PacketSink> sink)
   throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.0001);
 }
 
+uint32_t v0PacketTotal = 0;
+uint32_t v0PacketMarked = 0;
+uint32_t v1PacketTotal = 0;
+uint32_t v1PacketMarked = 0;
+
+void ProbingEvent (uint32_t v, Ptr<Packet> packet, Ipv4Header header, Time rtt, bool isCE)
+{
+    if (v == 0)
+    {
+        v0PacketTotal ++;
+        if (isCE)
+        {
+            v0PacketMarked ++;
+        }
+    }
+    else
+    {
+        v1PacketTotal ++;
+        if (isCE)
+        {
+            v1PacketMarked ++;
+        }
+    }
+}
 
 int main (int argc, char *argv[])
 {
@@ -328,7 +353,7 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1400));
-    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (250));
+    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (400));
     Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
 
     TrafficControlHelper tc;
@@ -432,18 +457,49 @@ int main (int argc, char *argv[])
 
     uint16_t port = 8080;
 
+    for (int i = 0; i < 20; i ++)
+    {
     BulkSendHelper source ("ns3::TcpSocketFactory",
-            InetSocketAddress (i4i5.GetAddress(1), port));
+            InetSocketAddress (i4i5.GetAddress(1), port + i));
     source.SetAttribute ("MaxBytes", UintegerValue (0));
+    source.SetAttribute ("SendSize", UintegerValue (1400));
     ApplicationContainer sourceApps = source.Install (c.Get (0));
     sourceApps.Start (Seconds (0.0));
-    sourceApps.Stop (Seconds (0.1));
+    sourceApps.Stop (Seconds (0.04));
 
     PacketSinkHelper sink ("ns3::TcpSocketFactory",
-            InetSocketAddress (Ipv4Address::GetAny (), port));
+            InetSocketAddress (Ipv4Address::GetAny (), port + i));
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
     sinkApp.Start (Seconds (0.0));
-    sinkApp.Stop (Seconds (0.1));
+    sinkApp.Stop (Seconds (0.04));
+    }
+
+    Config::SetDefault ("ns3::CongestionProbing::ProbingInterval", TimeValue (MicroSeconds (80)));
+    Config::SetDefault ("ns3::CongestionProbing::ProbeTimeout", TimeValue (MicroSeconds (300)));
+    Config::SetDefault ("ns3::CongestionProbing::MaxV", UintegerValue (2));
+
+    Ptr<CongestionProbing> probing1= CreateObject<CongestionProbing> ();
+    probing1->SetFlowId (1);
+    probing1->SetSourceAddress (i0i1.GetAddress (0));
+    probing1->SetProbeAddress (i4i5.GetAddress (1));
+    probing1->SetNode (c.Get (0));
+    probing1->StopProbe (Seconds (0.04));
+    //probing1->StartProbe ();
+
+    Ptr<CongestionProbing> probing2= CreateObject<CongestionProbing> ();
+    probing2->SetFlowId (2);
+    probing2->SetSourceAddress (i4i5.GetAddress (1));
+    probing2->SetProbeAddress (i0i1.GetAddress (0));
+    probing2->SetNode (c.Get (5));
+    probing2->StopProbe (Seconds (0.04));
+    //probing2->StartProbe ();
+
+    bool traceConnectionResult = probing1->TraceConnectWithoutContext ("Probing", MakeCallback (&ProbingEvent));
+    if (!traceConnectionResult)
+    {
+        NS_LOG_ERROR ("Connection failed");
+        return -1;
+    }
 
     //cwndPlot << "cwnd.plotme";
     //congPlot << "cong.plotme";
@@ -529,16 +585,19 @@ int main (int argc, char *argv[])
     Ptr<Queue> queue4 = DynamicCast<PointToPointNetDevice>(nd4)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue4, queuePlot4, &queue4Dataset);
 
-    Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
-    Simulator::ScheduleNow (&CheckThroughput, pktSink);
+    //Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
+    //Simulator::ScheduleNow (&CheckThroughput, pktSink);
 
     p2p.EnablePcapAll ("load-balance");
 
     NS_LOG_INFO ("Run Simulations");
 
-    Simulator::Stop (Seconds (0.1));
+    Simulator::Stop (Seconds (0.04));
     Simulator::Run ();
     Simulator::Destroy ();
+
+    NS_LOG_INFO ("Probing in V0: " << static_cast<double>(v0PacketMarked) / v0PacketTotal);
+    NS_LOG_INFO ("Probing in V1: " << static_cast<double>(v1PacketMarked) / v1PacketTotal);
 
     DoGnuPlot (transportProt);
 

@@ -362,6 +362,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
           NS_LOG_DEBUG ("adding DROP FORCED MARK");
           dropType = DTYPE_FORCED;
         }
+#if 0
       else if (m_old == 0)
         {
           /*
@@ -379,6 +380,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
           NS_LOG_LOGIC ("DropEarly returns 1");
           dropType = DTYPE_UNFORCED;
         }
+#endif
     }
   else
     {

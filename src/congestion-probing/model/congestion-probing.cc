@@ -57,6 +57,12 @@ CongestionProbing::GetTypeId (void)
     return tid;
 }
 
+template<typename T>
+T rand_range (T min, T max)
+{
+    return min + ((double)max - min) * rand () / RAND_MAX;
+}
+
 TypeId
 CongestionProbing::GetInstanceTypeId () const
 {
@@ -189,15 +195,22 @@ CongestionProbing::ProbeEvent ()
     probingTag.SetIsCE (0);
     packet->AddPacketTag (probingTag);
 
-    m_socket->SendTo (packet, 0, to);
+    //for (int i = 0; i < 1; i ++)
+    //{
+        m_socket->SendTo (packet->Copy (), 0, to);
+        m_id ++;
+    //}
 
     // Add timeout
     m_probingTimeoutMap[m_id] = Simulator::Schedule (m_probeTimeout, &CongestionProbing::ProbeEventTimeout, this, m_V);
 
     m_V = (m_V + 1) % m_maxV;
-    m_id++;
+    //m_id++;
 
-    m_probeEvent = Simulator::Schedule (m_probeInterval / m_maxV, &CongestionProbing::ProbeEvent, this);
+    double noise = rand_range (0.0, m_probeTimeout.GetSeconds ());
+    Time noiseTime = Seconds (noise);
+
+    m_probeEvent = Simulator::Schedule (m_probeInterval / m_maxV + noiseTime, &CongestionProbing::ProbeEvent, this);
 }
 
 void

@@ -41,6 +41,9 @@ private:
     double m_T;
     uint32_t m_N;
 
+    // Used for statistics
+    uint32_t m_totalPacketsStatis;
+    uint32_t m_markedPacketsStatis;
 };
 
 }

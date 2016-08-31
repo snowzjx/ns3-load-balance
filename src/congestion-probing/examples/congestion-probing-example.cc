@@ -4,7 +4,7 @@
 #include "ns3/network-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
-#include "ns3/congestion-probing-helper.h"
+#include "ns3/congestion-probing-module.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/applications-module.h"
 #include "ns3/link-monitor-module.h"
@@ -122,12 +122,12 @@ main (int argc, char *argv[])
   Ptr<LinkMonitor> linkMonitor = Create<LinkMonitor> ();
   Ptr<Ipv4LinkProbe> linkProbe0 = Create<Ipv4LinkProbe> (nodes.Get (0), linkMonitor);
   linkProbe0->SetProbeName ("Node 0");
-  linkProbe0->SetCheckTime (Seconds (0.01));
+  linkProbe0->SetCheckTime (MicroSeconds (200));
   linkProbe0->SetDataRateAll (DataRate (1e9));
 
   Ptr<Ipv4LinkProbe> linkProbe1 = Create<Ipv4LinkProbe> (nodes.Get (1), linkMonitor);
   linkProbe1->SetProbeName ("Node 1");
-  linkProbe1->SetCheckTime (Seconds (0.01));
+  linkProbe1->SetCheckTime (MicroSeconds (200));
   linkProbe1->SetDataRateAll (DataRate (1e9));
 
   linkMonitor->Start (Seconds (0.0));
