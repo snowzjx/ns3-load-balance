@@ -93,7 +93,8 @@ DefaultFormat (struct LinkProbe::LinkStats stat)
       //<< stat.bytesInQueue << "/"
       //<< stat.packetsInQueueDisc << "/"
       //<< stat.bytesInQueueDisc;
-  oss << stat.packetsInQueue;
+  /*oss << stat.packetsInQueue;*/
+  oss << stat.packetsInQueueDisc;
   return oss.str ();
 }
 
@@ -117,6 +118,7 @@ int main (int argc, char *argv[])
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
     	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
+    	Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
     }
 
     NS_LOG_INFO ("Config parameters");
