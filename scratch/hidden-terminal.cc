@@ -13,6 +13,7 @@
 
 #include <vector>
 #include <utility>
+#include <string>
 
 // There are 1 server connecting to each leaf switch
 #define SERVER_COUNT 3
@@ -45,22 +46,39 @@ NS_LOG_COMPONENT_DEFINE ("HiddenTerminal");
 
 double lastCwndCheckTime;
 
-std::string cwndPlot = "cwnd.plotme";
-
-Gnuplot2dDataset cwndDataset;
+Gnuplot2dDataset cwndDataset6;
+Gnuplot2dDataset cwndDataset9;
+Gnuplot2dDataset cwndDataset12;
 
 static void
 CwndChange (std::string msg, uint32_t oldCwnd, uint32_t newCwnd)
 {
-    //NS_LOG_INFO (msg);
+    std::string cwndPlot;
     if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
     {
         NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
+        if (msg.find ("6") != std::string::npos)
+        {
+            cwndPlot = "cwnd6.plotme";
+            cwndDataset6.Add(Simulator::Now ().GetSeconds (), newCwnd);
+        }
+        else if (msg.find ("9") != std::string::npos)
+        {
+            cwndPlot = "cwnd9.plotme";
+            cwndDataset9.Add(Simulator::Now ().GetSeconds (), newCwnd);
+        }
+        else if (msg.find ("12") != std::string::npos)
+        {
+            cwndPlot = "cwnd12.plotme";
+            cwndDataset12.Add(Simulator::Now ().GetSeconds (), newCwnd);
+        }
+        else
+        {
+            NS_LOG_ERROR ("Connection failed");
+        }
         std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
-
-        cwndDataset.Add(Simulator::Now ().GetSeconds (), newCwnd);
     }
 }
 
@@ -68,20 +86,36 @@ static void
 TraceCwnd ()
 {
     std::stringstream ss;
-    ss << "/NodeList/11/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow";
+    ss << "/NodeList/*/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow";
     Config::Connect (ss.str (), MakeCallback (&CwndChange));
 }
 
 void
 DoGnuPlot ()
 {
-    Gnuplot cwndGnuPlot ("cwnd.png");
-    cwndGnuPlot.SetTitle("Cwnd");
-    cwndGnuPlot.SetTerminal("png");
-    cwndGnuPlot.AddDataset (cwndDataset);
-    std::ofstream cwndPlotFile ("cwnd.plt");
-    cwndGnuPlot.GenerateOutput (cwndPlotFile);
-    cwndPlotFile.close();
+    Gnuplot cwndGnuPlot6 ("cwnd6.png");
+    cwndGnuPlot6.SetTitle("Cwnd");
+    cwndGnuPlot6.SetTerminal("png");
+    cwndGnuPlot6.AddDataset (cwndDataset6);
+    std::ofstream cwndPlotFile6 ("cwnd6.plt");
+    cwndGnuPlot6.GenerateOutput (cwndPlotFile6);
+    cwndPlotFile6.close();
+
+    Gnuplot cwndGnuPlot9 ("cwnd9.png");
+    cwndGnuPlot9.SetTitle("Cwnd");
+    cwndGnuPlot9.SetTerminal("png");
+    cwndGnuPlot9.AddDataset (cwndDataset9);
+    std::ofstream cwndPlotFile9 ("cwnd9.plt");
+    cwndGnuPlot9.GenerateOutput (cwndPlotFile9);
+    cwndPlotFile9.close();
+
+    Gnuplot cwndGnuPlot12 ("cwnd12.png");
+    cwndGnuPlot12.SetTitle("Cwnd");
+    cwndGnuPlot12.SetTerminal("png");
+    cwndGnuPlot12.AddDataset (cwndDataset12);
+    std::ofstream cwndPlotFile12 ("cwnd12.plt");
+    cwndGnuPlot12.GenerateOutput (cwndPlotFile12);
+    cwndPlotFile12.close();
 }
 
 std::string
@@ -94,6 +128,7 @@ DefaultFormat (struct LinkProbe::LinkStats stat)
       //<< stat.packetsInQueueDisc << "/"
       //<< stat.bytesInQueueDisc;
   /*oss << stat.packetsInQueue;*/
+  oss << stat.txLinkUtility << ",";
   oss << stat.packetsInQueueDisc;
   return oss.str ();
 }
@@ -291,7 +326,7 @@ int main (int argc, char *argv[])
     /*sourceA.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppA = sourceA.Install (servers.Get (0));
-    sourceAppA.Start (Seconds (START_TIME + 0.01));
+    sourceAppA.Start (Seconds (START_TIME));
     sourceAppA.Stop (Seconds (END_TIME));
 
     PacketSinkHelper sinkA ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_A_PORT));
@@ -320,7 +355,7 @@ int main (int argc, char *argv[])
 
     PacketSinkHelper sinkB ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_B_PORT));
     ApplicationContainer sinkAppB = sinkB.Install (servers.Get (10));
-    sinkAppB.Start (Seconds (START_TIME + 0.02));
+    sinkAppB.Start (Seconds (START_TIME));
     sinkAppB.Stop (Seconds (END_TIME));
 
     NS_LOG_INFO ("Creating Flow C");
@@ -381,10 +416,18 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Enable Cwnd tracing");
 
-    remove (cwndPlot.c_str ());
+    remove ("cwnd6.plt");
+    remove ("cwnd9.plt");
+    remove ("cwnd12.plt");
 
-    cwndDataset.SetTitle("Cwnd");
-    cwndDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+    cwndDataset6.SetTitle("Cwnd");
+    cwndDataset6.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    cwndDataset9.SetTitle("Cwnd");
+    cwndDataset9.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    cwndDataset12.SetTitle("Cwnd");
+    cwndDataset12.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
     Simulator::Schedule (Seconds (0.001), &TraceCwnd);
 
@@ -397,8 +440,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "hidden-terminal-flow-monitor.xml";
-    linkMonitorFilename << "hidden-terminal-link-monitor.out";
+    flowMonitorFilename << "new-hidden-terminal-flow-monitor.xml";
+    linkMonitorFilename << "new-hidden-terminal-link-monitor.out";
 
     flowMonitor->SerializeToXmlFile(flowMonitorFilename.str (), true, true);
     linkMonitor->OutputToFile (linkMonitorFilename.str (), &DefaultFormat);
