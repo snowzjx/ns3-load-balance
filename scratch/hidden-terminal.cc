@@ -123,8 +123,8 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
     Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue (0));
     Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
-    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
+    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000));
+    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000));
 
     NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
@@ -289,7 +289,7 @@ int main (int argc, char *argv[])
     /*sourceA.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppA = sourceA.Install (servers.Get (0));
-    sourceAppA.Start (Seconds (START_TIME + 0.003));
+    sourceAppA.Start (Seconds (START_TIME));
     sourceAppA.Stop (Seconds (END_TIME));
 
     PacketSinkHelper sinkA ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_A_PORT));
@@ -313,7 +313,7 @@ int main (int argc, char *argv[])
     /*sourceB.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppB = sourceB.Install (servers.Get (3));
-    sourceAppB.Start (Seconds (START_TIME + 0.003));
+    sourceAppB.Start (Seconds (START_TIME));
     sourceAppB.Stop (Seconds (END_TIME));
 
     PacketSinkHelper sinkB ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_B_PORT));
@@ -331,8 +331,8 @@ int main (int argc, char *argv[])
     sourceC.SetAttribute ("PacketSize", UintegerValue (PACKET_SIZE));
     sourceC.SetAttribute ("MaxBytes", UintegerValue(0));
     sourceC.SetAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
-    sourceC.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    sourceC.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.003]"));
+    sourceC.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.5]"));
+    sourceC.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.005]"));
 
     ApplicationContainer sourceAppC = sourceC.Install (servers.Get (6));
     sourceAppC.Start (Seconds (START_TIME));
