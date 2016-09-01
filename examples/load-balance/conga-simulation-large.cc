@@ -206,12 +206,14 @@ int main (int argc, char *argv[])
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
     	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
-        Config::SetDefault ("ns3::RedQueueDisc::Quota", UintegerValue (BUFFER_SIZE));
+        Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
     }
     else
     {
-        Config::SetDefault ("ns3::PfifoFastQueueDisc::Limit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
-        Config::SetDefault ("ns3::PfifoFastQueueDisc::Quota", UintegerValue (BUFFER_SIZE));
+        Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
+    	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
+    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
+        Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
     }
 
     if (resequenceBuffer)
@@ -299,7 +301,8 @@ int main (int argc, char *argv[])
     }
     else
     {
-        tc.SetRootQueueDisc ("ns3::PfifoFastQueueDisc");
+        tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (QUEUE_DISC_BUFFER_SIZE),
+                                                  "MaxTh", DoubleValue (QUEUE_DISC_BUFFER_SIZE));
     }
 
     NS_LOG_INFO ("Configuring servers");
