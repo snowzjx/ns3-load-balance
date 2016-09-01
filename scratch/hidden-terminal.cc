@@ -68,7 +68,7 @@ static void
 TraceCwnd ()
 {
     std::stringstream ss;
-    ss << "/NodeList/12/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow";
+    ss << "/NodeList/11/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow";
     Config::Connect (ss.str (), MakeCallback (&CwndChange));
 }
 
@@ -289,7 +289,7 @@ int main (int argc, char *argv[])
     /*sourceA.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));*/
 
     ApplicationContainer sourceAppA = sourceA.Install (servers.Get (0));
-    sourceAppA.Start (Seconds (START_TIME));
+    sourceAppA.Start (Seconds (START_TIME + 0.01));
     sourceAppA.Stop (Seconds (END_TIME));
 
     PacketSinkHelper sinkA ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_A_PORT));
@@ -318,7 +318,7 @@ int main (int argc, char *argv[])
 
     PacketSinkHelper sinkB ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), FLOW_B_PORT));
     ApplicationContainer sinkAppB = sinkB.Install (servers.Get (10));
-    sinkAppB.Start (Seconds (START_TIME));
+    sinkAppB.Start (Seconds (START_TIME + 0.02));
     sinkAppB.Stop (Seconds (END_TIME));
 
     NS_LOG_INFO ("Creating Flow C");
