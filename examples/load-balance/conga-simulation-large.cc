@@ -214,6 +214,7 @@ int main (int argc, char *argv[])
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
     	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
         Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
+        Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
     }
 
     if (resequenceBuffer)
