@@ -28,7 +28,7 @@
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 1.5
+#define END_TIME 3.5
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define FLOW_A_PORT 5000
