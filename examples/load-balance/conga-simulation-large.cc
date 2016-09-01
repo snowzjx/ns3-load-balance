@@ -28,13 +28,14 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define BUFFER_SIZE 250                           // 250 Packets
+#define QUEUE_DISC_BUFFER_SIZE 250                // 250 packets
+#define BUFFER_SIZE 10                            // 10 packets
 
-#define RED_QUEUE_MARKING 65 			  // 65 Packets (available only in DcTcp)
+#define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 20.0
+#define END_TIME 10.0
 
 #define FLOW_LAUNCH_END_TIME 4.0
 
@@ -200,17 +201,23 @@ int main (int argc, char *argv[])
 
     if (transportProt.compare ("DcTcp") == 0)
     {
-	NS_LOG_INFO ("Enabling DcTcp");
+	    NS_LOG_INFO ("Enabling DcTcp");
         Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
-    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE));
+    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
+        Config::SetDefault ("ns3::RedQueueDisc::Quota", UintegerValue (BUFFER_SIZE));
+    }
+    else
+    {
+        Config::SetDefault ("ns3::PfifoFastQueueDisc::Limit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
+        Config::SetDefault ("ns3::PfifoFastQueueDisc::Quota", UintegerValue (BUFFER_SIZE));
     }
 
     if (resequenceBuffer)
     {
-	NS_LOG_INFO ("Enabling Resequence Buffer");
-	Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+	    NS_LOG_INFO ("Enabling Resequence Buffer");
+	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
         Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
         Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
         Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (100)));
@@ -285,21 +292,28 @@ int main (int argc, char *argv[])
     Ipv4AddressHelper ipv4;
 
     TrafficControlHelper tc;
-    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
-                                              "MaxTh", DoubleValue (RED_QUEUE_MARKING));
+    if (transportProt.compare ("DcTcp") == 0)
+    {
+        tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
+                                                  "MaxTh", DoubleValue (RED_QUEUE_MARKING));
+    }
+    else
+    {
+        tc.SetRootQueueDisc ("ns3::PfifoFastQueueDisc");
+    }
 
     NS_LOG_INFO ("Configuring servers");
     // Setting servers
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
-    if (transportProt.compare ("Tcp") == 0)
-    {
+    //if (transportProt.compare ("Tcp") == 0)
+    //{
      	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
-    }
-    else
-    {
-	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
-    }
+    //}
+    //else
+    //{
+	//p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
+    //}
 
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");
 
@@ -315,16 +329,16 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-	    if (transportProt.compare ("DcTcp") == 0)
-	    {
-		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
+		//if (transportProt.compare ("DcTcp") == 0)
+		//{
+		//NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	        tc.Install (netDeviceContainer);
-            }
+            //}
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
-	    if (transportProt.compare ("Tcp") == 0)
-            {
-                tc.Uninstall (netDeviceContainer);
-            }
+		//if (transportProt.compare ("Tcp") == 0)
+            //{
+                //tc.Uninstall (netDeviceContainer);
+            //}
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
@@ -383,16 +397,16 @@ int main (int argc, char *argv[])
     		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
 	    }
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-	    if (transportProt.compare ("DcTcp") == 0)
-	    {
-		NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
+		//if (transportProt.compare ("DcTcp") == 0)
+		//{
+		//NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
 	        tc.Install (netDeviceContainer);
-            }
- 	    Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
-	    if (transportProt.compare ("Tcp") == 0)
-            {
-                tc.Uninstall (netDeviceContainer);
-            }
+            //}
+         Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+		//if (transportProt.compare ("Tcp") == 0)
+            //{
+                //tc.Uninstall (netDeviceContainer);
+            //}
 
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
