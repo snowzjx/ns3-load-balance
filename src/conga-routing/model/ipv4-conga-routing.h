@@ -91,6 +91,8 @@ private:
   // Quantizing bits
   uint32_t m_Q;
 
+  Time m_agingTime;
+
   // Flowlet Timeout
   Time m_flowletTimeout;
 
@@ -104,10 +106,13 @@ private:
   // Dre Event ID
   EventId m_dreEvent;
 
+  // Metric aging event
+  EventId m_agingEvent;
+
   // Ipv4 associated with this router
   Ptr<Ipv4> m_ipv4;
 
-  // Route table 
+  // Route table
   std::vector<CongaRouteEntry> m_routeEntryList;
 
   // Ip and leaf switch map,
@@ -115,7 +120,7 @@ private:
   std::map<Ipv4Address, uint32_t> m_ipLeafIdMap;
 
   // Congestion To Leaf Table
-  std::map<uint32_t, std::map<uint32_t, uint32_t> > m_congaToLeafTable;
+  std::map<uint32_t, std::map<uint32_t, std::pair<Time, uint32_t> > > m_congaToLeafTable;
 
   // Congestion From Leaf Table
   std::map<uint32_t, std::map<uint32_t, FeedbackInfo> > m_congaFromLeafTable;
@@ -132,6 +137,8 @@ private:
   uint32_t UpdateLocalDre (const Ipv4Header &header, Ptr<Packet> packet, uint32_t path);
 
   void DreEvent();
+
+  void AgingEvent ();
 
   // Quantizing X to metrics degree
   // X is bytes here and we quantizing it to 0 - 2^Q

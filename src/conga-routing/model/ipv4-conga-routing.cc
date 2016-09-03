@@ -28,6 +28,7 @@ Ipv4CongaRouting::Ipv4CongaRouting ():
     m_alpha (0.2),
     m_C (DataRate("1Gbps")),
     m_Q (3),
+    m_agingTime (MilliSeconds (10)),
     m_flowletTimeout (MicroSeconds(50)), // The default value of flowlet timeout is small for experimental purpose
     m_ecmpMode (false),
     // Variables
@@ -106,15 +107,16 @@ Ipv4CongaRouting::EnableEcmpMode ()
 void
 Ipv4CongaRouting::InitCongestion (uint32_t leafId, uint32_t port, uint32_t congestion)
 {
-  std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator itr = m_congaToLeafTable.find(leafId);
+  std::map<uint32_t, std::map<uint32_t, std::pair<Time, uint32_t> > >::iterator itr =
+      m_congaToLeafTable.find(leafId);
   if (itr != m_congaToLeafTable.end ())
   {
-    (itr->second)[port] = congestion;
+    (itr->second)[port] = std::make_pair(Simulator::Now (), congestion);
   }
   else
   {
-    std::map<uint32_t, uint32_t> newMap;
-    newMap[port] = congestion;
+    std::map<uint32_t, std::pair<Time, uint32_t> > newMap;
+    newMap[port] = std::make_pair(Simulator::Now (), congestion);
     m_congaToLeafTable[leafId] = newMap;
   }
 }
@@ -236,6 +238,13 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
     m_dreEvent = Simulator::Schedule(m_tdre, &Ipv4CongaRouting::DreEvent, this);
   }
 
+  // Turn on aging event scheduler if it is not running
+  if (!m_agingEvent.IsRunning ())
+  {
+    NS_LOG_LOGIC (this << "Conga routing restarts aging event scheduling");
+    m_agingEvent = Simulator::Schedule(m_agingTime / 4, &Ipv4CongaRouting::AgingEvent, this);
+  }
+
   // First, check if this switch if leaf switch
   if (m_isLeaf)
   {
@@ -346,7 +355,8 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       // Not hit. Determine the port
 
       // 1. Select port congestion information based on dest leaf switch id
-      std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator congaToLeafItr = m_congaToLeafTable.find (destLeafId);
+      std::map<uint32_t, std::map<uint32_t, std::pair<Time, uint32_t> > >::iterator
+          congaToLeafItr = m_congaToLeafTable.find (destLeafId);
 
       // 2. Prepare the candidate port
       // For a new flowlet, we pick the uplink port that minimizes the maximum of the local metric (from the local DREs)
@@ -368,10 +378,11 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
           localCongestion = Ipv4CongaRouting::QuantizingX (localCongestionItr->second);
         }
 
-        std::map<uint32_t, uint32_t>::iterator remoteCongestionItr = (congaToLeafItr->second).find (port);
+        std::map<uint32_t, std::pair<Time, uint32_t> >::iterator remoteCongestionItr =
+            (congaToLeafItr->second).find (port);
         if (remoteCongestionItr != (congaToLeafItr->second).end ())
         {
-          remoteCongestion = remoteCongestionItr->second;
+          remoteCongestion = (remoteCongestionItr->second).second;
         }
 
         uint32_t congestionDegree = std::max (localCongestion, remoteCongestion);
@@ -487,15 +498,18 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
       // 2. Update the CongaToLeafTable
       if (ipv4CongaTag.GetFbLbTag () != LOOPBACK_PORT)
       {
-        std::map<uint32_t, std::map<uint32_t, uint32_t> >::iterator toLeafItr = m_congaToLeafTable.find(sourceLeafId);
+        std::map<uint32_t, std::map<uint32_t, std::pair<Time, uint32_t> > >::iterator toLeafItr =
+            m_congaToLeafTable.find(sourceLeafId);
         if (toLeafItr != m_congaToLeafTable.end ())
         {
-          (toLeafItr->second)[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
+          (toLeafItr->second)[ipv4CongaTag.GetFbLbTag ()] =
+              std::make_pair(Simulator::Now (), ipv4CongaTag.GetFbMetric ());
         }
         else
         {
-          std::map<uint32_t, uint32_t> newMap;
-          newMap[ipv4CongaTag.GetFbLbTag ()] = ipv4CongaTag.GetFbMetric ();
+          std::map<uint32_t, std::pair<Time, uint32_t> > newMap;
+          newMap[ipv4CongaTag.GetFbLbTag ()] =
+              std::make_pair(Simulator::Now (), ipv4CongaTag.GetFbMetric ());
           m_congaToLeafTable[sourceLeafId] = newMap;
         }
       }
@@ -647,6 +661,38 @@ Ipv4CongaRouting::DreEvent ()
   {
     NS_LOG_LOGIC (this << " Dre event goes into idle status");
   }
+}
+
+void
+Ipv4CongaRouting::AgingEvent ()
+{
+    bool moveToIdleStatus = true;
+    std::map<uint32_t, std::map<uint32_t, std::pair<Time, uint32_t> > >::iterator itr =
+        m_congaToLeafTable.begin ();
+    for ( ; itr != m_congaToLeafTable.end (); ++itr)
+    {
+      std::map<uint32_t, std::pair<Time, uint32_t> >::iterator innerItr =
+        (itr->second).begin ();
+      for (; innerItr != (itr->second).end (); ++innerItr)
+      {
+        if (Simulator::Now () - (innerItr->second).first > m_agingTime)
+        {
+          (innerItr->second).second = 0;
+        }
+        else
+        {
+          moveToIdleStatus = false;
+        }
+      }
+    }
+    if (!moveToIdleStatus)
+    {
+      m_agingEvent = Simulator::Schedule(m_agingTime / 4, &Ipv4CongaRouting::AgingEvent, this);
+    }
+    else
+    {
+      NS_LOG_LOGIC (this << " Aging event goes into idle status");
+    }
 }
 
 uint32_t
