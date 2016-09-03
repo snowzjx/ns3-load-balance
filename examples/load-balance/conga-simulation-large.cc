@@ -223,7 +223,7 @@ int main (int argc, char *argv[])
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
         Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
         Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (100)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (300)));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -300,24 +300,19 @@ int main (int argc, char *argv[])
         tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
                                                   "MaxTh", DoubleValue (RED_QUEUE_MARKING));
     }
-    else
-    {
-        tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (QUEUE_DISC_BUFFER_SIZE),
-                                                  "MaxTh", DoubleValue (QUEUE_DISC_BUFFER_SIZE));
-    }
 
     NS_LOG_INFO ("Configuring servers");
     // Setting servers
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (LEAF_SERVER_CAPACITY)));
     p2p.SetChannelAttribute ("Delay", TimeValue(LINK_LATENCY));
-    //if (transportProt.compare ("Tcp") == 0)
-    //{
+    if (transportProt.compare ("Tcp") == 0)
+    {
      	p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (BUFFER_SIZE));
-    //}
-    //else
-    //{
-	//p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
-    //}
+    }
+    else
+    {
+	    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
+    }
 
     ipv4.SetBase ("10.1.0.0", "255.255.255.0");
 
@@ -333,28 +328,28 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-		//if (transportProt.compare ("DcTcp") == 0)
-		//{
-		//NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
-	        tc.Install (netDeviceContainer);
-            //}
+		    if (transportProt.compare ("DcTcp") == 0)
+		    {
+		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
+	            tc.Install (netDeviceContainer);
+            }
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
-		//if (transportProt.compare ("Tcp") == 0)
-            //{
-                //tc.Uninstall (netDeviceContainer);
-            //}
+		    if (transportProt.compare ("Tcp") == 0)
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
 
             if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
             {
                 // All servers just forward the packet to leaf switch
-		staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
-			AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
-					   Ipv4Mask ("0.0.0.0"),
-                                           netDeviceContainer.Get (1)->GetIfIndex ());
-		// Conga leaf switches forward the packet to the correct servers
+		        staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
+			                AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					                           Ipv4Mask ("0.0.0.0"),
+                                               netDeviceContainer.Get (1)->GetIfIndex ());
+		        // Conga leaf switches forward the packet to the correct servers
                 congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-			AddRoute (interfaceContainer.GetAddress (1),
-				           Ipv4Mask("255.255.255.255"),
+			                AddRoute (interfaceContainer.GetAddress (1),
+				                           Ipv4Mask("255.255.255.255"),
                                            netDeviceContainer.Get (0)->GetIfIndex ());
                 for (int k = 0; k < LEAF_COUNT; k++)
 	        {
@@ -392,7 +387,7 @@ int main (int argc, char *argv[])
 	    }
         }
 
-	ipv4.NewNetwork ();
+	    ipv4.NewNetwork ();
         for (int j = 0; j < SPINE_COUNT; j++)
         {
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
@@ -401,31 +396,31 @@ int main (int argc, char *argv[])
     		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
 	    }
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-		//if (transportProt.compare ("DcTcp") == 0)
-		//{
-		//NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
-	        tc.Install (netDeviceContainer);
-            //}
-         Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
-		//if (transportProt.compare ("Tcp") == 0)
-            //{
-                //tc.Uninstall (netDeviceContainer);
-            //}
-
-
-            if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
-            {
-		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
-                for (int k = 0; k < LEAF_COUNT; k++)
+		if (transportProt.compare ("DcTcp") == 0)
 		{
-		    if (k != i)
+		    NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
+	        tc.Install (netDeviceContainer);
+        }
+        Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+		if (transportProt.compare ("Tcp") == 0)
+        {
+            tc.Uninstall (netDeviceContainer);
+        }
+
+
+        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
+        {
+		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
+            for (int k = 0; k < LEAF_COUNT; k++)
 		    {
-			congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-				AddRoute (leafNetworks[k],
-				  	  Ipv4Mask("255.255.255.0"),
+		        if (k != i)
+		        {
+			    congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+				            AddRoute (leafNetworks[k],
+				  	                  Ipv4Mask("255.255.255.0"),
                                   	  netDeviceContainer.Get (0)->GetIfIndex ());
-                    }
                 }
+            }
 
 		// For each conga spine switch, routing entry to THIS leaf switch should be added
 		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
