@@ -150,10 +150,12 @@ def main(argv):
         for flow in sim.flows:
             if flow.fct == None or flow.txBitrate == None or flow.rxBitrate == None:
                 continue
+            if flow.txBytes == 52 * flow.txPackets + 4:
+                continue
             flow_count += 1
             total_fct += flow.fct
-	    total_packets += flow.txPackets
-	    total_lost_packets += flow.lostPackets
+	        total_packets += flow.txPackets
+	        total_lost_packets += flow.lostPackets
             if flow.txBytes > 10000000:
                 large_flow_count += 1
                 large_flow_total_fct += flow.fct
