@@ -34,6 +34,7 @@ Ipv4CongaRouting::Ipv4CongaRouting ():
     // Variables
     m_feedbackIndex (0),
     m_dreEvent (),
+    m_agingEvent (),
     m_ipv4 (0)
 {
   NS_LOG_FUNCTION (this);
@@ -615,6 +616,7 @@ Ipv4CongaRouting::DoDispose (void)
     delete (itr->second);
   }
   m_dreEvent.Cancel ();
+  m_agingEvent.Cancel ();
   m_ipv4=0;
   Ipv4RoutingProtocol::DoDispose ();
 }

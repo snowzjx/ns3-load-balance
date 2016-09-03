@@ -424,11 +424,13 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
         ipv4Item->SetHeader(header);
         m_stats.unforcedMarking++;
       }
+      /*
       else {
         m_stats.unforcedDrop++;
         Drop (item);
         return false;
       }
+      */
     }
   else if (dropType == DTYPE_FORCED)
     {
@@ -441,6 +443,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
         ipv4Item->SetHeader(header);
         m_stats.forcedMarking++;
       }
+      /*
       else
       {
         m_stats.forcedDrop++;
@@ -452,6 +455,7 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
         }
         return false;
       }
+      */
     }
 
   GetInternalQueue (0)->Enqueue (item);
