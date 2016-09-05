@@ -369,7 +369,7 @@ int main (int argc, char *argv[])
 	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	    if (runMode == CONGA)
 	    {
-	        congaLeaf->SetFlowletTimeout (MicroSeconds (200));
+	        congaLeaf->SetFlowletTimeout (MicroSeconds (500));
 	    }
 	    if (runMode == CONGA_FLOW)
 	    {
