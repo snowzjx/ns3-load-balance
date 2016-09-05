@@ -28,8 +28,7 @@ extern "C"
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define QUEUE_DISC_BUFFER_SIZE 250                // 250 packets
-#define BUFFER_SIZE 10                            // 10 packets
+#define BUFFER_SIZE 250                           // 250 packets
 
 #define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
 
@@ -205,15 +204,8 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
     	Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
     	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
-    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
-        Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
-    }
-    else
-    {
-        Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
-    	Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (PACKET_SIZE));
-    	Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (QUEUE_DISC_BUFFER_SIZE));
-        Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
+        Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (BUFFER_SIZE * PACKET_SIZE));
+        //Config::SetDefault ("ns3::QueueDisc::Quota", UintegerValue (BUFFER_SIZE));
         Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
     }
 
@@ -223,13 +215,15 @@ int main (int argc, char *argv[])
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
         Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
         Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (300)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (250)));
     }
 
     NS_LOG_INFO ("Config parameters");
-    Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
-    Config::SetDefault("ns3::TcpSocket::DelAckCount", UintegerValue (0));
-    Config::SetDefault("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
+    Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
+    Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
+    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
 
     NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
@@ -297,8 +291,8 @@ int main (int argc, char *argv[])
     TrafficControlHelper tc;
     if (transportProt.compare ("DcTcp") == 0)
     {
-        tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING),
-                                                  "MaxTh", DoubleValue (RED_QUEUE_MARKING));
+        tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (RED_QUEUE_MARKING * PACKET_SIZE),
+                                                  "MaxTh", DoubleValue (RED_QUEUE_MARKING * PACKET_SIZE));
     }
 
     NS_LOG_INFO ("Configuring servers");
@@ -529,8 +523,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "12-1-large-load-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "12-1-large-load-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "13-1-large-load-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "13-1-large-load-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {

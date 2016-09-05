@@ -20,6 +20,7 @@
 #include "ns3/log.h"
 #include "ns3/ipv4.h"
 #include "ns3/ipv4-route.h"
+#include "ns3/flow-id-tag.h"
 #include "ns3/node.h"
 #include "ns3/ipv4-static-routing.h"
 #include "ipv4-list-routing.h"
@@ -150,10 +151,22 @@ Ipv4ListRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<
   Ipv4DrbTag ipv4DrbTag;
   bool found = packet->PeekPacketTag(ipv4DrbTag);
 
+  FlowIdTag flowIdTag;
+  bool foundFlowId = packet->PeekPacketTag(flowIdTag);
+
   if (m_drb != 0 && !found)
   {
     NS_LOG_DEBUG ("DRB is enabled");
-    Ipv4Address address = m_drb->GetCoreSwitchAddress ();
+    uint32_t flowId = 0;
+    if (foundFlowId)
+    {
+      flowId = flowIdTag.GetFlowId ();
+    }
+    else
+    {
+      NS_LOG_ERROR ("Cannot find flow id in DRB");
+    }
+    Ipv4Address address = m_drb->GetCoreSwitchAddress (flowId);
     if (address != Ipv4Address()) // NULL check
     {
       Ipv4DrbTag ipv4DrbTag;

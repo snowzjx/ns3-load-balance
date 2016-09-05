@@ -18,7 +18,7 @@ Ipv4Drb::GetTypeId (void)
   return tid;
 }
 
-Ipv4Drb::Ipv4Drb ():m_index(0)
+Ipv4Drb::Ipv4Drb ()
 {
   NS_LOG_FUNCTION (this);
 }
@@ -29,22 +29,37 @@ Ipv4Drb::~Ipv4Drb ()
 }
 
 Ipv4Address
-Ipv4Drb::GetCoreSwitchAddress ()
+Ipv4Drb::GetCoreSwitchAddress (uint32_t flowId)
 {
+  NS_LOG_FUNCTION (this);
+
   uint32_t listSize = m_coreSwitchAddressList.size();
+
   if (listSize == 0)
   {
     return Ipv4Address ();
   }
-  Ipv4Address addr = m_coreSwitchAddressList[m_index % listSize];
-  m_index ++;
-  NS_LOG_DEBUG (this << " The index: " << m_index);
+
+  uint32_t index = 0;
+
+  std::map<uint32_t, uint32_t>::iterator itr = m_indexMap.find (flowId);
+
+  if (itr != m_indexMap.end ())
+  {
+    index = itr->second;
+  }
+  m_indexMap[flowId] = ((index + 1) % listSize);
+
+  Ipv4Address addr = m_coreSwitchAddressList[index];
+
+  NS_LOG_DEBUG (this << " The index for flow: " << flowId << " is : " << index);
   return addr;
 }
 
 void
 Ipv4Drb::AddCoreSwitchAddress (Ipv4Address addr)
 {
+  NS_LOG_FUNCTION (this << addr);
   m_coreSwitchAddressList.push_back (addr);
 }
 
