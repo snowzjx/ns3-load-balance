@@ -86,8 +86,14 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
 {
   NS_LOG_FUNCTION (this << "Buffering the packet: " << packet);
 
+  // We do not accept further packets after the resequencing buffer stops
+  if (m_hasStopped)
+  {
+    return;
+  }
+
   // Turn on the periodical check and reset the timer
-  if (!m_hasStopped && !m_checkEvent.IsRunning ())
+  if (!m_checkEvent.IsRunning ())
   {
     NS_LOG_LOGIC ("Turn on periodical check");
     m_checkEvent = Simulator::Schedule (m_periodicalCheckTime, &TcpResequenceBuffer::PeriodicalCheck, this);
