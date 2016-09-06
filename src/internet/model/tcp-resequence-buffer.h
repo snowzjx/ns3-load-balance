@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <queue>
+#include <set>
 
 namespace ns3
 {
@@ -92,6 +93,8 @@ private:
   std::priority_queue<TcpResequenceBufferElement,
       std::vector<TcpResequenceBufferElement>,
       std::greater<TcpResequenceBufferElement> > m_outOrderQueue;
+
+  std::set<SequenceNumber32> m_outOrderSeqSet;
 
   TcpSocketBase *m_tcp;
 };
