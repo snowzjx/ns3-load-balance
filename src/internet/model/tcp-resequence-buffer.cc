@@ -240,6 +240,11 @@ TcpResequenceBuffer::CalculateNextSeq (const TcpResequenceBufferElement &element
 void
 TcpResequenceBuffer::PeriodicalCheck ()
 {
+  if (m_hasStopped)
+  {
+    return;
+  }
+
   if (Simulator::Now () - m_inOrderQueueTimer > m_inOrderQueueTimerLimit)
   {
     FlushInOrderQueue ();
@@ -266,6 +271,10 @@ TcpResequenceBuffer::PeriodicalCheck ()
 void
 TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element)
 {
+  if (m_hasStopped)
+  {
+    return;
+  }
   NS_LOG_INFO ("Flush packet: " << element.m_packet);
   m_tcp->DoForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
 }
