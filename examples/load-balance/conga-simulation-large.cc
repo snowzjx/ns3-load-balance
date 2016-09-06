@@ -223,7 +223,9 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
     Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
-    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue(MicroSeconds(200)));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (200)));
+    Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
+    Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
 
     NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
