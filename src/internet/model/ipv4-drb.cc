@@ -40,7 +40,7 @@ Ipv4Drb::GetCoreSwitchAddress (uint32_t flowId)
     return Ipv4Address ();
   }
 
-  uint32_t index = 0;
+  uint32_t index = rand () % listSize;
 
   std::map<uint32_t, uint32_t>::iterator itr = m_indexMap.find (flowId);
 
