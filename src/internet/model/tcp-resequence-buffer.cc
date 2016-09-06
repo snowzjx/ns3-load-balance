@@ -76,6 +76,7 @@ TcpResequenceBuffer::DoDispose (void)
   {
     m_outOrderQueue.pop ();
   }
+  m_outOrderSeqSet.clear ();
 
 }
 
@@ -154,6 +155,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
     {
       if (TcpResequenceBuffer::PutInTheInOrderQueue (m_outOrderQueue.top ()))
       {
+        m_outOrderSeqSet.erase (m_outOrderQueue.top ().m_seq);
         m_outOrderQueue.pop ();
       }
       else
@@ -172,7 +174,11 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   // If the seq > next seq
   else
   {
-    m_outOrderQueue.push (element);
+    if (m_outOrderSeqSet.find (element.m_seq) == m_outOrderSeqSet.end())
+    {
+      m_outOrderQueue.push (element);
+      m_outOrderSeqSet.insert (element.m_seq);
+    }
   }
 }
 
@@ -298,6 +304,7 @@ TcpResequenceBuffer::FlushOutOrderQueue ()
     TcpResequenceBuffer::FlushOneElement (m_outOrderQueue.top ());
     m_outOrderQueue.pop ();
   }
+  m_outOrderSeqSet.clear ();
 
   // Reset the timer
   m_outOrderQueueTimer = Simulator::Now ();
