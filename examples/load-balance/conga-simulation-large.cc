@@ -251,7 +251,7 @@ int main (int argc, char *argv[])
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
-	internet.SetRoutingHelper (staticRoutingHelper);
+	    internet.SetRoutingHelper (staticRoutingHelper);
         internet.Install (servers);
 
         internet.SetRoutingHelper (congaRoutingHelper);
@@ -272,6 +272,20 @@ int main (int argc, char *argv[])
     }
     else if (runMode == ECMP || runMode == FlowBender)
     {
+        if (runMode == FlowBender)
+        {
+            NS_LOG_INFO ("Enabling Flow Bender");
+            if (transportProt.compare ("Tcp") == 0)
+            {
+                NS_LOG_ERROR ("FlowBender has to be working with DCTCP");
+                return 0;
+            }
+            Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
+            Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
+            Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
+            Config::SetDefault ("ns3::TcpFlowBender::N", UintegerValue (flowBenderN));
+        }
+
 	    internet.SetRoutingHelper (globalRoutingHelper);
         Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
 
@@ -280,19 +294,6 @@ int main (int argc, char *argv[])
     	internet.Install (leaves);
     }
 
-    if (runMode == FlowBender)
-    {
-        NS_LOG_INFO ("Enabling Flow Bender");
-        if (transportProt.compare ("Tcp") == 0)
-        {
-          NS_LOG_ERROR ("FlowBender has to be working with DCTCP");
-          return 0;
-        }
-        Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
-        Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
-        Config::SetDefault ("ns3::TcpFlowBender::N", UintegerValue (flowBenderN));
-    }
 
     NS_LOG_INFO ("Install channels and assign addresses");
 
