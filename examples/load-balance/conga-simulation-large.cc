@@ -143,7 +143,7 @@ int main (int argc, char *argv[])
     bool asym = false;
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
-    uint32_t flowBenderN = 5;
+    uint32_t flowBenderN = 1;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -281,7 +281,7 @@ int main (int argc, char *argv[])
         NS_LOG_INFO ("Enabling Flow Bender");
         if (transportProt.compare ("Tcp") == 0)
         {
-          NS_LOG_ERROR ("FlowBender has to be working with DCTcp");
+          NS_LOG_ERROR ("FlowBender has to be working with DCTCP");
           return 0;
         }
         Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
