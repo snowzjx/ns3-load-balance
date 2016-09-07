@@ -20,13 +20,6 @@ extern "C"
 #include "cdf.h"
 }
 
-// There are 8 servers connecting to each leaf switch
-#define SERVER_COUNT 32
-#define SPINE_COUNT 2
-#define LEAF_COUNT 2
-
-#define LINK_COUNT 2
-
 #define SPINE_LEAF_CAPACITY  40000000000          // 40Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
@@ -80,7 +73,7 @@ T rand_range (T min, T max)
     return min + ((double)max - min) * rand () / RAND_MAX;
 }
 
-void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable, int &flowCount)
+void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable, int &flowCount, int SERVER_COUNT, int LEAF_COUNT)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < SERVER_COUNT; i++)
@@ -149,6 +142,11 @@ int main (int argc, char *argv[])
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
 
+    int SERVER_COUNT = 32;
+    int SPINE_COUNT = 2;
+    int LEAF_COUNT = 2;
+    int LINK_COUNT = 2;
+
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
@@ -159,6 +157,12 @@ int main (int argc, char *argv[])
     cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
+
+    cmd.AddValue ("serverCount", "The Server count", SERVER_COUNT);
+    cmd.AddValue ("spineCount", "The Spine count", SPINE_COUNT);
+    cmd.AddValue ("leafCount", "The Leaf count", LEAF_COUNT);
+    cmd.AddValue ("linkCount", "The Link count", LINK_COUNT);
+
     cmd.Parse (argc, argv);
 
     RunMode runMode;
@@ -495,7 +499,7 @@ int main (int argc, char *argv[])
 
     for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
     {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount);
+        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT);
     }
 
     NS_LOG_INFO ("Total flow: " << flowCount);
@@ -540,8 +544,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "13-1-large-load-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "13-1-large-load-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
