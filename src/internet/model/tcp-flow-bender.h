@@ -5,6 +5,7 @@
 #include "ns3/object.h"
 #include "ns3/event-id.h"
 #include "ns3/nstime.h"
+#include "ns3/sequence-number.h"
 
 namespace ns3 {
 
@@ -19,13 +20,13 @@ public:
 
     virtual void DoDispose (void);
 
-    void ReceivedPacket ();
-    void ReceivedMarkedPacket ();
+    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber, bool withECE);
 
     uint32_t GetV ();
 
 private:
-    void CheckEvent ();
+
+    void CheckCongestion ();
 
     // Variables
     uint32_t m_totalPackets;
@@ -34,7 +35,7 @@ private:
     uint32_t m_numCongestionRtt;
     uint32_t m_V;
 
-    EventId m_checkEvent;
+    SequenceNumber32 m_highTxMark;
 
     // Parameters
     Time m_rtt;

@@ -27,7 +27,7 @@ TcpFlowBender::GetTypeId (void)
             MakeDoubleAccessor (&TcpFlowBender::m_T),
             MakeDoubleChecker<double> (0))
         .AddAttribute ("N", "The number of allowed congestion RTT",
-            UintegerValue (5),
+            UintegerValue (1),
             MakeUintegerAccessor (&TcpFlowBender::m_N),
             MakeUintegerChecker<uint32_t> ());
 
@@ -40,10 +40,10 @@ TcpFlowBender::TcpFlowBender ()
      m_markedPackets (0),
      m_numCongestionRtt (0),
      m_V (0),
-     m_checkEvent(),
+     m_highTxMark (0),
      m_rtt(MicroSeconds (100)),
      m_T (0.05),
-     m_N (5),
+     m_N (1),
      m_totalPacketsStatis (0),
      m_markedPacketsStatis (0)
 {
@@ -56,7 +56,7 @@ TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
      m_markedPackets (other.m_markedPackets),
      m_numCongestionRtt (other.m_numCongestionRtt),
      m_V (other.m_V),
-     m_checkEvent (),
+     m_highTxMark (0),
      m_rtt (other.m_rtt),
      m_T (other.m_T),
      m_N (other.m_N),
@@ -74,33 +74,27 @@ TcpFlowBender::~TcpFlowBender ()
 void
 TcpFlowBender::DoDispose (void)
 {
-    m_checkEvent.Cancel ();
-    NS_LOG_INFO (this <<"Statistics: " << static_cast<double>(m_markedPacketsStatis) / m_totalPacketsStatis);
+    NS_LOG_INFO (this << " ECN portion in flow bender: " << static_cast<double>(m_markedPacketsStatis) / m_totalPacketsStatis);
 }
 
 void
-TcpFlowBender::ReceivedPacket ()
+TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber, bool withECE)
 {
-    if (!m_checkEvent.IsRunning ())
-    {
-        m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
-    }
+    NS_LOG_INFO (this << " High TX Mark: " << highTxhMark << ", ACK Number: " << ackNumber);
     m_totalPackets++;
     m_totalPacketsStatis++;
+    if (withECE)
+    {
+        m_markedPackets++;
+        m_markedPacketsStatis++;
+    }
+    if (ackNumber >= m_highTxMark)
+    {
+        m_highTxMark = highTxhMark;
+        TcpFlowBender::CheckCongestion ();
+    }
 }
 
-void
-TcpFlowBender::ReceivedMarkedPacket ()
-{
-    if (!m_checkEvent.IsRunning ())
-    {
-        m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
-    }
-    m_totalPackets++;
-    m_markedPackets++;
-    m_totalPacketsStatis++;
-    m_markedPacketsStatis++;
-}
 
 uint32_t
 TcpFlowBender::GetV ()
@@ -110,12 +104,12 @@ TcpFlowBender::GetV ()
 }
 
 void
-TcpFlowBender::CheckEvent ()
+TcpFlowBender::CheckCongestion ()
 {
     double f = static_cast<double> (m_markedPackets) / m_totalPackets;
     NS_LOG_LOGIC (this << "\tMarked packet: " << m_markedPackets
-            << "\tTotal packet: " << m_totalPackets
-            << "\tf: " << f);
+                       << "\tTotal packet: " << m_totalPackets
+                       << "\tf: " << f);
     if (f > m_T)
     {
         m_numCongestionRtt ++;
@@ -133,8 +127,6 @@ TcpFlowBender::CheckEvent ()
 
     m_markedPackets = 0;
     m_totalPackets = 0;
-
-    m_checkEvent = Simulator::Schedule (m_rtt, &TcpFlowBender::CheckEvent, this);
 }
 
 }
