@@ -1565,14 +1565,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   // XXX FlowBender
   if (m_flowBenderEnabled)
   {
-    if (withECE)
-    {
-      m_flowBender->ReceivedMarkedPacket ();
-    }
-    else
-    {
-      m_flowBender->ReceivedPacket ();
-    }
+    m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, withECE);
   }
 
   if (ackNumber == m_txBuffer->HeadSequence ()
