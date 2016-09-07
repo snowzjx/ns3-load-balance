@@ -223,7 +223,7 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
     Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
-    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (200)));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
 
@@ -279,6 +279,11 @@ int main (int argc, char *argv[])
     if (runMode == FlowBender)
     {
         NS_LOG_INFO ("Enabling Flow Bender");
+        if (transportProt.compare ("Tcp") == 0)
+        {
+          NS_LOG_ERROR ("FlowBender has to be working with DCTcp");
+          return 0;
+        }
         Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
         Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
         Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
