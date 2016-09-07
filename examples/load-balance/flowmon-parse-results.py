@@ -145,6 +145,10 @@ def main(argv):
 
     total_lost_packets = 0
     total_packets = 0
+    total_rx_packets = 0
+
+    max_small_flow_id = 0
+    max_small_flow_fct = 0
 
     for sim in sim_list:
         for flow in sim.flows:
@@ -154,14 +158,18 @@ def main(argv):
                 continue
             flow_count += 1
             total_fct += flow.fct
-	        total_packets += flow.txPackets
-	        total_lost_packets += flow.lostPackets
+	    total_packets += flow.txPackets 
+            total_rx_packets += flow.rxPackets
+	    total_lost_packets += flow.lostPackets
             if flow.txBytes > 10000000:
                 large_flow_count += 1
                 large_flow_total_fct += flow.fct
             if flow.txBytes < 100000:
                 small_flow_count += 1
                 small_flow_total_fct += flow.fct
+                if flow.fct > max_small_flow_fct:
+                    max_small_flow_id = flow.flowId
+                    max_small_flow_fct = flow.fct
             t = flow.fiveTuple
             proto = {6: 'TCP', 17: 'UDP'} [t.protocol]
             print "FlowID: %i (%s %s/%s --> %s/%i)" % \
@@ -188,7 +196,9 @@ def main(argv):
 	print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
 
     print "Total TX Packets: %i" % total_packets
+    print "Total RX Packets: %i" % total_rx_packets
     print "Total Lost Packets: %i" % total_lost_packets
+    print "Max Small flow Id: %i" % max_small_flow_id
 
 if __name__ == '__main__':
     main(sys.argv)
