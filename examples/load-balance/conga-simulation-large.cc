@@ -21,11 +21,13 @@ extern "C"
 }
 
 // There are 8 servers connecting to each leaf switch
-#define SERVER_COUNT 8
-#define SPINE_COUNT 4
-#define LEAF_COUNT 4
+#define SERVER_COUNT 32
+#define SPINE_COUNT 2
+#define LEAF_COUNT 2
 
-#define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
+#define LINK_COUNT 2
+
+#define SPINE_LEAF_CAPACITY  40000000000          // 40Gbps
 #define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
 #define BUFFER_SIZE 250                           // 250 packets
@@ -36,7 +38,7 @@ extern "C"
 #define START_TIME 0.0
 #define END_TIME 10.0
 
-#define FLOW_LAUNCH_END_TIME 4.0
+#define FLOW_LAUNCH_END_TIME 2.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -92,19 +94,19 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
             uint16_t port = rand_range (PORT_START, PORT_END);
 
             int destServerIndex = fromServerIndex;
-	    while (destServerIndex >= fromLeafId * SERVER_COUNT && destServerIndex < fromLeafId * SERVER_COUNT + SERVER_COUNT)
+	        while (destServerIndex >= fromLeafId * SERVER_COUNT && destServerIndex < fromLeafId * SERVER_COUNT + SERVER_COUNT)
             {
-		destServerIndex = rand_range (0, SERVER_COUNT * LEAF_COUNT);
+		        destServerIndex = rand_range (0, SERVER_COUNT * LEAF_COUNT);
             }
 
-	    Ptr<Node> destServer = servers.Get (destServerIndex);
-	    Ptr<Ipv4> ipv4 = destServer->GetObject<Ipv4> ();
-	    Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
-	    Ipv4Address destAddress = destInterface.GetLocal ();
+	        Ptr<Node> destServer = servers.Get (destServerIndex);
+	        Ptr<Ipv4> ipv4 = destServer->GetObject<Ipv4> ();
+	        Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
+	        Ipv4Address destAddress = destInterface.GetLocal ();
 
             BulkSendHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
             uint32_t flowSize = gen_random_cdf (cdfTable);
- 	    source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
+ 	        source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
 
             // Install apps
@@ -119,9 +121,11 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
             sinkApp.Start (Seconds (startTime));
             sinkApp.Stop (Seconds (END_TIME));
 
+            /*
             NS_LOG_INFO ("\tFlow from server: " << fromServerIndex << " to server: "
                     << destServerIndex << " on port: " << port << " with flow size: "
                     << flowSize << " [start time: " << startTime <<"]");
+            */
 
             startTime += poission_gen_interval (requestRate);
         }
@@ -368,87 +372,92 @@ int main (int argc, char *argv[])
     for (int i = 0; i < LEAF_COUNT; i++)
     {
         if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
-	{
-	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
+	    {
+	        Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
-	    congaLeaf->SetTDre (MicroSeconds (30));
-	    congaLeaf->SetAlpha (0.2);
-	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
-	    if (runMode == CONGA)
-	    {
-	        congaLeaf->SetFlowletTimeout (MicroSeconds (500));
-	    }
-	    if (runMode == CONGA_FLOW)
-	    {
-	        congaLeaf->SetFlowletTimeout (MilliSeconds (13));
-	    }
-	    if (runMode == CONGA_ECMP)
-	    {
-	        congaLeaf->EnableEcmpMode ();
-	    }
+	        congaLeaf->SetTDre (MicroSeconds (30));
+	        congaLeaf->SetAlpha (0.2);
+	        congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+	        if (runMode == CONGA)
+	        {
+	            congaLeaf->SetFlowletTimeout (MicroSeconds (500));
+	        }
+	        if (runMode == CONGA_FLOW)
+	        {
+	            congaLeaf->SetFlowletTimeout (MilliSeconds (13));
+	        }
+	        if (runMode == CONGA_ECMP)
+	        {
+	            congaLeaf->EnableEcmpMode ();
+	        }
         }
 
-	    ipv4.NewNetwork ();
         for (int j = 0; j < SPINE_COUNT; j++)
         {
-            NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
-	    if (asym && i == LEAF_COUNT - 1 && j == SPINE_COUNT - 1)
-	    {
-    		p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY / 2)));
-	    }
-            NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-		if (transportProt.compare ("DcTcp") == 0)
-		{
-		    NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
-	        tc.Install (netDeviceContainer);
-        }
-        Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
-		if (transportProt.compare ("Tcp") == 0)
+        for (int l = 0; l < LINK_COUNT; l++)
         {
-            tc.Uninstall (netDeviceContainer);
-        }
-
-
-        if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
-        {
-		// For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
-            for (int k = 0; k < LEAF_COUNT; k++)
-		    {
-		        if (k != i)
-		        {
-			    congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-				            AddRoute (leafNetworks[k],
-				  	                  Ipv4Mask("255.255.255.0"),
-                                  	  netDeviceContainer.Get (0)->GetIfIndex ());
-                }
-            }
-
-		// For each conga spine switch, routing entry to THIS leaf switch should be added
-		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
-		congaSpine->SetTDre (MicroSeconds (30));
-		congaSpine->SetAlpha (0.2);
-		congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
-		if (runMode == CONGA_ECMP)
-		{
-	    		congaSpine->EnableEcmpMode ();
-		}
-		congaSpine->AddRoute (leafNetworks[i],
-				      Ipv4Mask("255.255.255.0"),
-                                      netDeviceContainer.Get (1)->GetIfIndex ());
-	    }
-
-	    if (runMode == PRESTO)
+	        ipv4.NewNetwork ();
+            if (asym == true && l == LINK_COUNT - 1 && i == LEAF_COUNT - 1 && j == SPINE_COUNT - 1)
             {
-		Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
-		drb->AddCoreSwitchAddress (PRESTO_RATIO, ipv4InterfaceContainer.GetAddress (1));
+              continue;
             }
- 	    if (runMode == DRB)
-	    {
-		Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
-		drb->AddCoreSwitchAddress (1, ipv4InterfaceContainer.GetAddress (1));
+            NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
+            NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
+		    if (transportProt.compare ("DcTcp") == 0)
+		    {
+		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
+	            tc.Install (netDeviceContainer);
+            }
+            Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
+            NS_LOG_INFO ("Leaf-" << i << " is connected to Spine-" << j << " with address "
+                    << ipv4InterfaceContainer.GetAddress(0) << "<->" << ipv4InterfaceContainer.GetAddress (1)
+                    << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << "<->" << netDeviceContainer.Get (1)->GetIfIndex ());
+		    if (transportProt.compare ("Tcp") == 0)
+            {
+                tc.Uninstall (netDeviceContainer);
+            }
+
+            if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
+            {
+		        // For each conga leaf switch, routing entry to route the packet to OTHER leaves should be added
+                for (int k = 0; k < LEAF_COUNT; k++)
+		        {
+		            if (k != i)
+		            {
+			            congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+				                                            AddRoute (leafNetworks[k],
+				  	                                        Ipv4Mask("255.255.255.0"),
+                                  	                         netDeviceContainer.Get (0)->GetIfIndex ());
+                    }
+                }
+
+		        // For each conga spine switch, routing entry to THIS leaf switch should be added
+		        Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
+		        congaSpine->SetTDre (MicroSeconds (30));
+		        congaSpine->SetAlpha (0.2);
+		        congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+		        if (runMode == CONGA_ECMP)
+		        {
+	    		    congaSpine->EnableEcmpMode ();
+		        }
+		        congaSpine->AddRoute (leafNetworks[i],
+				                      Ipv4Mask("255.255.255.0"),
+                                      netDeviceContainer.Get (1)->GetIfIndex ());
+	        }
+
+	        if (runMode == PRESTO)
+            {
+		        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
+		        drb->AddCoreSwitchAddress (PRESTO_RATIO, ipv4InterfaceContainer.GetAddress (1));
+            }
+ 	        if (runMode == DRB)
+	        {
+		        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
+		        drb->AddCoreSwitchAddress (1, ipv4InterfaceContainer.GetAddress (1));
+                NS_LOG_INFO ("For Leaf " << i << ", bouncing the packet to Core Switch: " << ipv4InterfaceContainer.GetAddress (1));
             }
         }
-
+        }
     }
 
     if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender)
@@ -457,7 +466,7 @@ int main (int argc, char *argv[])
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
     }
 
-    double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT);
+    double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT * LINK_COUNT);
     NS_LOG_INFO ("Over-subscription ratio: " << oversubRatio);
 
     NS_LOG_INFO ("Initialize CDF table");
