@@ -30,7 +30,7 @@ extern "C"
 #define START_TIME 0.0
 #define END_TIME 10.0
 
-#define FLOW_LAUNCH_END_TIME 2.0
+#define FLOW_LAUNCH_END_TIME 4.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -147,8 +147,8 @@ int main (int argc, char *argv[])
     int LEAF_COUNT = 2;
     int LINK_COUNT = 2;
 
-    uint32_t spineLeafCapacity = 40;
-    uint32_t leafServerCapacity = 10;
+    uint64_t spineLeafCapacity = 40;
+    uint64_t leafServerCapacity = 10;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -172,8 +172,8 @@ int main (int argc, char *argv[])
 
     cmd.Parse (argc, argv);
 
-    uint32_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
-    uint32_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
+    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
+    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -254,7 +254,6 @@ int main (int argc, char *argv[])
     servers.Create (SERVER_COUNT * LEAF_COUNT);
 
     NS_LOG_INFO ("Install Internet stacks");
-
     InternetStackHelper internet;
     Ipv4StaticRoutingHelper staticRoutingHelper;
     Ipv4CongaRoutingHelper congaRoutingHelper;

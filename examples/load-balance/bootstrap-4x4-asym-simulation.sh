@@ -11,11 +11,11 @@ do
 		do
 			for runMode in Conga Conga-flow ECMP 
 			do
-				nohup ./waf --run "conga-simulation-large --spineCount=4 --leafCount=4 --serverCount=8 --runMode=$runMode --transportProt=$trans --randomSeed=$run --cdfFileName=examples/load-balance/VL2_CDF.txt --load=$load" > /tmp/large-conga-$runMode-$trans-$load-$run.out 2>&1 &
+                nohup ./waf --run "conga-simulation-large --spineCount=4 --leafCount=4 --serverCount=8 --linkCount=1 --spineLeafCapacity=10 --leafServerCapacity=10 --asym2=true --runMode=$runMode --transportProt=$trans --randomSeed=$run --cdfFileName=examples/load-balance/VL2_CDF.txt --load=$load" > /tmp/large-conga-$runMode-$trans-$load-$run.out 2>&1 &
 			done
             for runMode in Presto DRB 
             do
-				nohup ./waf --run "conga-simulation-large --spineCount=4 --leafCount=4 --serverCount=8 --runMode=$runMode --transportProt=$trans --resequenceBuffer=true --randomSeed=$run --cdfFileName=examples/load-balance/VL2_CDF.txt --load=$load" > /tmp/large-conga-$runMode-$trans-$load-$run.out 2>&1 &
+				nohup ./waf --run "conga-simulation-large --spineCount=4 --leafCount=4 --serverCount=8 --linkCount=1 --spineLeafCapacity=10 --leafServerCapacity=10 --asym2=true --runMode=$runMode --transportProt=$trans --resequenceBuffer=true --randomSeed=$run --cdfFileName=examples/load-balance/VL2_CDF.txt --load=$load" > /tmp/large-conga-$runMode-$trans-$load-$run.out 2>&1 &
 			done
         done
 	done
