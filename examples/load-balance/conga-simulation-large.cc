@@ -137,7 +137,7 @@ int main (int argc, char *argv[])
     double load = 0.0;
     std::string transportProt = "Tcp";
     bool asym = false;
-    boll asym2 = false;
+    bool asym2 = false;
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -158,6 +158,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
     cmd.AddValue ("asym", "Whether enabling the asym topology, this is used in the 2*2 topology, where one spine to one leaf only has one link", asym);
+    cmd.AddValue ("asym2", "Whether enabling the asym topology, this is used in the 4*4 topology, where one spine has 4 times the link capacity", asym2);
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
 
@@ -408,6 +409,18 @@ int main (int argc, char *argv[])
 
         for (int j = 0; j < SPINE_COUNT; j++)
         {
+        if (asym2 == true)
+        {
+          if (j == SPINE_COUNT - 1)
+          {
+            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (4 * SPINE_LEAF_CAPACITY)));
+          }
+          else
+          {
+            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
+          }
+        }
+
         for (int l = 0; l < LINK_COUNT; l++)
         {
 	        ipv4.NewNetwork ();
