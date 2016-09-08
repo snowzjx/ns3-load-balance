@@ -138,6 +138,7 @@ int main (int argc, char *argv[])
     double load = 0.0;
     std::string transportProt = "Tcp";
     bool asym = false;
+    boll asym2 = false;
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -154,7 +155,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
-    cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
+    cmd.AddValue ("asym", "Whether enabling the asym topology, this is used in the 2*2 topology, where one spine to one leaf only has one link", asym);
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
 
@@ -544,8 +545,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -590,6 +591,12 @@ int main (int argc, char *argv[])
     {
 	flowMonitorFilename << "asym-";
 	linkMonitorFilename << "asym-";
+    }
+
+    if (asym2)
+    {
+        flowMonitorFilename << "asym2-";
+        linkMonitorFilename << "asym2-";
     }
 
     if (resequenceBuffer)
