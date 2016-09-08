@@ -20,8 +20,7 @@ extern "C"
 #include "cdf.h"
 }
 
-#define SPINE_LEAF_CAPACITY  40000000000          // 40Gbps
-#define LEAF_SERVER_CAPACITY 10000000000          // 10Gbps
+#define LINK_CAPACITY_BASE    1000000000          // 1Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
 #define BUFFER_SIZE 250                           // 250 packets
 
@@ -147,6 +146,9 @@ int main (int argc, char *argv[])
     int LEAF_COUNT = 2;
     int LINK_COUNT = 2;
 
+    uint32_t spineLeafCapacity = 40;
+    uint32_t leafServerCapacity = 10;
+
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
@@ -163,7 +165,13 @@ int main (int argc, char *argv[])
     cmd.AddValue ("leafCount", "The Leaf count", LEAF_COUNT);
     cmd.AddValue ("linkCount", "The Link count", LINK_COUNT);
 
+    cmd.AddValue ("spineLeafCapacity", "Spine <-> Leaf capacity in Gbps", spineLeafCapacity);
+    cmd.AddValue ("leafServerCapacity", "Leaf <-> Server capacity in Gbps", leafServerCapacity);
+
     cmd.Parse (argc, argv);
+
+    uint32_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
+    uint32_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -196,7 +204,7 @@ int main (int argc, char *argv[])
     }
     else
     {
-        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto, DRB and ECMP");
+        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
         return 0;
     }
 
