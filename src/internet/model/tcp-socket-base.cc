@@ -3741,7 +3741,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // XXX Flow Bender support
   if (m_flowBenderEnabled)
   {
-    flowId ^= m_flowBender->GetV ();
+    flowId += m_flowBender->GetV ();
   }
 
   packet->AddPacketTag(FlowIdTag(flowId));

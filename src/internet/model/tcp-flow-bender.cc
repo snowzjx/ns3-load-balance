@@ -80,7 +80,7 @@ TcpFlowBender::DoDispose (void)
 void
 TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber, bool withECE)
 {
-    NS_LOG_INFO (this << " High TX Mark: " << highTxhMark << ", ACK Number: " << ackNumber);
+    NS_LOG_INFO (this << " High TX Mark: " << m_highTxMark << ", ACK Number: " << ackNumber);
     m_totalPackets++;
     m_totalPacketsStatis++;
     if (withECE)
