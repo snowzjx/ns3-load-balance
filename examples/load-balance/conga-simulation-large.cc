@@ -30,7 +30,7 @@ extern "C"
 #define START_TIME 0.0
 #define END_TIME 10.0
 
-#define FLOW_LAUNCH_END_TIME 2.0
+#define FLOW_LAUNCH_END_TIME 4.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -137,6 +137,7 @@ int main (int argc, char *argv[])
     double load = 0.0;
     std::string transportProt = "Tcp";
     bool asym = false;
+    bool asym2 = false;
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -146,8 +147,8 @@ int main (int argc, char *argv[])
     int LEAF_COUNT = 2;
     int LINK_COUNT = 2;
 
-    uint32_t spineLeafCapacity = 40;
-    uint32_t leafServerCapacity = 10;
+    uint64_t spineLeafCapacity = 40;
+    uint64_t leafServerCapacity = 10;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -156,7 +157,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
-    cmd.AddValue ("asym", "Whether enabling the asym topology", asym);
+    cmd.AddValue ("asym", "Whether enabling the asym topology, this is used in the 2*2 topology, where one spine to one leaf only has one link", asym);
+    cmd.AddValue ("asym2", "Whether enabling the asym topology, this is used in the 4*4 topology, where one spine has 4 times the link capacity", asym2);
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
 
@@ -170,8 +172,8 @@ int main (int argc, char *argv[])
 
     cmd.Parse (argc, argv);
 
-    uint32_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
-    uint32_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
+    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
+    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -252,7 +254,6 @@ int main (int argc, char *argv[])
     servers.Create (SERVER_COUNT * LEAF_COUNT);
 
     NS_LOG_INFO ("Install Internet stacks");
-
     InternetStackHelper internet;
     Ipv4StaticRoutingHelper staticRoutingHelper;
     Ipv4CongaRoutingHelper congaRoutingHelper;
@@ -407,6 +408,18 @@ int main (int argc, char *argv[])
 
         for (int j = 0; j < SPINE_COUNT; j++)
         {
+        if (asym2 == true)
+        {
+          if (j == SPINE_COUNT - 1)
+          {
+            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (4 * SPINE_LEAF_CAPACITY)));
+          }
+          else
+          {
+            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
+          }
+        }
+
         for (int l = 0; l < LINK_COUNT; l++)
         {
 	        ipv4.NewNetwork ();
@@ -552,8 +565,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -598,6 +611,12 @@ int main (int argc, char *argv[])
     {
 	flowMonitorFilename << "asym-";
 	linkMonitorFilename << "asym-";
+    }
+
+    if (asym2)
+    {
+        flowMonitorFilename << "asym2-";
+        linkMonitorFilename << "asym2-";
     }
 
     if (resequenceBuffer)
