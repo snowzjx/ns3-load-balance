@@ -13,7 +13,7 @@
 #include "ns3/ipv4-header.h"
 #include "ns3/node.h"
 #include "ns3/simulator.h"
-#include "ns3/flow-id-tag.h"
+#include "ns3/ipv4-xpath-tag.h"
 
 #include <sys/socket.h>
 
@@ -30,12 +30,7 @@ CongestionProbing::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("Internet")
         .AddConstructor<CongestionProbing> ()
-        .AddAttribute ("MaxV",
-                "The max V used in probing",
-                UintegerValue (8),
-                MakeUintegerAccessor (&CongestionProbing::m_maxV),
-                MakeUintegerChecker<uint32_t> ())
-        .AddAttribute ("ProbingInterval",
+       .AddAttribute ("ProbingInterval",
                 "Time interval between probings",
                 TimeValue (MicroSeconds (100)),
                 MakeTimeAccessor (&CongestionProbing::m_probeInterval),
@@ -70,14 +65,12 @@ CongestionProbing::GetInstanceTypeId () const
 }
 
 CongestionProbing::CongestionProbing ()
-    : m_V (0),
-      m_probeEvent (),
+    : m_probeEvent (),
       m_id (0),
       m_sourceAddress (Ipv4Address ("127.0.0.1")),
       m_probeAddress (Ipv4Address ("127.0.0.1")),
-      m_flowId (0),
+      m_pathId (0),
       m_node (),
-      m_maxV (8),
       m_probeInterval (MicroSeconds (100)),
       m_probeTimeout (Seconds (0.1))
 {
@@ -85,14 +78,12 @@ CongestionProbing::CongestionProbing ()
 }
 
 CongestionProbing::CongestionProbing (const CongestionProbing &other)
-    : m_V (0),
-      m_probeEvent (),
+    : m_probeEvent (),
       m_id (0),
       m_sourceAddress (other.m_sourceAddress),
       m_probeAddress (other.m_probeAddress),
-      m_flowId (other.m_flowId),
+      m_pathId (other.m_pathId),
       m_node (),
-      m_maxV (other.m_maxV),
       m_probeInterval (other.m_probeInterval),
       m_probeTimeout (other.m_probeTimeout),
       m_probingCallback (other.m_probingCallback),
@@ -125,9 +116,9 @@ CongestionProbing::SetProbeAddress (Ipv4Address address)
 }
 
 void
-CongestionProbing::SetFlowId (uint32_t flowId)
+CongestionProbing::SetPathId (uint32_t pathId)
 {
-    m_flowId = flowId;
+    m_pathId = pathId;
 }
 
 void
@@ -182,42 +173,36 @@ CongestionProbing::ProbeEvent ()
     newHeader.SetTtl (255);
     packet->AddHeader (newHeader);
 
-    // Flow Id tag
-    FlowIdTag flowIdTag (m_flowId ^ m_V); // When flowId ^ V, the ECMP path is changed
-    packet->AddPacketTag (flowIdTag);
+    // XPath tag
+    Ipv4XPathTag ipv4XPathTag;
+    ipv4XPathTag.SetPathId (m_pathId);
+    packet->AddPacketTag (ipv4XPathTag);
 
     // Probing tag
     CongestionProbingTag probingTag;
     probingTag.SetId (m_id);
-    probingTag.SetV (m_V);
     probingTag.SetIsReply (0);
-    probingTag.SetSendTime (Simulator::Now ());
+    probingTag.SetTime (Simulator::Now ());
     probingTag.SetIsCE (0);
     packet->AddPacketTag (probingTag);
 
-    //for (int i = 0; i < 1; i ++)
-    //{
-        m_socket->SendTo (packet->Copy (), 0, to);
-        m_id ++;
-    //}
+    m_socket->SendTo (packet, 0, to);
+    m_id ++;
 
     // Add timeout
-    m_probingTimeoutMap[m_id] = Simulator::Schedule (m_probeTimeout, &CongestionProbing::ProbeEventTimeout, this, m_V);
-
-    m_V = (m_V + 1) % m_maxV;
-    //m_id++;
+    m_probingTimeoutMap[m_id] = Simulator::Schedule (m_probeTimeout, &CongestionProbing::ProbeEventTimeout, this, m_id);
 
     double noise = rand_range (0.0, m_probeTimeout.GetSeconds ());
     Time noiseTime = Seconds (noise);
 
-    m_probeEvent = Simulator::Schedule (m_probeInterval / m_maxV + noiseTime, &CongestionProbing::ProbeEvent, this);
+    m_probeEvent = Simulator::Schedule (m_probeInterval + noiseTime, &CongestionProbing::ProbeEvent, this);
 }
 
 void
 CongestionProbing::ProbeEventTimeout (uint32_t id)
 {
     m_probingTimeoutMap.erase (id);
-    m_probingTimeoutCallback (id);
+    m_probingTimeoutCallback (m_pathId);
 }
 
 void
@@ -236,13 +221,6 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
     Ipv4Header ipv4Header;
     found = packet->RemoveHeader (ipv4Header);
 
-    /*
-    NS_LOG_LOGIC (this << "PacketTag: " << probingTag.GetV ()
-            << "/" << probingTag.GetIsReply ()
-            << "/" << probingTag.GetSendTime ());
-
-    */
-
     NS_LOG_LOGIC (this << "Ipv4 Header: " << ipv4Header);
 
     if (probingTag.GetIsReply () == 0)
@@ -259,9 +237,8 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
 
         CongestionProbingTag replyProbingTag;
         replyProbingTag.SetId (probingTag.GetId ());
-        replyProbingTag.SetV (probingTag.GetV ());
         replyProbingTag.SetIsReply (1);
-        replyProbingTag.SetSendTime (probingTag.GetSendTime ());
+        replyProbingTag.SetTime (Simulator::Now() - probingTag.GetTime ());
         if (ipv4Header.GetEcn () == Ipv4Header::ECN_CE)
         {
             replyProbingTag.SetIsCE (1);
@@ -292,10 +269,9 @@ CongestionProbing::ReceivePacket (Ptr<Socket> socket)
         m_probingTimeoutMap.erase (itr);
 
         // Raise an event
-        uint32_t v = probingTag.GetV ();
-        Time rtt = Simulator::Now () - probingTag.GetSendTime ();
+        Time oneWayRtt = probingTag.GetTime ();
         bool isCE = probingTag.GetIsCE () == 1 ? true : false;
-        m_probingCallback (v, packet, ipv4Header, rtt, isCE);
+        m_probingCallback (m_pathId, packet, ipv4Header, oneWayRtt, isCE);
     }
 }
 

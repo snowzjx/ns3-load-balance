@@ -16,3 +16,8 @@ def build(bld):
     obj = bld.create_ns3_program('spark-shuffle',
                                  ['point-to-point', 'applications', 'internet', 'flow-monitor', 'conga-routing'])
     obj.source = 'spark-shuffle.cc'
+
+    obj = bld.create_ns3_program('xpath-routing',
+                                 ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing'])
+    obj.source = 'xpath-routing.cc'
+

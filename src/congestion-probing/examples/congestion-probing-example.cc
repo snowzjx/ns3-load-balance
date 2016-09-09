@@ -77,7 +77,7 @@ main (int argc, char *argv[])
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   Ptr<CongestionProbing> probing1= CreateObject<CongestionProbing> ();
-  probing1->SetFlowId (1);
+  //probing1->SetFlowId (1);
   probing1->SetSourceAddress (interfaceContainer.GetAddress (0));
   probing1->SetProbeAddress (interfaceContainer.GetAddress (1));
   probing1->SetNode (nodes.Get (0));
@@ -99,7 +99,7 @@ main (int argc, char *argv[])
   probing1->StartProbe ();
 
   Ptr<CongestionProbing> probing2 = CreateObject<CongestionProbing> ();
-  probing2->SetFlowId (2);
+  //probing2->SetFlowId (2);
   probing2->SetSourceAddress (interfaceContainer.GetAddress (1));
   probing2->SetProbeAddress (interfaceContainer.GetAddress (0));
   probing2->SetNode (nodes.Get (1));

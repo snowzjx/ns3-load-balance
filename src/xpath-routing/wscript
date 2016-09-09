@@ -11,7 +11,7 @@ def build(bld):
     module.source = [
         'model/ipv4-xpath-routing.cc',
         'model/ipv4-xpath-tag.cc',
-        'helper/xpath-routing-helper.cc',
+        'helper/ipv4-xpath-routing-helper.cc',
         ]
 
     module_test = bld.create_ns3_module_test_library('xpath-routing')
@@ -24,7 +24,7 @@ def build(bld):
     headers.source = [
         'model/ipv4-xpath-routing.h',
         'model/ipv4-xpath-tag.h',
-        'helper/xpath-routing-helper.h',
+        'helper/ipv4-xpath-routing-helper.h',
         ]
 
     if bld.env.ENABLE_EXAMPLES:

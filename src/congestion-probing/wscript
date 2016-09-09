@@ -7,7 +7,7 @@
 #     conf.check_nonfatal(header_name='stdint.h', define_name='HAVE_STDINT_H')
 
 def build(bld):
-    module = bld.create_ns3_module('congestion-probing', ['core', 'internet'])
+    module = bld.create_ns3_module('congestion-probing', ['core', 'internet', 'xpath-routing'])
     module.source = [
         'model/congestion-probing.cc',
         'model/congestion-probing-tag.cc',

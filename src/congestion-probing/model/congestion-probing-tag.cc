@@ -30,18 +30,6 @@ CongestionProbingTag::SetId (uint32_t id)
     m_id = id;
 }
 
-uint32_t
-CongestionProbingTag::GetV (void) const
-{
-    return m_V;
-}
-
-void
-CongestionProbingTag::SetV (uint32_t v)
-{
-    m_V = v;
-}
-
 uint8_t
 CongestionProbingTag::GetIsReply (void) const
 {
@@ -55,15 +43,15 @@ CongestionProbingTag::SetIsReply (uint8_t isReply)
 }
 
 Time
-CongestionProbingTag::GetSendTime (void) const
+CongestionProbingTag::GetTime (void) const
 {
-    return m_sendTime;
+    return m_time;
 }
 
 void
-CongestionProbingTag::SetSendTime (Time sendTime)
+CongestionProbingTag::SetTime (Time time)
 {
-    m_sendTime = sendTime;
+    m_time = time;
 }
 
 uint8_t
@@ -88,7 +76,6 @@ uint32_t
 CongestionProbingTag::GetSerializedSize (void) const
 {
     return sizeof (uint32_t)
-         + sizeof (uint32_t)
          + sizeof (uint8_t)
          + sizeof (double)
          + sizeof (uint8_t);
@@ -98,9 +85,8 @@ void
 CongestionProbingTag::Serialize (TagBuffer i) const
 {
     i.WriteU32 (m_id);
-    i.WriteU32 (m_V);
     i.WriteU8 (m_isReply);
-    i.WriteDouble (m_sendTime.GetSeconds ());
+    i.WriteDouble (m_time.GetSeconds ());
     i.WriteU8 (m_isCE);
 }
 
@@ -108,9 +94,8 @@ void
 CongestionProbingTag::Deserialize (TagBuffer i)
 {
     m_id = i.ReadU32 ();
-    m_V = i.ReadU32 ();
     m_isReply = i.ReadU8 ();
-    m_sendTime = Time::FromDouble (i.ReadDouble (), Time::S);
+    m_time = Time::FromDouble (i.ReadDouble (), Time::S);
     m_isCE = i.ReadU8 ();
 }
 
@@ -118,9 +103,8 @@ void
 CongestionProbingTag::Print (std::ostream &os) const
 {
     os << "id: " << m_id;
-    os << "V : " << m_V;
     os << "Is Reply: " << m_isReply;
-    os << "Send Time: " << m_sendTime;
+    os << "Time: " << m_time;
     os << "Is CE: " << m_isCE;
 }
 

@@ -17,8 +17,6 @@ namespace ns3 {
 // and go through the per-flow ECMP based router which determines the path based
 // on flow label.
 
-// The V is ranging from 0 to MaxV
-
 class Packet;
 class Socket;
 class Node;
@@ -38,7 +36,7 @@ public:
 
     void SetSourceAddress (Ipv4Address address);
     void SetProbeAddress (Ipv4Address address);
-    void SetFlowId (uint32_t flowId);
+    void SetPathId (uint32_t pathId);
     void SetNode (Ptr<Node> node);
 
     void DoStartProbe ();
@@ -53,15 +51,12 @@ public:
     void ReceivePacket (Ptr<Socket> socket);
 
     typedef void (*ProbingCallback)
-        (uint32_t v, Ptr<Packet> packet, Ipv4Header header, Time rtt, bool isCE);
+        (uint32_t pathId, Ptr<Packet> packet, Ipv4Header header, Time rtt, bool isCE);
 
     typedef void (*ProbingTimeoutCallback)
-        (uint32_t v);
+        (uint32_t pathId);
 
 private:
-
-    // Variables
-    uint32_t m_V;   // The current V and V follows a round robin fashion (0 - MaxV)
 
     EventId m_probeEvent;
 
@@ -74,10 +69,9 @@ private:
     // Parameters
     Ipv4Address m_sourceAddress;
     Ipv4Address m_probeAddress; // The flow destination
-    uint32_t m_flowId; // Flow Id of the flow being probed
+    uint32_t m_pathId; // Path Id of the flow being probed
     Ptr<Node> m_node;
 
-    uint32_t m_maxV;
     Time m_probeInterval;
 
     Time m_probeTimeout;

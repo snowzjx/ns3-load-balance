@@ -19,17 +19,13 @@ public:
 
     void SetId (uint32_t id);
 
-    uint32_t GetV (void) const;
-
-    void SetV (uint32_t v);
-
     uint8_t GetIsReply (void) const;
 
     void SetIsReply (uint8_t isReply);
 
-    Time GetSendTime (void) const;
+    Time GetTime (void) const;
 
-    void SetSendTime (Time time);
+    void SetTime (Time time);
 
     uint8_t GetIsCE (void) const;
 
@@ -47,10 +43,9 @@ public:
 
 private:
     uint32_t m_id;
-    uint32_t m_V;
-    uint8_t m_isReply;     // 0 for false and 1 for true
-    Time     m_sendTime;
-    uint8_t m_isCE;        // 0 for not CE and 1 for CE
+    uint8_t  m_isReply;     // 0 for false and 1 for true
+    Time     m_time;
+    uint8_t  m_isCE;        // 0 for not CE and 1 for CE
 };
 
 }

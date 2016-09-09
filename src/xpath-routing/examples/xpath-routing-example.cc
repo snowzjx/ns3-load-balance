@@ -1,12 +1,14 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "ns3/core-module.h"
-#include "ns3/xpath-routing-helper.h"
+#include "ns3/network-module.h"
+#include "ns3/internet-module.h"
+#include "ns3/point-to-point-module.h"
+#include "ns3/ipv4-xpath-routing-helper.h"
 
 using namespace ns3;
 
-
-int 
+int
 main (int argc, char *argv[])
 {
   bool verbose = true;
@@ -15,8 +17,6 @@ main (int argc, char *argv[])
   cmd.AddValue ("verbose", "Tell application to log if true", verbose);
 
   cmd.Parse (argc,argv);
-
-  /* ... */
 
   Simulator::Run ();
   Simulator::Destroy ();

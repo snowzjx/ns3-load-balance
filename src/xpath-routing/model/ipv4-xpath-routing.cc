@@ -88,7 +88,9 @@ Ipv4XPathRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
 
   uint32_t currentPort = pathId - (pathId / 100) * 100;
 
-  if (currentPort < m_ipv4->GetNInterfaces ())
+  NS_LOG_LOGIC (this << "Current port is: " << currentPort);
+
+  if (currentPort > m_ipv4->GetNInterfaces ())
   {
     NS_LOG_ERROR (this << " Port number error");
     ecb (packet, header, Socket::ERROR_NOROUTETOHOST);

@@ -479,7 +479,7 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::CongestionProbing::MaxV", UintegerValue (2));
 
     Ptr<CongestionProbing> probing1= CreateObject<CongestionProbing> ();
-    probing1->SetFlowId (1);
+    //probing1->SetFlowId (1);
     probing1->SetSourceAddress (i0i1.GetAddress (0));
     probing1->SetProbeAddress (i4i5.GetAddress (1));
     probing1->SetNode (c.Get (0));
@@ -487,7 +487,7 @@ int main (int argc, char *argv[])
     //probing1->StartProbe ();
 
     Ptr<CongestionProbing> probing2= CreateObject<CongestionProbing> ();
-    probing2->SetFlowId (2);
+    //probing2->SetFlowId (2);
     probing2->SetSourceAddress (i4i5.GetAddress (1));
     probing2->SetProbeAddress (i0i1.GetAddress (0));
     probing2->SetNode (c.Get (5));
