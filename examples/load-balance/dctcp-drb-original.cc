@@ -7,7 +7,7 @@
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
 #include "ns3/congestion-probing-module.h"
-
+#include "ns3/flow-monitor-module.h"
 #include "ns3/gnuplot.h"
 
 using namespace ns3;
@@ -274,9 +274,14 @@ int main (int argc, char *argv[])
     LogComponentEnable ("DcTcpDrbOriginal", LOG_LEVEL_INFO);
 #endif
 
-    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (100000000));
-    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MicroSeconds (1000)));
+    Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
+    Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
+    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
+    Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
+
 
     std::string transportProt = "Tcp";
     uint32_t drbCount1 = 0;
@@ -311,16 +316,18 @@ int main (int argc, char *argv[])
 
     if (enableResequenceBuffer)
     {
-        Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (20)));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (1500)));
+        NS_LOG_INFO ("Enabling Resequence Buffer");
+	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (250)));
+
     }
 
     if (enableFlowBender)
     {
         NS_LOG_INFO ("Enabling Flow Bender");
         Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
         Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
     }
 
@@ -351,18 +358,18 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Install channel");
     PointToPointHelper p2p;
 
-    Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_PACKETS"));
+    Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_BYTES"));
     Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1400));
-    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (400));
+    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (250 * 1400));
     Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
 
     TrafficControlHelper tc;
-    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
-                                              "MaxTh", DoubleValue (65));
+    tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
+                                              "MaxTh", DoubleValue (65 * 1400));
 
     if (transportProt.compare ("Tcp") == 0)
     {
-        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
+        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (250));
     }
     else
     {
@@ -391,11 +398,12 @@ int main (int argc, char *argv[])
     QueueDiscContainer qd4d5 = tc.Install (d4d5);
 
     //Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    //p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    //p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
     TrafficControlHelper tc2;
-    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65),
-                                               "MaxTh", DoubleValue (65));
+    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
+                                               "MaxTh", DoubleValue (65 * 1400));
 
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
     tc2.Install (d1d3);
@@ -457,49 +465,49 @@ int main (int argc, char *argv[])
 
     uint16_t port = 8080;
 
-    for (int i = 0; i < 20; i ++)
+    for (int i = 0; i < 10; i ++)
     {
     BulkSendHelper source ("ns3::TcpSocketFactory",
             InetSocketAddress (i4i5.GetAddress(1), port + i));
-    source.SetAttribute ("MaxBytes", UintegerValue (0));
+    source.SetAttribute ("MaxBytes", UintegerValue (100e6));
     source.SetAttribute ("SendSize", UintegerValue (1400));
     ApplicationContainer sourceApps = source.Install (c.Get (0));
     sourceApps.Start (Seconds (0.0));
-    sourceApps.Stop (Seconds (0.04));
+    sourceApps.Stop (Seconds (10.0));
 
     PacketSinkHelper sink ("ns3::TcpSocketFactory",
             InetSocketAddress (Ipv4Address::GetAny (), port + i));
     ApplicationContainer sinkApp = sink.Install (c.Get(5));
     sinkApp.Start (Seconds (0.0));
-    sinkApp.Stop (Seconds (0.04));
+    sinkApp.Stop (Seconds (10.0));
     }
 
-    Config::SetDefault ("ns3::CongestionProbing::ProbingInterval", TimeValue (MicroSeconds (80)));
-    Config::SetDefault ("ns3::CongestionProbing::ProbeTimeout", TimeValue (MicroSeconds (300)));
-    Config::SetDefault ("ns3::CongestionProbing::MaxV", UintegerValue (2));
+    //Config::SetDefault ("ns3::CongestionProbing::ProbingInterval", TimeValue (MicroSeconds (80)));
+    //Config::SetDefault ("ns3::CongestionProbing::ProbeTimeout", TimeValue (MicroSeconds (300)));
+    //Config::SetDefault ("ns3::CongestionProbing::MaxV", UintegerValue (2));
 
-    Ptr<CongestionProbing> probing1= CreateObject<CongestionProbing> ();
+    //Ptr<CongestionProbing> probing1= CreateObject<CongestionProbing> ();
     //probing1->SetFlowId (1);
-    probing1->SetSourceAddress (i0i1.GetAddress (0));
-    probing1->SetProbeAddress (i4i5.GetAddress (1));
-    probing1->SetNode (c.Get (0));
-    probing1->StopProbe (Seconds (0.04));
+    //probing1->SetSourceAddress (i0i1.GetAddress (0));
+    //probing1->SetProbeAddress (i4i5.GetAddress (1));
+    //probing1->SetNode (c.Get (0));
+    /*probing1->StopProbe (Seconds (0.04));*/
     //probing1->StartProbe ();
 
-    Ptr<CongestionProbing> probing2= CreateObject<CongestionProbing> ();
+    //Ptr<CongestionProbing> probing2= CreateObject<CongestionProbing> ();
     //probing2->SetFlowId (2);
-    probing2->SetSourceAddress (i4i5.GetAddress (1));
-    probing2->SetProbeAddress (i0i1.GetAddress (0));
-    probing2->SetNode (c.Get (5));
-    probing2->StopProbe (Seconds (0.04));
+    //probing2->SetSourceAddress (i4i5.GetAddress (1));
+    //probing2->SetProbeAddress (i0i1.GetAddress (0));
+    //probing2->SetNode (c.Get (5));
+    //probing2->StopProbe (Seconds (0.04));
     //probing2->StartProbe ();
 
-    bool traceConnectionResult = probing1->TraceConnectWithoutContext ("Probing", MakeCallback (&ProbingEvent));
-    if (!traceConnectionResult)
-    {
-        NS_LOG_ERROR ("Connection failed");
-        return -1;
-    }
+    //bool traceConnectionResult = probing1->TraceConnectWithoutContext ("Probing", MakeCallback (&ProbingEvent));
+    //if (!traceConnectionResult)
+    //{
+        //NS_LOG_ERROR ("Connection failed");
+        //return -1;
+    //}
 
     //cwndPlot << "cwnd.plotme";
     //congPlot << "cong.plotme";
@@ -590,10 +598,17 @@ int main (int argc, char *argv[])
 
     p2p.EnablePcapAll ("load-balance");
 
+    Ptr<FlowMonitor> flowMonitor;
+    FlowMonitorHelper flowHelper;
+    flowMonitor = flowHelper.InstallAll();
+
     NS_LOG_INFO ("Run Simulations");
 
-    Simulator::Stop (Seconds (0.04));
+    Simulator::Stop (Seconds (10.0));
     Simulator::Run ();
+
+    flowMonitor->SerializeToXmlFile("flow-monitor.xml", true, true);
+
     Simulator::Destroy ();
 
     NS_LOG_INFO ("Probing in V0: " << static_cast<double>(v0PacketMarked) / v0PacketTotal);
