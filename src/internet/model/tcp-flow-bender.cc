@@ -18,10 +18,6 @@ TcpFlowBender::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("Internent")
         .AddConstructor<TcpFlowBender> ()
-        .AddAttribute ("RTT", "RTT of the network",
-            TimeValue (MicroSeconds (100)),
-            MakeTimeAccessor (&TcpFlowBender::m_rtt),
-            MakeTimeChecker ())
         .AddAttribute ("T", "The congestion degree within one RTT",
             DoubleValue (0.05),
             MakeDoubleAccessor (&TcpFlowBender::m_T),
@@ -41,7 +37,6 @@ TcpFlowBender::TcpFlowBender ()
      m_numCongestionRtt (0),
      m_V (0),
      m_highTxMark (0),
-     m_rtt(MicroSeconds (100)),
      m_T (0.05),
      m_N (1),
      m_totalPacketsStatis (0),
@@ -52,12 +47,11 @@ TcpFlowBender::TcpFlowBender ()
 
 TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
     :Object (),
-     m_totalPackets (other.m_totalPackets),
-     m_markedPackets (other.m_markedPackets),
-     m_numCongestionRtt (other.m_numCongestionRtt),
-     m_V (other.m_V),
+    m_totalPackets (0),
+     m_markedPackets (0),
+     m_numCongestionRtt (0),
+     m_V (0),
      m_highTxMark (0),
-     m_rtt (other.m_rtt),
      m_T (other.m_T),
      m_N (other.m_N),
      m_totalPacketsStatis (0),
@@ -99,7 +93,7 @@ TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ac
 uint32_t
 TcpFlowBender::GetV ()
 {
-    NS_LOG_INFO ("retuning V as " << m_V );
+    NS_LOG_INFO ( this << " retuning V as " << m_V );
     return m_V;
 }
 
