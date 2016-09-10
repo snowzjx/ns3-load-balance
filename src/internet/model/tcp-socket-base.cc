@@ -1086,6 +1086,8 @@ TcpSocketBase::DoConnect (void)
         NS_LOG_LOGIC (this << " ECN capable connection, sending ECN setup SYN");
       }
       SendEmptyPacket (sendflags);
+      // XXX Resequence Buffer Support, disable resequence buffer on sender side
+      m_resequenceBufferEnabled = false;
       NS_LOG_DEBUG (TcpStateName[m_state] << " -> SYN_SENT");
       m_state = SYN_SENT;
     }
