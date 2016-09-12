@@ -23,7 +23,7 @@ public:
 
     virtual void PktsAcked (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked, const Time &rtt, bool withECE,
             SequenceNumber32 headSeq, SequenceNumber32 ackNumber);
-    virtual void UpdateAlpha();
+    void UpdateAlpha();
     virtual void CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBase> socket);
     virtual void IncreaseWindow(Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
     virtual uint32_t GetSsThresh(Ptr<TcpSocketState> tcb, uint32_t bytesInFlight);

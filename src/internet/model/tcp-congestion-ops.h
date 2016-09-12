@@ -88,7 +88,7 @@ public:
    * \param bytesInFlight total bytes in flight
    * \return Slow start threshold
    */
-  virtual uint32_t GetSsThresh (Ptr<const TcpSocketState> tcb,
+  virtual uint32_t GetSsThresh (Ptr<TcpSocketState> tcb,
                                 uint32_t bytesInFlight) = 0;
 
   /**
@@ -182,7 +182,7 @@ public:
   std::string GetName () const;
 
   virtual void IncreaseWindow (Ptr<TcpSocketState> tcb, uint32_t segmentsAcked);
-  virtual uint32_t GetSsThresh (Ptr<const TcpSocketState> tcb,
+  virtual uint32_t GetSsThresh (Ptr<TcpSocketState> tcb,
                                 uint32_t bytesInFlight);
 
   virtual Ptr<TcpCongestionOps> Fork ();

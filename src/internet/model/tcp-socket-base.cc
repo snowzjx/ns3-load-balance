@@ -1605,10 +1605,16 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               m_recover = m_highTxMark;
               m_tcb->m_congState = TcpSocketState::CA_RECOVERY;
 
-              m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
-                                                                    BytesInFlight ());
+	      if (m_flowBenderEnabled)
+	      {
+                m_tcb->m_ssThresh = m_tcb->m_cWnd / 2;
+              }
+              else 
+              {
+                m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
+                                                                      BytesInFlight ());
+              }
               m_tcb->m_cWnd = m_tcb->m_ssThresh + m_dupAckCount * m_tcb->m_segmentSize;
-
               NS_LOG_INFO (m_dupAckCount << " dupack. Enter fast recovery mode." <<
                            "Reset cwnd to " << m_tcb->m_cWnd << ", ssthresh to " <<
                            m_tcb->m_ssThresh << " at fast recovery seqnum " << m_recover);
@@ -3727,18 +3733,21 @@ void
 TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
         const Ipv4Address &saddr, const Ipv4Address &daddr, uint16_t sport, uint16_t dport)
 {
-  const static uint8_t PROT_NUMBER = 6;
+  // const static uint8_t PROT_NUMBER = 6;
   // XXX Per flow ECMP support
   // Calculate the flow id and store it in the packet flow id packet tag
   // NOTE Here we do not use the byte tag since we want the flow id tag to be applied to each packet
   // after TCP fragmentation
-  uint32_t flowId = 0;
+  
+  // uint32_t flowId = 0;
 
-  flowId ^= saddr.Get();
-  flowId ^= daddr.Get();
-  flowId ^= sport;
-  flowId ^= (dport << 16);
-  flowId ^= PROT_NUMBER;
+  // flowId ^= saddr.Get();
+  // flowId ^= daddr.Get();
+  // flowId ^= sport;
+  // flowId ^= (dport << 16);
+  // flowId += PROT_NUMBER;
+
+  uint32_t flowId = dport;
 
   // XXX Flow Bender support
   if (m_flowBenderEnabled)

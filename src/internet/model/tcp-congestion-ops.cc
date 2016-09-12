@@ -221,7 +221,7 @@ TcpNewReno::GetName () const
 }
 
 uint32_t
-TcpNewReno::GetSsThresh (Ptr<const TcpSocketState> state,
+TcpNewReno::GetSsThresh (Ptr<TcpSocketState> state,
                          uint32_t bytesInFlight)
 {
   NS_LOG_FUNCTION (this << state << bytesInFlight);
