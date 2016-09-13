@@ -24,6 +24,7 @@ struct Flowlet {
 struct FeedbackInfo {
   uint32_t ce;
   bool change;
+  Time updateTime;
 };
 
 struct CongaRouteEntry {

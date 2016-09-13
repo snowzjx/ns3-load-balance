@@ -476,6 +476,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
         FeedbackInfo feedbackInfo;
         feedbackInfo.ce = ipv4CongaTag.GetCe ();
         feedbackInfo.change = true;
+        feedbackInfo.updateTime = Simulator::Now ();
         newMap[ipv4CongaTag.GetLbTag ()] = feedbackInfo;
         m_congaFromLeafTable[sourceLeafId] = newMap;
       }
@@ -487,12 +488,14 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
           FeedbackInfo feedbackInfo;
           feedbackInfo.ce = ipv4CongaTag.GetCe ();
           feedbackInfo.change = true;
+          feedbackInfo.updateTime = Simulator::Now ();
           (fromLeafItr->second)[ipv4CongaTag.GetLbTag ()] = feedbackInfo;
         }
         else
         {
           (innerItr->second).ce = ipv4CongaTag.GetCe ();
           (innerItr->second).change = true;
+          (innerItr->second).updateTime = Simulator::Now ();
         }
       }
 
@@ -687,6 +690,26 @@ Ipv4CongaRouting::AgingEvent ()
         }
       }
     }
+    std::map<uint32_t, std::map<uint32_t, FeedbackInfo> >::iterator itr2 =
+        m_congaFromLeafTable.begin ();
+    for ( ; itr2 != m_congaFromLeafTable.end (); ++itr2 )
+    {
+        std::map<uint32_t, FeedbackInfo>::iterator innerItr2 =
+          (itr2->second).begin ();
+        for ( ; innerItr2 != (itr2->second).end (); ++innerItr2)
+        {
+          if (Simulator::Now () - (innerItr2->second).updateTime > m_agingTime)
+          {
+            (itr2->second).erase (innerItr2);
+          }
+          else
+          {
+            moveToIdleStatus = false;
+          }
+        }
+    }
+
+
     if (!moveToIdleStatus)
     {
       m_agingEvent = Simulator::Schedule(m_agingTime / 4, &Ipv4CongaRouting::AgingEvent, this);
