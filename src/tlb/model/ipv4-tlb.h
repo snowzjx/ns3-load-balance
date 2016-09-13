@@ -9,7 +9,7 @@
 
 #include <vector>
 #include <map>
-
+#include <utility>
 
 namespace ns3 {
 
@@ -30,7 +30,7 @@ public:
 
     // These methods are used for TCP flows
 
-    uint32_t GetPath (uint32_t flowId);
+    uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
 
     void FlowRecv (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN);
 
@@ -39,21 +39,45 @@ public:
     void FlowTimeout (uint32_t flowId);
 
     // These methods are used in probing
-    void ProbeRecv (uint32_t pathId, Ipv4Address daddr, uint32_t size, bool withECN);
 
-    void ProbeTimeout (uint32_t pathId);
+    uint32_t GetProbingPath (Ipv4Address daddr);
+
+    void ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN);
+
+    void ProbeTimeout (uint32_t path);
 
     // Node
     void SetNode (Ptr<Node> node);
 
 private:
 
+    void PacketReceive (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN, bool isProbing);
+
+    void UpdateFlowInfo (uint32_t flowId, uint32_t size, bool withECN);
+
+    void UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool withECN, Time rtt);
+
+    void TimeoutFlow (uint32_t flowId);
+
+    void TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing);
+
+    void RetransFlow (uint32_t flowId);
+
+    void RetransPath (uint32_t destTor, uint32_t path);
+
+    void UpdateFlowPath (uint32_t flowId, uint32_t path);
+
+    void AssignFlowToPath (uint32_t flowId, uint32_t destTor, uint32_t path);
+
+    void RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path);
+
     // Parameters
     uint32_t m_S;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
-    std::map<uint32_t, std::map<uint32_t, TLBPathInfo> > m_pathInfo; /* <DestTorId, Map<PathId, TLBPathInfo>> */
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo> m_pathInfo; /* <DestTorId, PathId>, TLBPathInfo> */
+
     std::map<Ipv4Address, uint32_t> m_ipTorMap; /* <DestAddress, DestTorId> */
 
     std::map<uint32_t, std::vector<uint32_t> > m_availablePath; /* <DestTorId, List<PathId>> */

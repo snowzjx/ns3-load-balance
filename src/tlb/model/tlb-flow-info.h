@@ -9,7 +9,8 @@ public:
   uint32_t flowId;
   uint32_t path;
   uint32_t size;
-  uint32_t retransmissionSize;
+  uint32_t ecnSize;
+  uint32_t retransmissionCount;
   bool isTimeout;
 };
 

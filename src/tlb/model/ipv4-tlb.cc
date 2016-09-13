@@ -37,112 +37,213 @@ Ipv4TLB::GetTypeId (void)
 void
 Ipv4TLB::AddAddressWithTor (Ipv4Address address, uint32_t torId)
 {
-    m_IpTorMap[address] = torId;
+    m_ipTorMap[address] = torId;
 }
 
 uint32_t
-Ipv4TLB::GetPath (void)
+Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
 {
     return 0;
 }
 
 void
-Ipv4TLB::FlowSent (uint32_t flowId, Ipv4Address daddr, uint32_t pathId)
+Ipv4TLB::FlowRecv (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN)
 {
-    NS_LOG_FUNCTION (this << flowId << daddr << pathId << isRetransmission);
 
-    uint32_t destTorId = 0;
-    std::map<Ipv4Address, uint32_t>::iterator torItr = m_ipTorMap.find (daddr);
-    if (torItr == m_ipTorMap.end ())
-    {
-        NS_LOG_ERROR (this << "Cannot find tor id based on destination address");
-        return;
-    }
-    else
-    {
-        destTorId = torItr->second;
-    }
+}
 
-    bool hasChangedPath = false;
-    uint32_t oldPath = 0;
+void
+Ipv4TLB::FlowRetransmission (uint32_t flowId)
+{
 
-    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
-    if (itr == m_flowInfo.end ())
-    {
-        TLBFlowInfo flowInfo;
-        flowInfo.flowId = flowId;
-        flowInfo.path = pathId;
-        // A new flow will not be retransmission or has time out event
-        flowInfo.retransmissionSize = 0;
-        flowInfo.isTimeout = false;
-        m_flowInfo[flowId] = flowInfo;
-    }
-    else
-    {
-        if ((itr->second).path != pathId)
-        {
-            // A flow has changed the path
-            hasChangedPath = true;
-            oldPath = (itr->second).path;
-            (itr->second).path = pathId;
-            (itr->second).size = 0;
-            (itr->second).retransmissionSize = 0;
-            (itr->second).isTimeout = false;
-        }
-        (itr->second).size += size;
-        if (isRetransmission)
-        {
-            (itr->second).retransmissionSize += size;
-        }
-    }
-
-    std::map<uint32_t, std::map<uint32_t, TLBPathInfo> >::iterator torPathMapItr = m_pathInfo.find (destTorId);
-    if (torPathMapItr == m_pathInfo.end ())
-    {
-        std::map<uint32_t, TLBPathInfo> pathMap;
-        m_pathInfo[destTorId] = pathMap;
-        torPathMapItr = m_pathInfo.find (destTorId);
-    }
-
-    std::map<uint32_t, TLBPathInfo>::iterator pathMapItr = (torPathMapItr->second).find (pathId);
-    if (pathMapItr == (torPathMapItr->second).end ())
-    {
-        TLBPathInfo pathInfo;
-        pathInfo.pathId = pathId;
-        pathInfo.size = 0;
-        pathInfo.ecnSize = 0;
-        pathInfo.minRtt = Seconds (1);
-        pathInfo.isRetransmission = false;
-        pathInfo.isTimeout = false;
-        pathInfo.isProbingTimeout = false;
-        pathInfo.flowCounter = 1;
-        (torPathMapItr->second)[pathId] = pathInfo;
-    }
-    else
-    {
-
-    }
 }
 
 void
 Ipv4TLB::FlowTimeout (uint32_t flowId)
 {
-    NS_LOG_FUNCTION (this << flowId);
-    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
 
-    if (itr == m_flowInfo.end ())
-    {
-        NS_LOG_ERROR ("Cannot timeout a flow that has not been recorded before");
-        return;
-    }
-
-    (itr->second).isTimeout = true;
 }
+
+uint32_t
+Ipv4TLB::GetProbingPath (Ipv4Address daddr)
+{
+    return 0;
+}
+
+void
+Ipv4TLB::ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN)
+{
+
+}
+
+void
+Ipv4TLB::ProbeTimeout (uint32_t path)
+{
+
+}
+
 
 void
 Ipv4TLB::SetNode (Ptr<Node> node)
 {
     m_node = node;
+}
+
+void
+Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t size, bool withECN)
+{
+    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
+    if (itr == m_flowInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot update info for a non-existing flow");
+    }
+
+    (itr->second).size += size;
+    if (withECN)
+    {
+        (itr->second).ecnSize += size;
+    }
+
+}
+
+void
+Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool withECN, Time rtt)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+
+    TLBPathInfo pathInfo;
+    if (itr == m_pathInfo.end ())
+    {
+        pathInfo.pathId = path;
+        pathInfo.size = 0;
+        pathInfo.ecnSize = 0;
+        pathInfo.minRtt = Seconds (666);
+        pathInfo.isRetransmission = false;
+        pathInfo.isTimeout = false;
+        pathInfo.isProbingTimeout = false;
+        pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
+    }
+    else
+    {
+        pathInfo = itr->second;
+    }
+
+    pathInfo.size += size;
+    if (withECN)
+    {
+        pathInfo.ecnSize += size;
+    }
+    if (rtt < pathInfo.minRtt)
+    {
+        pathInfo.minRtt = rtt;
+    }
+
+    m_pathInfo[key] = pathInfo;
+}
+
+void
+Ipv4TLB::TimeoutFlow (uint32_t flowId)
+{
+    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
+    if (itr == m_flowInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot timeout a non-existing flow");
+        return;
+    }
+    (itr->second).isTimeout = true;
+}
+
+
+void
+Ipv4TLB::RetransFlow (uint32_t flowId)
+{
+    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
+    if (itr == m_flowInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot retransmit a non-existing flow");
+        return;
+    }
+    (itr->second).retransmissionCount ++;
+}
+
+
+void
+Ipv4TLB::TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+    if (itr == m_pathInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot timeout a non-existing path");
+        return;
+    }
+    if (!isProbing)
+    {
+        (itr->second).isTimeout = true;
+    }
+    else
+    {
+        (itr->second).isProbingTimeout = true;
+    }
+}
+
+void
+Ipv4TLB::RetransPath (uint32_t destTor, uint32_t path)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+    if (itr == m_pathInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot timeout a non-existing path");
+        return;
+    }
+    (itr->second).isRetransmission = true;
+}
+
+void
+Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
+{
+    TLBFlowInfo flowInfo;
+    flowInfo.path = path;
+    flowInfo.size = 0;
+    flowInfo.ecnSize = 0;
+    flowInfo.retransmissionCount = 0;
+    flowInfo.isTimeout = false;
+
+    m_flowInfo[flowId] = flowInfo;
+}
+
+void
+Ipv4TLB::AssignFlowToPath (uint32_t flowId, uint32_t destTor, uint32_t path)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+    if (itr == m_pathInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot assign flow to a non-existing path");
+        return;
+    }
+    (itr->second).flowCounter ++;
+}
+
+void
+Ipv4TLB::RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+    if (itr == m_pathInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot remove flow from a non-existing path");
+        return;
+    }
+    if ((itr->second).flowCounter == 0)
+    {
+        NS_LOG_ERROR ("Cannot decrease from counter while it has reached 0");
+        return;
+    }
+    (itr->second).flowCounter --;
+
 }
 
 }

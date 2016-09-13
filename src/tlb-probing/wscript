@@ -7,24 +7,24 @@
 #     conf.check_nonfatal(header_name='stdint.h', define_name='HAVE_STDINT_H')
 
 def build(bld):
-    module = bld.create_ns3_module('tlb', ['core'])
+    module = bld.create_ns3_module('tlb-probing', ['core', 'internet', 'tlb', 'xpath-routing'])
     module.source = [
-        'model/ipv4-tlb.cc',
-        'helper/ipv4-tlb-helper.cc',
+        'model/ipv4-tlb-probing.cc',
+        'model/ipv4-tlb-probing-tag.cc',
+        'helper/tlb-probing-helper.cc',
         ]
 
-    module_test = bld.create_ns3_module_test_library('tlb')
+    module_test = bld.create_ns3_module_test_library('tlb-probing')
     module_test.source = [
-        'test/tlb-test-suite.cc',
+        'test/tlb-probing-test-suite.cc',
         ]
 
     headers = bld(features='ns3header')
-    headers.module = 'tlb'
+    headers.module = 'tlb-probing'
     headers.source = [
-        'model/ipv4-tlb.h',
-        'model/tlb-flow-info.h',
-        'model/tlb-path-info.h',
-        'helper/ipv4-tlb-helper.h',
+        'model/ipv4-tlb-probing.h',
+        'model/ipv4-tlb-probing-tag.h',
+        'helper/tlb-probing-helper.h',
         ]
 
     if bld.env.ENABLE_EXAMPLES:

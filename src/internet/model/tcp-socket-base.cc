@@ -2725,14 +2725,13 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
     {
       TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+      // XXX TLB Support
       if (m_TLBEnabled)
       {
         uint32_t flowId = TcpSocketBase::CalFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        // TODO Get PATH
-        uint32_t pathId = 0;
-        ipv4TLB->FlowSent (flowId, pathId, isRetransmission);
+        NS_LOG_INFO (this << flowId << ipv4TLB);
       }
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
@@ -3763,7 +3762,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // flowId ^= (dport << 16);
   // flowId += PROT_NUMBER;
 
-  uint32_t flowId = TcpSocketBase::CalFlowId (p, saddr, daddr, sport, dport);
+  uint32_t flowId = TcpSocketBase::CalFlowId (packet, saddr, daddr, sport, dport);
 
   // XXX Flow Bender support
   if (m_flowBenderEnabled)
@@ -3772,8 +3771,6 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   }
 
   packet->AddPacketTag(FlowIdTag(flowId));
-
-  return flowId;
 }
 
 uint32_t

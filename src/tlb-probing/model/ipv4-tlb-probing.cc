@@ -213,9 +213,11 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         m_probingTimeoutMap.erase (itr);
 
         // TODO Update path information
+        /*
         uint32_t path = probingTag.GetPath ();
         Time oneWayRtt = probingTag.GetTime ();
         bool isCE = probingTag.GetIsCE () == 1 ? true : false;
+        */
     }
 }
 
