@@ -142,6 +142,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_flowBenderEnabled),
                    MakeBooleanChecker ())
+    .AddAttribute ("TLB", "Enable the TLB",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_TLBEnabled),
+                   MakeBooleanChecker ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -327,6 +331,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_ecn (true),
     m_resequenceBufferEnabled (false),
     m_flowBenderEnabled (false),
+    m_TLBEnabled (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -417,6 +422,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_ecn (sock.m_ecn),
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_flowBenderEnabled (sock.m_flowBenderEnabled),
+    m_TLBEnabled (sock.m_TLBEnabled),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -1609,7 +1615,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 	      {
                 m_tcb->m_ssThresh = m_tcb->m_cWnd / 2;
               }
-              else 
+              else
               {
                 m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
                                                                       BytesInFlight ());
@@ -2608,6 +2614,7 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
   uint8_t flags = withAck ? TcpHeader::ACK : 0;
   uint32_t remainingData = m_txBuffer->SizeFromSequence (seq + SequenceNumber32 (sz));
 
+
   if (withAck)
     {
       m_congestionControl->CwndEvent(m_tcb, TcpCongestionOps::CA_EVENT_DELAY_ACK_NO_RESERVED, this);
@@ -2718,6 +2725,15 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
     {
       TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+      if (m_TLBEnabled)
+      {
+        uint32_t flowId = TcpSocketBase::CalFlowId (p, m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+        Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+        // TODO Get PATH
+        uint32_t pathId = 0;
+        ipv4TLB->FlowSent (flowId, pathId, isRetransmission);
+      }
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
       NS_LOG_DEBUG ("Send segment of size " << sz << " with remaining data " <<
@@ -3738,7 +3754,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // Calculate the flow id and store it in the packet flow id packet tag
   // NOTE Here we do not use the byte tag since we want the flow id tag to be applied to each packet
   // after TCP fragmentation
-  
+
   // uint32_t flowId = 0;
 
   // flowId ^= saddr.Get();
@@ -3747,7 +3763,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // flowId ^= (dport << 16);
   // flowId += PROT_NUMBER;
 
-  uint32_t flowId = dport;
+  uint32_t flowId = TcpSocketBase::CalFlowId (p, saddr, daddr, sport, dport);
 
   // XXX Flow Bender support
   if (m_flowBenderEnabled)
@@ -3757,8 +3773,15 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
 
   packet->AddPacketTag(FlowIdTag(flowId));
 
+  return flowId;
 }
 
+uint32_t
+TcpSocketBase::CalFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
+          uint16_t sport, uint16_t dport)
+{
+  return dport;
+}
 
 //RttHistory methods
 RttHistory::RttHistory (SequenceNumber32 s, uint32_t c, Time t)

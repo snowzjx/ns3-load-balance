@@ -116,6 +116,8 @@ public:
 
 
   void SetDrb (bool enable);
+
+  void SetTLB (bool enable);
   /**
    * Aggregate implementations of the ns3::Ipv4, ns3::Ipv6, ns3::Udp, and ns3::Tcp classes
    * onto the provided node.  This method will assert if called on a node that
@@ -349,6 +351,8 @@ private:
   bool m_ipv6NsRsJitterEnabled;
 
   bool m_drb;
+
+  bool m_TLBEnabled;
 };
 
 } // namespace ns3

@@ -325,6 +325,12 @@ InternetStackHelper::SetDrb (bool enable)
 }
 
 void
+InternetStackHelper::SetTLB (bool enable)
+{
+  m_TLBEnabled = enable;
+}
+
+void
 InternetStackHelper::SetIpv4StackInstall (bool enable)
 {
   m_ipv4Enabled = enable;
@@ -438,6 +444,10 @@ InternetStackHelper::Install (Ptr<Node> node) const
                           "an InternetStack to a node with an existing Ipv4 object");
           return;
         }
+       if (m_TLBEnabled)
+        {
+          CreateAndAggregateObjectFromTypeId (node, "ns3::Ipv4TLB");
+        }
 
       CreateAndAggregateObjectFromTypeId (node, "ns3::ArpL3Protocol");
       CreateAndAggregateObjectFromTypeId (node, "ns3::Ipv4L3Protocol");
@@ -500,7 +510,7 @@ InternetStackHelper::Install (Ptr<Node> node) const
       Ptr<PacketSocketFactory> factory = CreateObject<PacketSocketFactory> ();
       node->AggregateObject (factory);
     }
-}
+ }
 
 void
 InternetStackHelper::Install (std::string nodeName) const

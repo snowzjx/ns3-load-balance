@@ -1,0 +1,68 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+#ifndef IPV4_TLB_PROBING_H
+#define IPV4_TLB_PROBING_H
+
+#include "ns3/object.h"
+#include "ns3/callback.h"
+#include "ns3/traced-callback.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/nstime.h"
+#include "ns3/event-id.h"
+
+#include <vector>
+#include <map>
+
+namespace ns3 {
+
+class Packet;
+class Socket;
+class Node;
+class Ipv4Header;
+
+class Ipv4TLBProbing : public Object
+{
+public:
+
+    static TypeId GetTypeId (void);
+    virtual TypeId GetInstanceTypeId (void) const;
+
+    Ipv4TLBProbing ();
+    Ipv4TLBProbing (const Ipv4TLBProbing&);
+    ~Ipv4TLBProbing ();
+    virtual void DoDispose (void);
+
+    void SetSourceAddress (Ipv4Address address);
+    void SetProbeAddress (Ipv4Address address);
+
+    void SetNode (Ptr<Node> node);
+
+    void Init (void);
+
+    void SendProbe (uint32_t path);
+
+    void ReceivePacket (Ptr<Socket> socket);
+
+    void ProbeEventTimeout (uint32_t id, uint32_t path);
+
+private:
+
+    // Parameters
+    Ipv4Address m_sourceAddress;
+    Ipv4Address m_probeAddress; // The flow destination
+
+    Time m_probeTimeout;
+
+    uint32_t m_id;
+
+    std::map <uint32_t, EventId> m_probingTimeoutMap;
+
+    Ptr<Socket> m_socket;
+
+    Ptr<Node> m_node;
+
+};
+
+}
+
+#endif /* CONGESTION_PROBING_H */
+

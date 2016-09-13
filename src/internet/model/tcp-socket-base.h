@@ -39,6 +39,7 @@
 #include "tcp-congestion-ops.h"
 #include "tcp-resequence-buffer.h"
 #include "tcp-flow-bender.h"
+#include "ns3/ipv4-tlb.h"
 
 namespace ns3 {
 
@@ -923,6 +924,8 @@ protected:
   void AttachFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport);
 
+  uint32_t CalFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
+          uint16_t sport, uint16_t dport);
 protected:
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
@@ -1008,6 +1011,8 @@ protected:
   // Flow Bender
   bool m_flowBenderEnabled;         //!< Whether the flow bender is enabled
   Ptr<TcpFlowBender>        m_flowBender;           //!< Flow Bender
+
+  bool m_TLBEnabled;
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
