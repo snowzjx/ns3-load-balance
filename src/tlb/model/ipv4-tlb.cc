@@ -43,25 +43,104 @@ Ipv4TLB::AddAddressWithTor (Ipv4Address address, uint32_t torId)
 uint32_t
 Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
 {
-    return 0;
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return 0;
+    }
+
+    std::map<uint32_t, TLBFlowInfo>::iterator flowItr = m_flowInfo.find (flowId);
+
+    // First check if the flow is a new flow
+    if (flowItr == m_flowInfo.end ())
+    {
+        // New flow
+        uint32_t newPath = 0;
+        if (!Ipv4TLB::WhereToChange (newPath))
+        {
+            newPath = Ipv4TLB::SelectRandomPath ();
+        }
+        Ipv4TLB::UpdateFlowPath (flowId, newPath);
+        Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
+        return newPath;
+    }
+    else
+    {
+        // Old flow
+        uint32_t oldPath = (flowItr->second).path;
+        if (Ipv4TLB::JudgePath (oldPath)  == BadPath && (flowItr->second).size >= m_S)
+        {
+            uint32_t newPath = 0;
+            if (Ipv4TLB::WhereToChange (newPath))
+            {
+                // Change path
+                Ipv4TLB::UpdateFlowPath (flowId, newPath);
+                Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
+                Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
+                return newPath;
+            }
+            else
+            {
+                // Do not change path
+                return oldPath;
+            }
+        }
+        else
+        {
+            return oldPath;
+        }
+    }
 }
 
 void
-Ipv4TLB::FlowRecv (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN)
+Ipv4TLB::FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt)
 {
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
+
+    Ipv4TLB::PacketReceive (flowId, path, destTor, size, withECN, rtt, false);
+}
+
+void
+Ipv4TLB::FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path)
+{
+     uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
+
+    bool notChangePath = Ipv4TLB::RetransFlow (flowId, path);
+    if (!notChangePath)
+    {
+        NS_LOG_LOGIC ("The flow has changed the path");
+    }
+    Ipv4TLB::RetransPath (destTor, path);
 
 }
 
 void
-Ipv4TLB::FlowRetransmission (uint32_t flowId)
+Ipv4TLB::FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path)
 {
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
 
-}
-
-void
-Ipv4TLB::FlowTimeout (uint32_t flowId)
-{
-
+    bool notChangePath = Ipv4TLB::TimeoutFlow (flowId, path);
+    if (!notChangePath)
+    {
+        NS_LOG_LOGIC ("The flow has changed the path");
+    }
+    Ipv4TLB::TimeoutPath (destTor, path, false);
 }
 
 uint32_t
@@ -71,13 +150,19 @@ Ipv4TLB::GetProbingPath (Ipv4Address daddr)
 }
 
 void
-Ipv4TLB::ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN)
+Ipv4TLB::ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt)
 {
-
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
+    Ipv4TLB::PacketReceive (0, path, destTor, size, withECN, rtt, true);
 }
 
 void
-Ipv4TLB::ProbeTimeout (uint32_t path)
+Ipv4TLB::ProbeTimeout (uint32_t path, Ipv4Address daddr)
 {
 
 }
@@ -90,20 +175,41 @@ Ipv4TLB::SetNode (Ptr<Node> node)
 }
 
 void
-Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t size, bool withECN)
+Ipv4TLB::PacketReceive (uint32_t flowId, uint32_t path, uint32_t destTorId,
+                        uint32_t size, bool withECN, Time rtt, bool isProbing)
+{
+    // If the packet acks the current path the flow goes, update the flow table and path table
+    // If not or the packet is a probing, update the path table
+    if (!isProbing)
+    {
+        bool notChangePath = Ipv4TLB::UpdateFlowInfo (flowId, path, size, withECN);
+        if (!notChangePath)
+        {
+            NS_LOG_LOGIC ("The flow has changed the path");
+        }
+    }
+    Ipv4TLB::UpdatePathInfo (destTorId, path, size, withECN, rtt);
+}
+
+bool
+Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN)
 {
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
     {
         NS_LOG_ERROR ("Cannot update info for a non-existing flow");
+        return false;
     }
-
+    if ((itr->second).path != path)
+    {
+        return false;
+    }
     (itr->second).size += size;
     if (withECN)
     {
         (itr->second).ecnSize += size;
     }
-
+    return true;
 }
 
 void
@@ -142,29 +248,39 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     m_pathInfo[key] = pathInfo;
 }
 
-void
-Ipv4TLB::TimeoutFlow (uint32_t flowId)
+bool
+Ipv4TLB::TimeoutFlow (uint32_t flowId, uint32_t path)
 {
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
     {
         NS_LOG_ERROR ("Cannot timeout a non-existing flow");
-        return;
+        return false;
+    }
+    if ((itr->second).path != path)
+    {
+        return false;
     }
     (itr->second).isTimeout = true;
+    return true;
 }
 
 
-void
-Ipv4TLB::RetransFlow (uint32_t flowId)
+bool
+Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path)
 {
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
     {
         NS_LOG_ERROR ("Cannot retransmit a non-existing flow");
-        return;
+        return false;
+    }
+    if ((itr->second).path != path)
+    {
+        return false;
     }
     (itr->second).retransmissionCount ++;
+    return true;
 }
 
 
@@ -244,6 +360,19 @@ Ipv4TLB::RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path)
     }
     (itr->second).flowCounter --;
 
+}
+
+bool
+Ipv4TLB::FindTorId (Ipv4Address daddr, uint32_t &destTorId)
+{
+    std::map<Ipv4Address, uint32_t>::iterator torItr = m_ipTorMap.find (daddr);
+
+    if (torItr == m_ipTorMap.end ())
+    {
+        return false;
+    }
+    destTorId = torItr->second;
+    return true;
 }
 
 }

@@ -13,6 +13,13 @@
 
 namespace ns3 {
 
+enum PathType
+{
+    GoodPath,
+    BadPath,
+    GreyPath
+};
+
 class Node;
 
 class Ipv4TLB : public Object
@@ -32,36 +39,37 @@ public:
 
     uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
 
-    void FlowRecv (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN);
+    void FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
-    void FlowRetransmission (uint32_t flowId);
+    void FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
-    void FlowTimeout (uint32_t flowId);
+    void FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
     // These methods are used in probing
 
     uint32_t GetProbingPath (Ipv4Address daddr);
 
-    void ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN);
+    void ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
-    void ProbeTimeout (uint32_t path);
+    void ProbeTimeout (uint32_t path, Ipv4Address daddr);
 
     // Node
     void SetNode (Ptr<Node> node);
 
 private:
 
-    void PacketReceive (uint32_t flowId, Ipv4Address daddr, uint32_t size, bool withECN, bool isProbing);
+    void PacketReceive (uint32_t flowId, uint32_t path, uint32_t destTorId,
+                        uint32_t size, bool withECN, Time rtt, bool isProbing);
 
-    void UpdateFlowInfo (uint32_t flowId, uint32_t size, bool withECN);
+    bool UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN);
 
     void UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool withECN, Time rtt);
 
-    void TimeoutFlow (uint32_t flowId);
+    bool TimeoutFlow (uint32_t flowId, uint32_t path);
 
     void TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing);
 
-    void RetransFlow (uint32_t flowId);
+    bool RetransFlow (uint32_t flowId, uint32_t path);
 
     void RetransPath (uint32_t destTor, uint32_t path);
 
@@ -70,6 +78,14 @@ private:
     void AssignFlowToPath (uint32_t flowId, uint32_t destTor, uint32_t path);
 
     void RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path);
+
+    bool WhereToChange (uint32_t &newPath);
+
+    uint32_t SelectRandomPath ();
+
+    PathType JudgePath (uint32_t path);
+
+    bool FindTorId (Ipv4Address daddr, uint32_t &destTorId);
 
     // Parameters
     uint32_t m_S;
