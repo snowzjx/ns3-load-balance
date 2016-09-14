@@ -701,6 +701,10 @@ Ipv4CongaRouting::AgingEvent ()
           if (Simulator::Now () - (innerItr2->second).updateTime > m_agingTime)
           {
             (itr2->second).erase (innerItr2);
+            if ((itr2->second).empty ())
+            {
+                m_congaFromLeafTable.erase (itr2);
+            }
           }
           else
           {
