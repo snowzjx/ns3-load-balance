@@ -7,9 +7,10 @@
 #     conf.check_nonfatal(header_name='stdint.h', define_name='HAVE_STDINT_H')
 
 def build(bld):
-    module = bld.create_ns3_module('tlb', ['core'])
+    module = bld.create_ns3_module('tlb', ['core', 'network'])
     module.source = [
         'model/ipv4-tlb.cc',
+        'model/tcp-tlb-tag.cc',
         'helper/ipv4-tlb-helper.cc',
         ]
 
@@ -22,6 +23,7 @@ def build(bld):
     headers.module = 'tlb'
     headers.source = [
         'model/ipv4-tlb.h',
+        'model/tcp-tlb-tag.h',
         'model/tlb-flow-info.h',
         'model/tlb-path-info.h',
         'helper/ipv4-tlb-helper.h',

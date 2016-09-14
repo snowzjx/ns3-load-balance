@@ -4,6 +4,7 @@
 
 #include "ns3/log.h"
 #include "ns3/node.h"
+#include "ns3/simulator.h"
 
 namespace ns3 {
 
@@ -57,9 +58,9 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
     {
         // New flow
         uint32_t newPath = 0;
-        if (!Ipv4TLB::WhereToChange (newPath))
+        if (!Ipv4TLB::WhereToChange (destTor, newPath))
         {
-            newPath = Ipv4TLB::SelectRandomPath ();
+            newPath = Ipv4TLB::SelectRandomPath (destTor);
         }
         Ipv4TLB::UpdateFlowPath (flowId, newPath);
         Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
@@ -69,10 +70,10 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
     {
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
-        if (Ipv4TLB::JudgePath (oldPath)  == BadPath && (flowItr->second).size >= m_S)
+        if (Ipv4TLB::JudgePath (destTor, oldPath)  == BadPath && (flowItr->second).size >= m_S)
         {
             uint32_t newPath = 0;
-            if (Ipv4TLB::WhereToChange (newPath))
+            if (Ipv4TLB::WhereToChange (destTor, newPath))
             {
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath);
@@ -107,7 +108,14 @@ Ipv4TLB::FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t s
 }
 
 void
-Ipv4TLB::FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path)
+Ipv4TLB::FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size)
+{
+    Ipv4TLB::SendFlow (flowId, path, size);
+}
+
+
+void
+Ipv4TLB::FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size)
 {
      uint32_t destTor = 0;
     if (!Ipv4TLB::FindTorId (daddr, destTor))
@@ -116,13 +124,16 @@ Ipv4TLB::FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path)
         return;
     }
 
-    bool notChangePath = Ipv4TLB::RetransFlow (flowId, path);
+    bool needRetransPath = false;
+    bool notChangePath = Ipv4TLB::RetransFlow (flowId, path, size, needRetransPath);
     if (!notChangePath)
     {
         NS_LOG_LOGIC ("The flow has changed the path");
     }
-    Ipv4TLB::RetransPath (destTor, path);
-
+    if (needRetransPath)
+    {
+        Ipv4TLB::RetransPath (destTor, path);
+    }
 }
 
 void
@@ -265,9 +276,8 @@ Ipv4TLB::TimeoutFlow (uint32_t flowId, uint32_t path)
     return true;
 }
 
-
 bool
-Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path)
+Ipv4TLB::SendFlow (uint32_t flowId, uint32_t path, uint32_t size)
 {
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
@@ -279,7 +289,29 @@ Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path)
     {
         return false;
     }
-    (itr->second).retransmissionCount ++;
+    (itr->second).sendSize += size;
+    return true;
+}
+
+bool
+Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath)
+{
+    needRetranPath = false;
+    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
+    if (itr == m_flowInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot retransmit a non-existing flow");
+        return false;
+    }
+    if ((itr->second).path != path)
+    {
+        return false;
+    }
+    (itr->second).retransmissionSize += size;
+    if (static_cast<double> ((itr->second).retransmissionSize) / (itr->second).sendSize > m_flowRetrasPortion)
+    {
+        needRetranPath = true;
+    }
     return true;
 }
 
@@ -324,8 +356,10 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
     flowInfo.path = path;
     flowInfo.size = 0;
     flowInfo.ecnSize = 0;
-    flowInfo.retransmissionCount = 0;
+    flowInfo.sendSize = 0;
+    flowInfo.retransmissionSize = 0;
     flowInfo.isTimeout = false;
+    flowInfo.timestamp = Simulator::Now ();
 
     m_flowInfo[flowId] = flowInfo;
 }
@@ -363,6 +397,64 @@ Ipv4TLB::RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path)
 }
 
 bool
+Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath)
+{
+    std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
+
+    if (itr == m_availablePath.end ())
+    {
+        NS_LOG_ERROR ("Cannot find available paths");
+        return false;
+    }
+
+    std::vector<uint32_t>::iterator vectorItr = (itr->second).begin ();
+
+    // Firstly, checking good path
+//    uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
+    for ( ; vectorItr != (itr->second).end (); ++vectorItr)
+    {
+//        uint32_t pathId = *vectorItr;
+
+    }
+
+    // Secondly, checking gray path
+
+
+    return true;
+}
+
+uint32_t
+Ipv4TLB::SelectRandomPath (uint32_t destTor)
+{
+    return 0;
+}
+
+PathType
+Ipv4TLB::JudgePath (uint32_t destTor, uint32_t path)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+    if (itr == m_pathInfo.end ())
+    {
+        return GreyPath;
+    }
+    TLBPathInfo pathInfo = itr->second;
+    if (pathInfo.minRtt < m_minRtt
+            || (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
+    {
+        return GoodPath;
+    }
+    if (pathInfo.isRetransmission
+            || pathInfo.isTimeout
+            || pathInfo.isProbingTimeout
+            || static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh)
+    {
+        return BadPath;
+    }
+    return GreyPath;
+}
+
+bool
 Ipv4TLB::FindTorId (Ipv4Address daddr, uint32_t &destTorId)
 {
     std::map<Ipv4Address, uint32_t>::iterator torItr = m_ipTorMap.find (daddr);
@@ -373,6 +465,12 @@ Ipv4TLB::FindTorId (Ipv4Address daddr, uint32_t &destTorId)
     }
     destTorId = torItr->second;
     return true;
+}
+
+void
+Ipv4TLB::PathAging (void)
+{
+    //TODO
 }
 
 }

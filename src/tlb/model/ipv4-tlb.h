@@ -41,7 +41,9 @@ public:
 
     void FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
-    void FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path);
+    void FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size);
+
+    void FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size);
 
     void FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
@@ -69,7 +71,9 @@ private:
 
     void TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing);
 
-    bool RetransFlow (uint32_t flowId, uint32_t path);
+    bool SendFlow (uint32_t flowId, uint32_t path, uint32_t size);
+
+    bool RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath);
 
     void RetransPath (uint32_t destTor, uint32_t path);
 
@@ -79,16 +83,30 @@ private:
 
     void RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path);
 
-    bool WhereToChange (uint32_t &newPath);
+    bool WhereToChange (uint32_t destTor, uint32_t &newPath);
 
-    uint32_t SelectRandomPath ();
+    uint32_t SelectRandomPath (uint32_t destTor);
 
-    PathType JudgePath (uint32_t path);
+    PathType JudgePath (uint32_t destTor, uint32_t path);
 
     bool FindTorId (Ipv4Address daddr, uint32_t &destTorId);
 
+    void PathAging (void);
+
     // Parameters
     uint32_t m_S;
+
+    uint32_t m_K;
+
+    Time m_minRtt;
+
+    uint32_t m_ecnSampleMin;
+
+    double m_ecnPortionLow;
+
+    double m_ecnPortionHigh;
+
+    double m_flowRetrasPortion;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
