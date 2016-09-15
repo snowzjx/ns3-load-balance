@@ -16,8 +16,9 @@ namespace ns3 {
 enum PathType
 {
     GoodPath,
+    GreyPath,
     BadPath,
-    GreyPath
+    FailPath
 };
 
 class Node;
@@ -36,21 +37,15 @@ public:
     void AddAddressWithTor (Ipv4Address address, uint32_t torId);
 
     // These methods are used for TCP flows
-
     uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
 
     void FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
-    void FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size);
-
-    void FlowRetransmission (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size);
+    void FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size, bool isRetrasmission);
 
     void FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
     // These methods are used in probing
-
-    uint32_t GetProbingPath (Ipv4Address daddr);
-
     void ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
     void ProbeTimeout (uint32_t path, Ipv4Address daddr);
@@ -98,6 +93,12 @@ private:
 
     uint32_t m_K;
 
+    Time m_t1;
+
+    Time m_t2;
+
+    Time m_agingCheckTime;
+
     Time m_minRtt;
 
     uint32_t m_ecnSampleMin;
@@ -106,7 +107,7 @@ private:
 
     double m_ecnPortionHigh;
 
-    double m_flowRetrasPortion;
+    uint32_t m_flowRetransHigh;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
@@ -117,6 +118,8 @@ private:
     std::map<uint32_t, std::vector<uint32_t> > m_availablePath; /* <DestTorId, List<PathId>> */
 
     std::map<uint32_t, Ipv4Address> m_probingAgent; /* <DestTorId, ProbingAgentAddress>*/
+
+    EventId m_agingEvent;
 
     Ptr<Node> m_node;
 };

@@ -924,8 +924,9 @@ protected:
   void AttachFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport);
 
-  uint32_t CalFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
+  uint32_t CalFlowId (const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport);
+
 protected:
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
@@ -1012,7 +1013,14 @@ protected:
   bool m_flowBenderEnabled;         //!< Whether the flow bender is enabled
   Ptr<TcpFlowBender>        m_flowBender;           //!< Flow Bender
 
-  bool m_TLBEnabled;
+  // TLB Support
+  bool                      m_TLBEnabled;
+
+  bool                      m_piggybackTLBInfo;
+  Time                      m_onewayRtt;
+  uint32_t                  m_TLBPath;
+
+  uint32_t                  m_pathAcked;
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations

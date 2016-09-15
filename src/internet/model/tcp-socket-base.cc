@@ -52,6 +52,7 @@
 #include "rtt-estimator.h"
 #include "ipv4-ecn-tag.h"
 #include "ns3/flow-id-tag.h"
+#include "ns3/tcp-tlb-tag.h"
 
 #include <math.h>
 #include <algorithm>
@@ -332,6 +333,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_resequenceBufferEnabled (false),
     m_flowBenderEnabled (false),
     m_TLBEnabled (false),
+    m_piggybackTLBInfo (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -423,6 +425,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_flowBenderEnabled (sock.m_flowBenderEnabled),
     m_TLBEnabled (sock.m_TLBEnabled),
+    m_piggybackTLBInfo (false),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -1576,6 +1579,21 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
     m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, withECE);
   }
 
+  // XXX TLB Support
+  if (m_TLBEnabled)
+  {
+    TcpTLBTag tcpTLBTag;
+    bool found = packet->RemovePacketTag(tcpTLBTag);
+    if (found)
+    {
+        uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
+        Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+        m_pathAcked = tcpTLBTag.GetPath ();
+        ipv4TLB->FlowRecv (flowId, m_pathAcked, m_endPoint->GetPeerAddress (), bytesAcked, withECE, tcpTLBTag.GetTime ());
+    }
+  }
+
   if (ackNumber == m_txBuffer->HeadSequence ()
       && ackNumber < m_nextTxSequence
       && packet->GetSize () == 0)
@@ -2397,12 +2415,22 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
         }
     }
 
+  // XXX TLB Support
+  if (m_TLBEnabled && m_piggybackTLBInfo)
+  {
+    TcpTLBTag tcpTLBTag;
+    tcpTLBTag.SetPath (m_TLBPath);
+    tcpTLBTag.SetTime (m_onewayRtt);
+    p->AddPacketTag (tcpTLBTag);
+  }
+
   m_txTrace (p, header, this);
 
   if (m_endPoint != 0)
     {
       TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
     }
@@ -2728,10 +2756,18 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       // XXX TLB Support
       if (m_TLBEnabled)
       {
-        uint32_t flowId = TcpSocketBase::CalFlowId (p, m_endPoint->GetLocalAddress (),
+        uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        NS_LOG_INFO (this << flowId << ipv4TLB);
+        uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
+        // TODO XPath Support
+        //
+        //
+        TcpTLBTag tcpTLBTag;
+        tcpTLBTag.SetPath (path);
+        tcpTLBTag.SetTime (Simulator::Now ());
+        p->AddPacketTag (tcpTLBTag);
+        ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), isRetransmission);
       }
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
@@ -2965,6 +3001,19 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   if (m_tcb->m_demandCWR)
   {
     sendflags |= TcpHeader::ECE;
+  }
+
+  // XXX TLB Support
+  if (m_TLBEnabled)
+  {
+    TcpTLBTag tcpTLBTag;
+    bool found = p->RemovePacketTag(tcpTLBTag);
+    if (found)
+    {
+      m_piggybackTLBInfo = true;
+      m_onewayRtt = Simulator::Now () - tcpTLBTag.GetTime ();
+      m_TLBPath = tcpTLBTag.GetPath ();
+    }
   }
 
   // Put into Rx buffer
@@ -3260,6 +3309,14 @@ TcpSocketBase::Retransmit ()
 
   if (m_tcb->m_congState != TcpSocketState::CA_LOSS)
     {
+      // XXX TLB Support
+      if (m_TLBEnabled)
+      {
+        uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
+        Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+        ipv4TLB->FlowTimeout (flowId, m_endPoint->GetPeerAddress (), m_pathAcked);
+      }
       m_tcb->m_congState = TcpSocketState::CA_LOSS;
       m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, BytesInFlight ());
       m_tcb->m_cWnd = m_tcb->m_segmentSize;
@@ -3762,7 +3819,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // flowId ^= (dport << 16);
   // flowId += PROT_NUMBER;
 
-  uint32_t flowId = TcpSocketBase::CalFlowId (packet, saddr, daddr, sport, dport);
+  uint32_t flowId = TcpSocketBase::CalFlowId (saddr, daddr, sport, dport);
 
   // XXX Flow Bender support
   if (m_flowBenderEnabled)
@@ -3774,7 +3831,7 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
 }
 
 uint32_t
-TcpSocketBase::CalFlowId (Ptr<Packet> packet, const Ipv4Address &saddr, const Ipv4Address &daddr,
+TcpSocketBase::CalFlowId (const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport)
 {
   return dport;

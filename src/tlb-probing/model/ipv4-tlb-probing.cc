@@ -13,6 +13,7 @@
 #include "ns3/ipv4-header.h"
 #include "ns3/node.h"
 #include "ns3/simulator.h"
+#include "ns3/ipv4-tlb.h"
 #include "ns3/ipv4-xpath-tag.h"
 
 #include <sys/socket.h>
@@ -145,7 +146,9 @@ void
 Ipv4TLBProbing::ProbeEventTimeout (uint32_t id, uint32_t path)
 {
     m_probingTimeoutMap.erase (id);
-    // XXX Add logic to handle probing timeout
+    Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+    ipv4TLB->ProbeTimeout (path, m_probeAddress);
+
 }
 
 void
@@ -212,12 +215,12 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         (itr->second).Cancel ();
         m_probingTimeoutMap.erase (itr);
 
-        // TODO Update path information
-        /*
         uint32_t path = probingTag.GetPath ();
         Time oneWayRtt = probingTag.GetTime ();
         bool isCE = probingTag.GetIsCE () == 1 ? true : false;
-        */
+
+        Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+        ipv4TLB->ProbeRecv (path, m_probeAddress, packet->GetSize (), isCE, oneWayRtt);
     }
 }
 
