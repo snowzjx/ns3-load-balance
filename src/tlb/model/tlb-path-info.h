@@ -16,6 +16,8 @@ public:
   bool isTimeout;
   bool isProbingTimeout;
   uint32_t flowCounter;
+  Time timeStamp1;
+  Time timeStamp2;
 };
 
 }

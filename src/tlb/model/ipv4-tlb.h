@@ -4,6 +4,7 @@
 
 #include "ns3/object.h"
 #include "ns3/ipv4-address.h"
+#include "ns3/event-id.h"
 #include "tlb-flow-info.h"
 #include "tlb-path-info.h"
 
@@ -13,12 +14,18 @@
 
 namespace ns3 {
 
-enum PathType
-{
+enum PathType {
     GoodPath,
     GreyPath,
     BadPath,
     FailPath
+};
+
+struct PathInfo {
+    PathType pathType;
+    Time rttMin;
+    double ecnPortion;
+    uint32_t counter;
 };
 
 class Node;
@@ -78,11 +85,13 @@ private:
 
     void RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path);
 
-    bool WhereToChange (uint32_t destTor, uint32_t &newPath);
+    bool WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, uint32_t oldPath);
 
     uint32_t SelectRandomPath (uint32_t destTor);
 
-    PathType JudgePath (uint32_t destTor, uint32_t path);
+    struct PathInfo JudgePath (uint32_t destTor, uint32_t path);
+
+    bool PathLIsBetterR (struct PathInfo pathL, struct PathInfo pathR);
 
     bool FindTorId (Ipv4Address daddr, uint32_t &destTorId);
 
@@ -93,9 +102,9 @@ private:
 
     uint32_t m_K;
 
-    Time m_t1;
+    Time m_T1;
 
-    Time m_t2;
+    Time m_T2;
 
     Time m_agingCheckTime;
 
@@ -108,6 +117,10 @@ private:
     double m_ecnPortionHigh;
 
     uint32_t m_flowRetransHigh;
+
+    double m_betterPathEcnThresh;
+
+    Time m_betterPathRttThresh;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
