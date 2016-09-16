@@ -10,7 +10,6 @@ def build(bld):
     module = bld.create_ns3_module('xpath-routing', ['internet'])
     module.source = [
         'model/ipv4-xpath-routing.cc',
-        'model/ipv4-xpath-tag.cc',
         'helper/ipv4-xpath-routing-helper.cc',
         ]
 
@@ -23,7 +22,6 @@ def build(bld):
     headers.module = 'xpath-routing'
     headers.source = [
         'model/ipv4-xpath-routing.h',
-        'model/ipv4-xpath-tag.h',
         'helper/ipv4-xpath-routing-helper.h',
         ]
 

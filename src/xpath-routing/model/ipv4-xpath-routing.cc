@@ -1,7 +1,7 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "ipv4-xpath-routing.h"
-#include "ipv4-xpath-tag.h"
+#include "ns3/ipv4-xpath-tag.h"
 #include "ns3/net-device.h"
 #include "ns3/channel.h"
 #include "ns3/node.h"

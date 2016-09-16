@@ -1016,6 +1016,7 @@ protected:
   // TLB Support
   bool                      m_TLBEnabled;
 
+  bool                      m_TLBSent;
   bool                      m_piggybackTLBInfo;
   Time                      m_onewayRtt;
   uint32_t                  m_TLBPath;

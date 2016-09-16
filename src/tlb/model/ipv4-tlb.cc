@@ -14,10 +14,10 @@ NS_OBJECT_ENSURE_REGISTERED (Ipv4TLB);
 Ipv4TLB::Ipv4TLB ():
     m_S (1000000),
     m_K (5),
-    m_T1 (MicroSeconds (200)),
+    m_T1 (MicroSeconds (400)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (150)),
+    m_minRtt (MicroSeconds (100)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.5),
@@ -60,6 +60,19 @@ void
 Ipv4TLB::AddAddressWithTor (Ipv4Address address, uint32_t torId)
 {
     m_ipTorMap[address] = torId;
+}
+
+void
+Ipv4TLB::AddAvailPath (uint32_t destTor, uint32_t path)
+{
+    std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
+    if (itr == m_availablePath.end ())
+    {
+        std::vector<uint32_t> paths;
+        m_availablePath[destTor] = paths;
+        itr = m_availablePath.find (destTor);
+    }
+    (itr->second).push_back (path);
 }
 
 uint32_t
@@ -141,6 +154,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
 void
 Ipv4TLB::FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt)
 {
+    // NS_LOG_FUNCTION (flowId << path << daddr << size << withECN << rtt);
     uint32_t destTor = 0;
     if (!Ipv4TLB::FindTorId (daddr, destTor))
     {
@@ -154,6 +168,7 @@ Ipv4TLB::FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t s
 void
 Ipv4TLB::FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size, bool isRetransmission)
 {
+    // NS_LOG_FUNCTION (flowId << daddr << path << size << isRetransmission);
     uint32_t destTor = 0;
     if (!Ipv4TLB::FindTorId (daddr, destTor))
     {
@@ -278,36 +293,21 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
 
-    TLBPathInfo pathInfo;
     if (itr == m_pathInfo.end ())
     {
-        pathInfo.pathId = path;
-        pathInfo.size = 1;
-        pathInfo.ecnSize = 0;
-        pathInfo.minRtt = Seconds (666);
-        pathInfo.isRetransmission = false;
-        pathInfo.isTimeout = false;
-        pathInfo.isProbingTimeout = false;
-        pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
-        pathInfo.timeStamp1 = Simulator::Now ();
-        pathInfo.timeStamp2 = Simulator::Now ();
-    }
-    else
-    {
-        pathInfo = itr->second;
+        NS_LOG_ERROR ("Cannot update a non-existing path");
+        return;
     }
 
-    pathInfo.size += size;
+    (itr->second).size += size;
     if (withECN)
     {
-        pathInfo.ecnSize += size;
+        (itr->second).ecnSize += size;
     }
-    if (rtt < pathInfo.minRtt)
+    if (rtt < (itr->second).minRtt)
     {
-        pathInfo.minRtt = rtt;
+        (itr->second).minRtt = rtt;
     }
-
-    m_pathInfo[key] = pathInfo;
 }
 
 bool
@@ -419,12 +419,28 @@ Ipv4TLB::AssignFlowToPath (uint32_t flowId, uint32_t destTor, uint32_t path)
 {
     std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+
+    TLBPathInfo pathInfo;
     if (itr == m_pathInfo.end ())
     {
-        NS_LOG_ERROR ("Cannot assign flow to a non-existing path");
-        return;
+        pathInfo.pathId = path;
+        pathInfo.size = 1;
+        pathInfo.ecnSize = 0;
+        pathInfo.minRtt = Seconds (666);
+        pathInfo.isRetransmission = false;
+        pathInfo.isTimeout = false;
+        pathInfo.isProbingTimeout = false;
+        pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
+        pathInfo.timeStamp1 = Simulator::Now ();
+        pathInfo.timeStamp2 = Simulator::Now ();
     }
-    (itr->second).flowCounter ++;
+    else
+    {
+        pathInfo = itr->second;
+    }
+
+    pathInfo.flowCounter ++;
+    m_pathInfo[key] = pathInfo;
 }
 
 void
@@ -474,6 +490,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     if (minCounter <= m_K)
     {
+        NS_LOG_LOGIC ("Find Good Path: " << newPath);
         return true;
     }
 
@@ -508,10 +525,12 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     if (minCounter <= m_K)
     {
+        NS_LOG_LOGIC ("Find Grey Path: " << newPath);
         return true;
     }
 
     // Thirdly, indicating no paths available
+    NS_LOG_LOGIC ("No path returned");
     return false;
 }
 
@@ -538,14 +557,17 @@ Ipv4TLB::SelectRandomPath (uint32_t destTor)
         }
     }
 
+    uint32_t newPath;
     if (!availablePaths.empty ())
     {
-        return availablePaths[rand() % availablePaths.size ()];
+        newPath = availablePaths[rand() % availablePaths.size ()];
     }
     else
     {
-        return (itr->second)[rand() % (itr->second).size ()];
+        newPath = (itr->second)[rand() % (itr->second).size ()];
     }
+    NS_LOG_LOGIC ("Random selection return path: " << newPath);
+    return newPath;
 }
 
 struct PathInfo
@@ -619,15 +641,23 @@ Ipv4TLB::FindTorId (Ipv4Address daddr, uint32_t &destTorId)
 void
 Ipv4TLB::PathAging (void)
 {
+    NS_LOG_LOGIC (this << " Path Info: " << (Simulator::Now ()));
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.begin ();
     for ( ; itr != m_pathInfo.end (); ++itr)
     {
+        NS_LOG_LOGIC ("<" << (itr->first).first << "," << (itr->first).second << ">");
+        NS_LOG_LOGIC ("\t" << " Size: " << (itr->second).size
+                           << " ECN Size: " << (itr->second).ecnSize
+                           << " Min RTT: " << (itr->second).minRtt
+                           << " Is Retransmission: " << (itr->second).isRetransmission
+                           << " Is Timeout: " << (itr->second).isTimeout
+                           << " Is ProbingTimeout: " << (itr->second).isProbingTimeout
+                           << " Flow Counter: " << (itr->second).flowCounter);
         if (Simulator::Now() - (itr->second).timeStamp1 > m_T1)
         {
             (itr->second).size = 1;
             (itr->second).ecnSize = 0;
             (itr->second).minRtt = Seconds (666);
-            (itr->second).flowCounter = 0;
             (itr->second).timeStamp1 = Simulator::Now ();
         }
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)

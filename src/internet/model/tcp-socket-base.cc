@@ -52,6 +52,7 @@
 #include "rtt-estimator.h"
 #include "ipv4-ecn-tag.h"
 #include "ns3/flow-id-tag.h"
+#include "ns3/ipv4-xpath-tag.h"
 #include "ns3/tcp-tlb-tag.h"
 
 #include <math.h>
@@ -333,6 +334,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_resequenceBufferEnabled (false),
     m_flowBenderEnabled (false),
     m_TLBEnabled (false),
+    m_TLBSent (false),
     m_piggybackTLBInfo (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
@@ -425,6 +427,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_flowBenderEnabled (sock.m_flowBenderEnabled),
     m_TLBEnabled (sock.m_TLBEnabled),
+    m_TLBSent (false),
     m_piggybackTLBInfo (false),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
@@ -1580,7 +1583,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   }
 
   // XXX TLB Support
-  if (m_TLBEnabled)
+  if (m_TLBEnabled && m_TLBSent)
   {
     TcpTLBTag tcpTLBTag;
     bool found = packet->RemovePacketTag(tcpTLBTag);
@@ -2760,14 +2763,19 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
         uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
-        // TODO XPath Support
-        //
-        //
+
+        // XPath Support
+        Ipv4XPathTag ipv4XPathTag;
+        ipv4XPathTag.SetPathId (path);
+        p->AddPacketTag (ipv4XPathTag);
+
+        // TLB Support
         TcpTLBTag tcpTLBTag;
         tcpTLBTag.SetPath (path);
         tcpTLBTag.SetTime (Simulator::Now ());
         p->AddPacketTag (tcpTLBTag);
         ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), isRetransmission);
+        m_TLBSent = true;
       }
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);

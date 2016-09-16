@@ -43,6 +43,8 @@ public:
 
     void AddAddressWithTor (Ipv4Address address, uint32_t torId);
 
+    void AddAvailPath (uint32_t destTor, uint32_t path);
+
     // These methods are used for TCP flows
     uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
 

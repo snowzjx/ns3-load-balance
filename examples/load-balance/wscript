@@ -21,3 +21,7 @@ def build(bld):
                                  ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing'])
     obj.source = 'xpath-routing.cc'
 
+    obj = bld.create_ns3_program('tlb-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing', 'tlb'])
+    obj.source = 'tlb-simulation.cc'
+
