@@ -78,6 +78,18 @@ Ipv4TLBProbingTag::SetIsCE (uint8_t ce)
     m_isCE = ce;
 }
 
+uint8_t
+Ipv4TLBProbingTag::GetIsBroadcast (void) const
+{
+    return m_isBroadcast;
+}
+
+void
+Ipv4TLBProbingTag::SetIsBroadcast (uint8_t isBroadcast)
+{
+    m_isBroadcast = isBroadcast;
+}
+
 TypeId
 Ipv4TLBProbingTag::GetInstanceTypeId (void) const
 {
@@ -91,6 +103,7 @@ Ipv4TLBProbingTag::GetSerializedSize (void) const
          + sizeof (uint32_t)
          + sizeof (uint8_t)
          + sizeof (double)
+         + sizeof (uint8_t)
          + sizeof (uint8_t);
 }
 
@@ -102,6 +115,7 @@ Ipv4TLBProbingTag::Serialize (TagBuffer i) const
     i.WriteU8 (m_isReply);
     i.WriteDouble (m_time.GetSeconds ());
     i.WriteU8 (m_isCE);
+    i.WriteU8 (m_isBroadcast);
 }
 
 void
@@ -112,6 +126,7 @@ Ipv4TLBProbingTag::Deserialize (TagBuffer i)
     m_isReply = i.ReadU8 ();
     m_time = Time::FromDouble (i.ReadDouble (), Time::S);
     m_isCE = i.ReadU8 ();
+    m_isBroadcast = i.ReadU8 ();
 }
 
 void

@@ -36,6 +36,8 @@ public:
 
     void SetNode (Ptr<Node> node);
 
+    void AddBroadCastAddress (Ipv4Address addr);
+
     void Init (void);
 
     void SendProbe (uint32_t path);
@@ -52,6 +54,8 @@ private:
 
     void DoProbe ();
     void DoStop ();
+
+    void BroadcastBestPathTo (Ipv4Address addr);
 
     // Parameters
     Ipv4Address m_sourceAddress;
@@ -76,6 +80,8 @@ private:
     EventId m_probeEvent;
 
     Ptr<Socket> m_socket;
+
+    std::vector<Ipv4Address> m_broadcastAddresses;
 
     Ptr<Node> m_node;
 

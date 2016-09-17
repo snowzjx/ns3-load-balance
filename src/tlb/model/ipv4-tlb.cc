@@ -5,6 +5,8 @@
 #include "ns3/node.h"
 #include "ns3/simulator.h"
 
+#define RANDOM_BASE 10
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("Ipv4TLB");
@@ -12,16 +14,17 @@ NS_LOG_COMPONENT_DEFINE ("Ipv4TLB");
 NS_OBJECT_ENSURE_REGISTERED (Ipv4TLB);
 
 Ipv4TLB::Ipv4TLB ():
-    m_S (1000000),
-    m_K (5),
-    m_T1 (MicroSeconds (400)),
+    m_S (64000),
+    m_T (MicroSeconds (1500)),
+    m_K (10),
+    m_T1 (MicroSeconds (640)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
     m_minRtt (MicroSeconds (100)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.5),
-    m_flowRetransHigh (14000),
+    m_flowRetransHigh (1400000),
     m_betterPathEcnThresh (0.1),
     m_betterPathRttThresh (MicroSeconds (100))
 {
@@ -30,6 +33,7 @@ Ipv4TLB::Ipv4TLB ():
 
 Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_S (other.m_S),
+    m_T (other.m_T),
     m_K (other.m_K),
     m_T1 (other.m_T1),
     m_T2 (other.m_T2),
@@ -146,7 +150,11 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 return Ipv4TLB::SelectRandomPath (destTor);
             }
         }
-        else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath && (flowItr->second).size >= m_S)
+        else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
+                && (flowItr->second).size >= m_S
+                && static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh
+                && Simulator::Now () - (flowItr->second).timeStamp >= m_T
+                && rand () % RANDOM_BASE >= RANDOM_BASE / 2)
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
@@ -235,6 +243,19 @@ Ipv4TLB::FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path)
         NS_LOG_LOGIC ("The flow has changed the path");
     }
     Ipv4TLB::TimeoutPath (destTor, path, false);
+}
+
+void
+Ipv4TLB::FlowFinish (uint32_t flowId, Ipv4Address daddr, uint32_t path)
+{
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
+    Ipv4TLB::RemoveFlowFromPath (flowId, destTor, path);
+
 }
 
 void
@@ -449,6 +470,7 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
     flowInfo.sendSize = 0;
     flowInfo.retransmissionSize = 0;
     flowInfo.isTimeout = false;
+    flowInfo.timeStamp = Simulator::Now ();
 
     m_flowInfo[flowId] = flowInfo;
 }
@@ -643,7 +665,8 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         path.pathType = GoodPath;
         return path;
     }
-    if (static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh)
+    if (static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
+            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )
     {
         path.pathType = BadPath;
         return path;

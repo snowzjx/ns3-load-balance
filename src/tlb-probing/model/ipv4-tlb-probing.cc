@@ -109,6 +109,12 @@ Ipv4TLBProbing::SetNode (Ptr<Node> node)
 }
 
 void
+Ipv4TLBProbing::AddBroadCastAddress (Ipv4Address addr)
+{
+    m_broadcastAddresses.push_back (addr);
+}
+
+void
 Ipv4TLBProbing::Init ()
 {
     m_socket = m_node->GetObject<Ipv4RawSocketFactory> ()->CreateSocket ();
@@ -144,6 +150,7 @@ Ipv4TLBProbing::SendProbe (uint32_t path)
     probingTag.SetIsReply (0);
     probingTag.SetTime (Simulator::Now ());
     probingTag.SetIsCE (0);
+    probingTag.SetIsBroadcast (0);
     packet->AddPacketTag (probingTag);
 
     m_socket->SendTo (packet, 0, to);
@@ -199,6 +206,7 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         replyProbingTag.SetId (probingTag.GetId ());
         replyProbingTag.SetPath (probingTag.GetPath ());
         replyProbingTag.SetIsReply (1);
+        replyProbingTag.SetIsBroadcast (0);
         replyProbingTag.SetTime (Simulator::Now() - probingTag.GetTime ());
         if (ipv4Header.GetEcn () == Ipv4Header::ECN_CE)
         {
@@ -219,15 +227,18 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         std::map<uint32_t, EventId>::iterator itr =
                 m_probingTimeoutMap.find (probingTag.GetId ());
 
-        if (itr == m_probingTimeoutMap.end ())
+        if (itr == m_probingTimeoutMap.end () && !probingTag.GetIsBroadcast ())
         {
             // The reply has incurred timeout
             return;
         }
 
-        // Cancel the probing timeout timer
-        (itr->second).Cancel ();
-        m_probingTimeoutMap.erase (itr);
+        if (!probingTag.GetIsBroadcast ())
+        {
+            // Cancel the probing timeout timer
+            (itr->second).Cancel ();
+            m_probingTimeoutMap.erase (itr);
+        }
 
         uint32_t path = probingTag.GetPath ();
         Time oneWayRtt = probingTag.GetTime ();
@@ -267,9 +278,11 @@ Ipv4TLBProbing::DoProbe ()
     uint32_t probingCount = 3;
     if (m_hasBestPath)
     {
-        // TODO
-        // Notify other clients in the same rack
-        //
+        std::vector<Ipv4Address>::iterator itr = m_broadcastAddresses.begin ();
+        for ( ; itr != m_broadcastAddresses.end (); itr ++)
+        {
+            Ipv4TLBProbing::BroadcastBestPathTo (*itr);
+        }
 
         Ipv4TLBProbing::SendProbe (m_bestPath);
         probingCount --;
@@ -278,12 +291,23 @@ Ipv4TLBProbing::DoProbe ()
     std::vector<uint32_t> availPaths = ipv4TLB->GetAvailPath (m_probeAddress);
     if (!availPaths.empty ())
     {
-        for (uint32_t i = 0; i < probingCount; i++)
+        for (uint32_t i = 0; i < 8; i++) // Try 8 times
         {
             uint32_t path = availPaths[rand() % availPaths.size ()];
+            if (path == m_bestPath)
+            {
+                continue;
+            }
+            probingCount --;
+            if (probingCount == 0)
+            {
+                break;
+            }
             Ipv4TLBProbing::SendProbe (path);
         }
     }
+    m_hasBestPath = false;
+    m_bestPathRtt = Seconds (666);
 
     m_probeEvent = Simulator::Schedule (m_probeInterval, &Ipv4TLBProbing::DoProbe, this);
 }
@@ -292,6 +316,34 @@ void
 Ipv4TLBProbing::DoStop ()
 {
     m_probeEvent.Cancel ();
+}
+
+void
+Ipv4TLBProbing::BroadcastBestPathTo (Ipv4Address addr)
+{
+    Address to = InetSocketAddress (addr, 0);
+
+    Ptr<Packet> packet = Create<Packet> (0);
+    Ipv4Header newHeader;
+    newHeader.SetSource (m_sourceAddress);
+    newHeader.SetDestination (addr);
+    newHeader.SetProtocol (0);
+    newHeader.SetPayloadSize (packet->GetSize ());
+    newHeader.SetEcn (Ipv4Header::ECN_ECT1);
+    newHeader.SetTtl (255);
+    packet->AddHeader (newHeader);
+
+    // Probing tag
+    Ipv4TLBProbingTag probingTag;
+    probingTag.SetId (0);
+    probingTag.SetPath (m_bestPath);
+    probingTag.SetIsReply (1);
+    probingTag.SetTime (m_bestPathRtt);
+    probingTag.SetIsCE (m_bestPathECN);
+    probingTag.SetIsBroadcast (1);
+    packet->AddPacketTag (probingTag);
+
+    m_socket->SendTo (packet, 0, to);
 }
 
 }

@@ -17,7 +17,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("TLBSimulation");
+NS_LOG_COMPONENT_DEFINE ("TLBDRBSimulation");
 
 double lastCwndCheckTime;
 
@@ -237,7 +237,7 @@ CheckThroughput (Ptr<PacketSink> sink, std::string plot)
 int main (int argc, char *argv[])
 {
 #if 1
-    LogComponentEnable ("TLBSimulation", LOG_LEVEL_INFO);
+    LogComponentEnable ("TLBDRBSimulation", LOG_LEVEL_INFO);
 #endif
 
 	Config::SetDefault	("ns3::TcpSocket::SegmentSize",	UintegerValue(1400));
@@ -249,9 +249,7 @@ int main (int argc, char *argv[])
 	Config::SetDefault	("ns3::TcpSocketBase::MinRto",	TimeValue	(MilliSeconds	(5)));
 	Config::SetDefault	("ns3::TcpSocketBase::ClockGranularity",	TimeValue	(MicroSeconds	(100)));
 	Config::SetDefault	("ns3::RttEstimator::InitialEstimation",	TimeValue	(MicroSeconds	(80)));
-	//Config::SetDefault	("ns3::TcpSocketBase::ReTxThreshold",	UintegerValue	(1000));
-
-    Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
+    Config::SetDefault	("ns3::TcpSocketBase::ReTxThreshold",	UintegerValue	(1000));
 
     std::string transportProt = "DcTcp";
 
@@ -289,27 +287,17 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Install Internet stack");
     InternetStackHelper internet;
-    Ipv4ListRoutingHelper listRoutingHelper;
-    Ipv4GlobalRoutingHelper globalRoutingHelper;
-    Ipv4XPathRoutingHelper xpathRoutingHelper;
 
-    internet.SetTLB (true);
     internet.Install (c.Get (0));
     internet.Install (c.Get (5));
-
-    internet.SetTLB (false);
     internet.Install (c.Get (6));
     internet.Install (c.Get (7));
     internet.Install (c.Get (8));
-
-    listRoutingHelper.Add (xpathRoutingHelper, 1);
-    listRoutingHelper.Add (globalRoutingHelper, 0);
-    internet.SetRoutingHelper (listRoutingHelper);
-
-    internet.Install (c.Get (1));
     internet.Install (c.Get (2));
     internet.Install (c.Get (3));
+    internet.SetDrb (true);
     internet.Install (c.Get (4));
+    internet.Install (c.Get (1));
 
 
     NS_LOG_INFO ("Install channel");
@@ -401,7 +389,6 @@ int main (int argc, char *argv[])
     ipv4.SetBase ("10.1.9.0", "255.255.255.0");
     Ipv4InterfaceContainer i4i6 = ipv4.Assign (d4d6);
 
-
     // Uninstall the queue disc in sender
     if (transportProt.compare ("Tcp") == 0)
     {
@@ -417,37 +404,22 @@ int main (int argc, char *argv[])
         tc.Uninstall(d4d6);
     }
 
+    NS_LOG_INFO ("Setting up DRB");
+    Ipv4DrbHelper drb;
+    Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
+    Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
+    ipv4Drb1->AddCoreSwitchAddress(64, i1i2.GetAddress (1));
+    ipv4Drb1->AddCoreSwitchAddress(64, i1i3.GetAddress (1));
+
+    Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
+    Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
+    ipv4Drb4->AddCoreSwitchAddress(64, i2i4.GetAddress (0));
+    ipv4Drb4->AddCoreSwitchAddress(64, i3i4.GetAddress (0));
+
+
     NS_LOG_INFO ("Setting up routing table");
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-
-
-    NS_LOG_INFO ("Configuring TLB");
-    Ptr<Ipv4TLB> tlb0 = c.Get (0)->GetObject<Ipv4TLB> ();
-    Ptr<Ipv4TLB> tlb5 = c.Get (5)->GetObject<Ipv4TLB> ();
-
-    tlb0->AddAddressWithTor (i0i1.GetAddress (0), 1);
-    tlb0->AddAddressWithTor (i4i5.GetAddress (1), 4);
-    tlb5->AddAddressWithTor (i0i1.GetAddress (0), 1);
-    tlb5->AddAddressWithTor (i4i5.GetAddress (1), 4);
-
-    tlb0->AddAvailPath (4, 202);
-    tlb0->AddAvailPath (4, 203);
-    tlb5->AddAvailPath (1, 101);
-    tlb5->AddAvailPath (1, 204);
-
-    NS_LOG_INFO ("Configuring TLB Probing");
-    Ptr<Ipv4TLBProbing> probing0 = CreateObject<Ipv4TLBProbing> ();
-    probing0->SetNode (c.Get (0));
-    probing0->SetSourceAddress (i0i1.GetAddress (0));
-    probing0->Init ();
-    probing0->SetProbeAddress (i4i5.GetAddress (1));
-    probing0->StartProbe ();
-
-    Ptr<Ipv4TLBProbing> probing5 = CreateObject<Ipv4TLBProbing> ();
-    probing5->SetNode (c.Get (5));
-    probing5->SetSourceAddress (i4i5.GetAddress (1));
-    probing5->Init ();
 
     NS_LOG_INFO ("Install TCP based application");
 
@@ -460,7 +432,7 @@ int main (int argc, char *argv[])
     source.SetAttribute ("MaxBytes", UintegerValue (10e6));
     ApplicationContainer sourceApps = source.Install (c.Get (0));
     sourceApps.Start (Seconds (0.0 + 0.001 * i));
-    sourceApps.Stop (Seconds (1.5));
+    sourceApps.Stop (Seconds (1.0));
     }
 
 
@@ -482,7 +454,7 @@ int main (int argc, char *argv[])
     ApplicationContainer sinkApp = (sink.Install (c.Get(5)));
 
     sinkApp.Start (Seconds (0.0));
-    sinkApp.Stop (Seconds (1.5));
+    sinkApp.Stop (Seconds (1.0));
 
     Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
     std::stringstream oss;
@@ -571,7 +543,7 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Run Simulations");
 
-    Simulator::Stop (Seconds (0.2));
+    Simulator::Stop (Seconds (0.6));
     Simulator::Run ();
     Simulator::Destroy ();
 

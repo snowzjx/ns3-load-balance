@@ -25,3 +25,15 @@ def build(bld):
                                  ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing', 'tlb', 'tlb-probing'])
     obj.source = 'tlb-simulation.cc'
 
+    obj = bld.create_ns3_program('tlb-ecmp-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing', 'tlb', 'tlb-probing'])
+    obj.source = 'tlb-ecmp-simulation.cc'
+
+    obj = bld.create_ns3_program('tlb-drb-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'congestion-probing', 'xpath-routing', 'tlb', 'tlb-probing'])
+    obj.source = 'tlb-drb-simulation.cc'
+
+    obj = bld.create_ns3_program('tlb-conga-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'conga-routing', 'flow-monitor'])
+    obj.source = 'tlb-conga-simulation.cc'
+

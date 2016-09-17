@@ -34,6 +34,10 @@ public:
 
     void SetIsCE (uint8_t ce);
 
+    uint8_t GetIsBroadcast (void) const;
+
+    void SetIsBroadcast (uint8_t isBroadcast);
+
     virtual TypeId GetInstanceTypeId (void) const;
 
     virtual uint32_t GetSerializedSize (void) const;
@@ -50,6 +54,7 @@ private:
     uint8_t  m_isReply;     // 0 for false and 1 for true
     Time     m_time;
     uint8_t  m_isCE;        // 0 for not CE and 1 for CE
+    uint8_t  m_isBroadcast; // 0 for not broadcast and 1 for broadcast
 };
 
 }

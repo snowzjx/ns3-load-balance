@@ -6,39 +6,61 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/ipv4-drb-helper.h"
-#include "ns3/ipv4-xpath-routing-helper.h"
-#include "ns3/ipv4-list-routing-helper.h"
-#include "ns3/ipv4-tlb.h"
-#include "ns3/ipv4-tlb-probing.h"
-
+#include "ns3/congestion-probing-module.h"
+#include "ns3/flow-monitor-module.h"
 #include "ns3/gnuplot.h"
-
-#include <map>
+#include "ns3/ipv4-conga-routing-helper.h"
+#include "ns3/ipv4-static-routing-helper.h"
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("TLBSimulation");
+NS_LOG_COMPONENT_DEFINE ("examples2");
+
+/* === Link Rate Check === */
+
+/* Check link rate for d0d1 */
+#define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
+std::string d0d1Rate = "d0d1.out";
+uint32_t d0d1TotalBytes = 0;
+double lastd0d1CheckTime;
+
+void Linkd0d1SendPacket (Ptr<const Packet> packet)
+{
+  //NS_LOG_UNCOND ("Sending packet: " << packet);
+
+  double now = Simulator::Now().GetSeconds();
+
+  d0d1TotalBytes += packet->GetSize ();
+
+  if (now - lastd0d1CheckTime > 0.0001)
+  {
+    std::ofstream out (d0d1Rate.c_str (), std::ios::out|std::ios::app);
+    out << Simulator::Now ().GetSeconds () << " " << d0d1TotalBytes * 8 / (now - lastd0d1CheckTime) << std::endl;
+    lastd0d1CheckTime = now;
+    d0d1TotalBytes = 0;
+  }
+
+}
+/* ======================= */
+
 
 double lastCwndCheckTime;
 
 std::string cwndPlot = "cwnd.plotme";
-std::string cwndPlot2 = "cwnd_2.plotme";
 std::string congPlot = "cong.plotme";
-std::string congPlot2 = "cong_2.plotme";
-
 std::string queueDiscPlot = "queue_disc.plotme";
 std::string queuePlot = "queue.plotme";
 std::string queueDiscPlot3 = "queue_disc_3.plotme";
 std::string queuePlot3 = "queue_3.plotme";
 std::string queueDiscPlot2 = "queue_disc_2.plotme";
 std::string queuePlot2 = "queue_2.plotme";
+
 std::string queuePlot4 = "queue_4.plotme";
 std::string queueDiscPlot4 = "queue_disc_4.plotme";
 
 std::string throughputPlot = "throughput.plotme";
 
 Gnuplot2dDataset cwndDataset;
-Gnuplot2dDataset cwnd2Dataset;
 Gnuplot2dDataset queueDiscDataset;
 Gnuplot2dDataset queueDataset;
 Gnuplot2dDataset queueDisc2Dataset;
@@ -58,15 +80,6 @@ DoGnuPlot (std::string transportProt) {
     std::ofstream cwndPlotFile ("cwnd.plt");
     cwndGnuPlot.GenerateOutput (cwndPlotFile);
     cwndPlotFile.close();
-
-    Gnuplot cwnd2GnuPlot ("cwnd_2.png");
-    cwndGnuPlot.SetTitle("Cwnd2");
-    cwndGnuPlot.SetTerminal("png");
-    cwndGnuPlot.AddDataset (cwnd2Dataset);
-    std::ofstream cwnd2PlotFile ("cwnd_2.plt");
-    cwndGnuPlot.GenerateOutput (cwnd2PlotFile);
-    cwndPlotFile.close();
-
 
     Gnuplot queueGnuPlot ("queue.png");
     queueGnuPlot.SetTitle("Queue");
@@ -147,15 +160,15 @@ DoGnuPlot (std::string transportProt) {
 static void
 CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
 {
-    if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.001)
-    {
+    //if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
+    //{
         //NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
         lastCwndCheckTime = Simulator::Now ().GetSeconds ();
         std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
         fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
 
         cwndDataset.Add(Simulator::Now ().GetSeconds (), newCwnd);
-    }
+    //}
 }
 
 static void
@@ -202,7 +215,7 @@ CheckQueueSize (Ptr<Queue> queue, std::string plot, Gnuplot2dDataset *dataset)
 {
   uint32_t qSize = queue->GetNPackets ();
 
-  Simulator::Schedule (Seconds (0.001), &CheckQueueSize, queue, plot, dataset);
+  Simulator::Schedule (Seconds (0.0001), &CheckQueueSize, queue, plot, dataset);
 
   //NS_LOG_UNCOND ("Queue size: " << qSize);
 
@@ -215,7 +228,6 @@ CheckQueueSize (Ptr<Queue> queue, std::string plot, Gnuplot2dDataset *dataset)
 uint32_t accumRecvBytes;
 
 std::map<std::string, uint32_t> accumBytes;
-
 void
 CheckThroughput (Ptr<PacketSink> sink, std::string plot)
 {
@@ -233,30 +245,86 @@ CheckThroughput (Ptr<PacketSink> sink, std::string plot)
   //throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.001);
 }
 
+void
+CheckThroughput (Ptr<PacketSink> sink)
+{
+  uint32_t totalRecvBytes = sink->GetTotalRx ();
+  uint32_t currentPeriodRecvBytes = totalRecvBytes - accumRecvBytes;
+
+  accumRecvBytes = totalRecvBytes;
+
+  Simulator::Schedule (Seconds (0.001), &CheckThroughput, sink);
+
+  //NS_LOG_UNCOND ("Throughput: " << currentPeriodRecvBytes * 8 / 0.001 << "bps");
+
+  std::ofstream fThroughputPlot (throughputPlot.c_str (), std::ios::out|std::ios::app);
+  fThroughputPlot << Simulator::Now ().GetSeconds () << " " << currentPeriodRecvBytes * 8 / 0.001 <<std::endl;
+
+  throughputDataset.Add (Simulator::Now().GetSeconds (), currentPeriodRecvBytes * 8 / 0.001);
+}
+
+uint32_t v0PacketTotal = 0;
+uint32_t v0PacketMarked = 0;
+uint32_t v1PacketTotal = 0;
+uint32_t v1PacketMarked = 0;
+
+void ProbingEvent (uint32_t v, Ptr<Packet> packet, Ipv4Header header, Time rtt, bool isCE)
+{
+    if (v == 0)
+    {
+        v0PacketTotal ++;
+        if (isCE)
+        {
+            v0PacketMarked ++;
+        }
+    }
+    else
+    {
+        v1PacketTotal ++;
+        if (isCE)
+        {
+            v1PacketMarked ++;
+        }
+    }
+}
 
 int main (int argc, char *argv[])
 {
 #if 1
-    LogComponentEnable ("TLBSimulation", LOG_LEVEL_INFO);
+    LogComponentEnable ("examples2", LOG_LEVEL_INFO);
 #endif
 
-	Config::SetDefault	("ns3::TcpSocket::SegmentSize",	UintegerValue(1400));
-	Config::SetDefault	("ns3::TcpSocket::DelAckCount",	UintegerValue	(0));
-	Config::SetDefault	("ns3::TcpSocket::ConnTimeout",	TimeValue	(MilliSeconds	(5)));
-	Config::SetDefault	("ns3::TcpSocket::InitialCwnd",	UintegerValue	(10));
-	Config::SetDefault	("ns3::TcpSocket::SndBufSize",	UintegerValue	(160000000));
-	Config::SetDefault	("ns3::TcpSocket::RcvBufSize",	UintegerValue	(160000000));
-	Config::SetDefault	("ns3::TcpSocketBase::MinRto",	TimeValue	(MilliSeconds	(5)));
-	Config::SetDefault	("ns3::TcpSocketBase::ClockGranularity",	TimeValue	(MicroSeconds	(100)));
-	Config::SetDefault	("ns3::RttEstimator::InitialEstimation",	TimeValue	(MicroSeconds	(80)));
-	//Config::SetDefault	("ns3::TcpSocketBase::ReTxThreshold",	UintegerValue	(1000));
+    Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(1400));
+    Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
+    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
+    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (16000000));
+    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (16000000));
+    Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
+    Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
+    //Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
 
-    Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
 
     std::string transportProt = "DcTcp";
+    uint32_t drbCount1 = 0;
+    uint32_t drbCount2 = 0;
+    bool enableResequenceBuffer = false;
+    bool enableFlowBender = false;
+    double flowBenderT = 0.05;
+    uint32_t flowBenderN = 1;
+	bool enableConga = true;
+
 
     CommandLine cmd;
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+    cmd.AddValue ("drbCount1", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount1);
+    cmd.AddValue ("drbCount2", "DRB count for path 1, 0 means disable, 1 means DRB, n means Presto with n packets", drbCount2);
+    cmd.AddValue ("resequenceBuffer", "Enable resequence buffer", enableResequenceBuffer);
+    cmd.AddValue ("flowBender", "Enable flow bender", enableFlowBender);
+    cmd.AddValue ("flowBenderT", "T in the flow bender", flowBenderT);
+    cmd.AddValue ("flowBenderN", "N in the flow bender", flowBenderN);
+    cmd.AddValue ("Conga", "Enable conga", enableConga);
 
     cmd.Parse (argc, argv);
 
@@ -266,6 +334,7 @@ int main (int argc, char *argv[])
     }
     else if (transportProt.compare ("DcTcp") == 0)
     {
+        NS_LOG_INFO ("Enabling DcTcp");
         Config::SetDefault ("ns3::TcpL4Protocol::SocketType", TypeIdValue (TcpDCTCP::GetTypeId ()));
     }
     else
@@ -273,9 +342,30 @@ int main (int argc, char *argv[])
         return 0;
     }
 
+    if (enableResequenceBuffer)
+    {
+        NS_LOG_INFO ("Enabling Resequence Buffer");
+	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (500)));
+
+    }
+
+
+    Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue (true));
+
+    if (enableFlowBender)
+    {
+        NS_LOG_INFO ("Enabling Flow Bender");
+        Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
+        Config::SetDefault ("ns3::TcpFlowBender::N", UintegerValue (flowBenderN));
+    }
+
     NS_LOG_INFO ("Create nodes.");
     NodeContainer c;
-    c.Create (9);
+    c.Create (6);
 
     NodeContainer n0n1 = NodeContainer (c.Get (0), c.Get(1));
     NodeContainer n1n2 = NodeContainer (c.Get (1), c.Get(2));
@@ -283,42 +373,52 @@ int main (int argc, char *argv[])
     NodeContainer n2n4 = NodeContainer (c.Get (2), c.Get(4));
     NodeContainer n3n4 = NodeContainer (c.Get (3), c.Get(4));
     NodeContainer n4n5 = NodeContainer (c.Get (4), c.Get(5));
-    NodeContainer n7n8 = NodeContainer (c.Get (7), c.Get(8));
-    NodeContainer n8n3 = NodeContainer (c.Get (8), c.Get(3));
-    NodeContainer n4n6 = NodeContainer (c.Get (4), c.Get(6));
+
+    InternetStackHelper internet;
+    Ipv4StaticRoutingHelper staticRoutingHelper;
+    Ipv4CongaRoutingHelper congaRoutingHelper;
 
     NS_LOG_INFO ("Install Internet stack");
-    InternetStackHelper internet;
-    Ipv4ListRoutingHelper listRoutingHelper;
-    Ipv4GlobalRoutingHelper globalRoutingHelper;
-    Ipv4XPathRoutingHelper xpathRoutingHelper;
+	if (enableConga)
+	{
 
-    internet.SetTLB (true);
+
+	internet.SetRoutingHelper (staticRoutingHelper);
+    internet.Install (c.Get(0));
+    internet.Install (c.Get(5));
+
+    internet.SetRoutingHelper (congaRoutingHelper);
+    internet.Install (c.Get(1));
+    internet.Install (c.Get(2));
+	internet.Install (c.Get(3));
+	internet.Install (c.Get(4));
+
+
+
+	}
+	else
+	{
+
     internet.Install (c.Get (0));
-    internet.Install (c.Get (5));
-
-    internet.SetTLB (false);
-    internet.Install (c.Get (6));
-    internet.Install (c.Get (7));
-    internet.Install (c.Get (8));
-
-    listRoutingHelper.Add (xpathRoutingHelper, 1);
-    listRoutingHelper.Add (globalRoutingHelper, 0);
-    internet.SetRoutingHelper (listRoutingHelper);
-
-    internet.Install (c.Get (1));
     internet.Install (c.Get (2));
     internet.Install (c.Get (3));
+    internet.Install (c.Get (5));
+    //internet.Install (c.Get (4));
+       if (drbCount1 != 0 || drbCount2 != 0) {
+           internet.SetDrb (true);
+       }
+    internet.Install (c.Get (1));
     internet.Install (c.Get (4));
+    }
 
 
     NS_LOG_INFO ("Install channel");
     PointToPointHelper p2p;
 
-	Config::SetDefault	("ns3::RedQueueDisc::Mode",	StringValue	("QUEUE_MODE_BYTES"));
-	Config::SetDefault	("ns3::RedQueueDisc::MeanPktSize",	UintegerValue	(1400));
-    Config::SetDefault	("ns3::RedQueueDisc::QueueLimit",	UintegerValue	(550 * 1400));
-    Config::SetDefault	("ns3::RedQueueDisc::Gentle",	BooleanValue	(false));
+    Config::SetDefault ("ns3::RedQueueDisc::Mode", StringValue ("QUEUE_MODE_BYTES"));
+    Config::SetDefault ("ns3::RedQueueDisc::MeanPktSize", UintegerValue (1400));
+    Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (550 * 1400));
+    Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (false));
 
     TrafficControlHelper tc;
     tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
@@ -326,59 +426,55 @@ int main (int argc, char *argv[])
 
     if (transportProt.compare ("Tcp") == 0)
     {
-        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (100));
+        p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (250));
     }
     else
     {
         p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
     }
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Gbps")); // link rate of 0-1
     p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(10)));
 
-    NetDeviceContainer d0d1 = p2p.Install (n0n1);
-    QueueDiscContainer qd0d1 = tc.Install (d0d1);
-    NS_LOG_INFO ("Node 0 is connected to node 1 with port " << d0d1.Get (0)->GetIfIndex () << "<->" << d0d1.Get (1)->GetIfIndex ());
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
+    remove (d0d1Rate.c_str ());
+
+    NetDeviceContainer d0d1 = p2p.Install (n0n1);
+
+    Ptr<PointToPointNetDevice> pD0 = DynamicCast<PointToPointNetDevice>(d0d1.Get(0));
+    pD0->TraceConnectWithoutContext("PhyTxBegin", MakeCallback(&Linkd0d1SendPacket));
+
+    QueueDiscContainer qd0d1 = tc.Install (d0d1);
 
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
-    NS_LOG_INFO ("Node 1 is connected to node 2 with port " << d1d2.Get (0)->GetIfIndex () << "<->" << d1d2.Get (1)->GetIfIndex ());
     QueueDiscContainer qd1d2 = tc.Install (d1d2);
 
-    NetDeviceContainer d2d4 = p2p.Install (n2n4);
-    NS_LOG_INFO ("Node 2 is connected to node 4 with port " << d2d4.Get (0)->GetIfIndex () << "<->" << d2d4.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd2d4 = tc.Install (d2d4);
-
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
-
-    NetDeviceContainer d4d5 = p2p.Install (n4n5);
-    NS_LOG_INFO ("Node 4 is connected to node 5 with port " << d4d5.Get (0)->GetIfIndex () << "<->" << d4d5.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd4d5 = tc.Install (d4d5);
-
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
-
-    NetDeviceContainer d7d8 = p2p.Install (n7n8);
-    NS_LOG_INFO ("Node 7 is connected to node 8 with port " << d7d8.Get (0)->GetIfIndex () << "<->" << d7d8.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd7d8 = tc.Install (d7d8);
-
-    NetDeviceContainer d8d3 = p2p.Install (n8n3);
-    NS_LOG_INFO ("Node 8 is connected to node 3 with port " << d8d3.Get (0)->GetIfIndex () << "<->" << d8d3.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd8d3 = tc.Install (d8d3);
-
-    NetDeviceContainer d4d6 = p2p.Install (n4n6);
-    NS_LOG_INFO ("Node 4 is connected to node 6 with port " << d4d6.Get (0)->GetIfIndex () << "<->" << d4d6.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd4d6 = tc.Install (d4d6);
-
     NetDeviceContainer d1d3 = p2p.Install (n1n3);
-    NS_LOG_INFO ("Node 1 is connected to node 3 with port " << d1d3.Get (0)->GetIfIndex () << "<->" << d1d3.Get (1)->GetIfIndex ());
     QueueDiscContainer qd1d3 = tc.Install (d1d3);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps")); // link rate of 1-2 2-4
+
+
+    NetDeviceContainer d2d4 = p2p.Install (n2n4);
+    QueueDiscContainer qd2d4 = tc.Install (d2d4);
+
+
+    //Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));                  // link rate of 1-3 3-4
+    //p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
+
+    TrafficControlHelper tc2;
+    tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
+                                               "MaxTh", DoubleValue (65 * 1400));
+
 
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
-    NS_LOG_INFO ("Node 3 is connected to node 4 with port " << d3d4.Get (0)->GetIfIndex () << "<->" << d3d4.Get (1)->GetIfIndex ());
-    QueueDiscContainer qd3d4 = tc.Install (d3d4);
+    QueueDiscContainer qd3d4 = tc2.Install (d3d4);
+
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));  // link rate of 4-5
+
+    NetDeviceContainer d4d5 = p2p.Install (n4n5);
+    QueueDiscContainer qd4d5 = tc.Install (d4d5);
 
     NS_LOG_INFO ("Assign IP address");
     Ipv4AddressHelper ipv4;
@@ -394,13 +490,6 @@ int main (int argc, char *argv[])
     Ipv4InterfaceContainer i3i4 = ipv4.Assign (d3d4);
     ipv4.SetBase ("10.1.6.0", "255.255.255.0");
     Ipv4InterfaceContainer i4i5 = ipv4.Assign (d4d5);
-    ipv4.SetBase ("10.1.7.0", "255.255.255.0");
-    Ipv4InterfaceContainer i7i8 = ipv4.Assign (d7d8);
-    ipv4.SetBase ("10.1.8.0", "255.255.255.0");
-    Ipv4InterfaceContainer i8i3 = ipv4.Assign (d8d3);
-    ipv4.SetBase ("10.1.9.0", "255.255.255.0");
-    Ipv4InterfaceContainer i4i6 = ipv4.Assign (d4d6);
-
 
     // Uninstall the queue disc in sender
     if (transportProt.compare ("Tcp") == 0)
@@ -412,46 +501,146 @@ int main (int argc, char *argv[])
         tc.Uninstall(d2d4);
         tc.Uninstall(d3d4);
         tc.Uninstall(d4d5);
-        tc.Uninstall(d7d8);
-        tc.Uninstall(d8d3);
-        tc.Uninstall(d4d6);
+    }
+
+    if (drbCount1 != 0 || drbCount2 != 0) {
+        NS_LOG_INFO ("Enable " << drbCount1 << ":" << drbCount2 <<" DRB");
+        Ipv4DrbHelper drb;
+        Ptr<Ipv4> ip1 = c.Get(1)->GetObject<Ipv4>();
+        Ptr<Ipv4Drb> ipv4Drb1 = drb.GetIpv4Drb(ip1);
+        ipv4Drb1->AddCoreSwitchAddress(drbCount1, i1i2.GetAddress (1));
+        ipv4Drb1->AddCoreSwitchAddress(drbCount2, i1i3.GetAddress (1));
+
+        Ptr<Ipv4> ip4 = c.Get(4)->GetObject<Ipv4>();
+        Ptr<Ipv4Drb> ipv4Drb4 = drb.GetIpv4Drb(ip4);
+        ipv4Drb4->AddCoreSwitchAddress(drbCount1, i2i4.GetAddress (0));
+        ipv4Drb4->AddCoreSwitchAddress(drbCount2, i3i4.GetAddress (0));
     }
 
     NS_LOG_INFO ("Setting up routing table");
 
-    Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-
-
-    NS_LOG_INFO ("Configuring TLB");
-    Ptr<Ipv4TLB> tlb0 = c.Get (0)->GetObject<Ipv4TLB> ();
-    Ptr<Ipv4TLB> tlb5 = c.Get (5)->GetObject<Ipv4TLB> ();
-
-    tlb0->AddAddressWithTor (i0i1.GetAddress (0), 1);
-    tlb0->AddAddressWithTor (i4i5.GetAddress (1), 4);
-    tlb5->AddAddressWithTor (i0i1.GetAddress (0), 1);
-    tlb5->AddAddressWithTor (i4i5.GetAddress (1), 4);
-
-    tlb0->AddAvailPath (4, 202);
-    tlb0->AddAvailPath (4, 203);
-    tlb5->AddAvailPath (1, 101);
-    tlb5->AddAvailPath (1, 204);
-
-    NS_LOG_INFO ("Configuring TLB Probing");
-    Ptr<Ipv4TLBProbing> probing0 = CreateObject<Ipv4TLBProbing> ();
-    probing0->SetNode (c.Get (0));
-    probing0->SetSourceAddress (i0i1.GetAddress (0));
-    probing0->Init ();
-    probing0->SetProbeAddress (i4i5.GetAddress (1));
-    probing0->StartProbe ();
-
-    Ptr<Ipv4TLBProbing> probing5 = CreateObject<Ipv4TLBProbing> ();
-    probing5->SetNode (c.Get (5));
-    probing5->SetSourceAddress (i4i5.GetAddress (1));
-    probing5->Init ();
+   // Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
     NS_LOG_INFO ("Install TCP based application");
 
     uint16_t port = 8080;
+
+	   //conga routing configure
+	if (enableConga)
+	{
+
+
+
+
+	 // configure endhosts
+	  staticRoutingHelper.GetStaticRouting (c.Get (0)->GetObject<Ipv4> ())->
+			        AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					                Ipv4Mask ("0.0.0.0"),
+                                    d0d1.Get (0)->GetIfIndex ());
+
+
+	staticRoutingHelper.GetStaticRouting (c.Get (5)->GetObject<Ipv4> ())->
+			        AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					                Ipv4Mask ("0.0.0.0"),
+                                    d4d5.Get (1)->GetIfIndex ());
+
+		    // Conga leaf switches forward the packet to the correct servers
+            congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ())->
+			        AddRoute (i4i5.GetAddress (1),
+                            Ipv4Mask("255.255.255.255"),
+                            d1d2.Get (0)->GetIfIndex ());
+
+		    congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ())->
+			        AddRoute (i4i5.GetAddress (1),
+                            Ipv4Mask("255.255.255.255"),
+                            d1d3.Get (0)->GetIfIndex ());
+
+            congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ())->
+			        AddRoute (i0i1.GetAddress (0),
+                            Ipv4Mask("255.255.255.255"),
+                            d0d1.Get (1)->GetIfIndex ());
+
+
+            congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ())->
+			        AddRoute (i0i1.GetAddress (0),
+                            Ipv4Mask("255.255.255.255"),
+                            d2d4.Get (1)->GetIfIndex ());
+
+		    congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ())->
+			        AddRoute (i0i1.GetAddress (0),
+                            Ipv4Mask("255.255.255.255"),
+                            d3d4.Get (1)->GetIfIndex ());
+
+            congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ())->
+			        AddRoute (i4i5.GetAddress (1),
+                            Ipv4Mask("255.255.255.255"),
+                            d4d5.Get (0)->GetIfIndex ());
+
+            congaRoutingHelper.GetCongaRouting (c.Get (2)->GetObject<Ipv4> ())->
+			        AddRoute (i0i1.GetAddress (0),
+                            Ipv4Mask("255.255.255.255"),
+                            d1d2.Get (1)->GetIfIndex ());
+
+            congaRoutingHelper.GetCongaRouting (c.Get (2)->GetObject<Ipv4> ())->
+			        AddRoute (i4i5.GetAddress (1),
+                            Ipv4Mask("255.255.255.255"),
+                            d2d4.Get (0)->GetIfIndex ());
+
+          congaRoutingHelper.GetCongaRouting (c.Get (3)->GetObject<Ipv4> ())->
+			        AddRoute (i0i1.GetAddress (0),
+                            Ipv4Mask("255.255.255.255"),
+                            d1d3.Get (1)->GetIfIndex ());
+
+            congaRoutingHelper.GetCongaRouting (c.Get (3)->GetObject<Ipv4> ())->
+			        AddRoute (i4i5.GetAddress (1),
+                            Ipv4Mask("255.255.255.255"),
+                            d3d4.Get (0)->GetIfIndex ());
+
+
+
+
+			// configur switch parameter
+	    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ());
+                congaLeaf->SetLeafId (1);
+	    congaLeaf->SetTDre (MicroSeconds (100));
+	    congaLeaf->SetAlpha (0.2);
+	    congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+	    congaLeaf->SetFlowletTimeout (MicroSeconds (200));
+
+	    Ptr<Ipv4CongaRouting> congaLeaf2 = congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ());
+                congaLeaf2->SetLeafId (2);
+	    congaLeaf2->SetTDre (MicroSeconds (100));
+	    congaLeaf2->SetAlpha (0.2);
+	    congaLeaf2->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+	    congaLeaf2->SetFlowletTimeout (MicroSeconds (200));
+
+		Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (c.Get (2)->GetObject<Ipv4> ());
+		    congaSpine->SetTDre (MicroSeconds (100));
+		    congaSpine->SetAlpha (0.2);
+		    congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
+
+
+        Ptr<Ipv4CongaRouting> congaSpine2 = congaRoutingHelper.GetCongaRouting (c.Get (3)->GetObject<Ipv4> ());
+		    congaSpine2->SetTDre (MicroSeconds (100));
+		    congaSpine2->SetAlpha (0.2);
+		    congaSpine2->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY / 10));
+
+
+
+            // ???
+                congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ())->
+			    AddAddressToLeafIdMap (i0i1.GetAddress (0), 1);
+
+				congaRoutingHelper.GetCongaRouting (c.Get (1)->GetObject<Ipv4> ())->
+			    AddAddressToLeafIdMap (i4i5.GetAddress (1), 2);
+
+	            congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ())->
+			    AddAddressToLeafIdMap (i4i5.GetAddress (1), 2);
+
+	            congaRoutingHelper.GetCongaRouting (c.Get (4)->GetObject<Ipv4> ())->
+				 AddAddressToLeafIdMap (i0i1.GetAddress (0), 1);
+
+	}
 
     for (int i = 0; i < 6; i++)
     {
@@ -462,18 +651,6 @@ int main (int argc, char *argv[])
     sourceApps.Start (Seconds (0.0 + 0.001 * i));
     sourceApps.Stop (Seconds (1.5));
     }
-
-
-    /*
-    OnOffHelper sourceC ("ns3::UdpSocketFactory", InetSocketAddress (i4i6.GetAddress(1), 9999));
-    sourceC.SetAttribute ("MaxBytes", UintegerValue(0));
-    sourceC.SetAttribute ("DataRate", DataRateValue (DataRate (9e9)));
-    sourceC.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=1]"));
-    sourceC.SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
-    ApplicationContainer sourceApps2 = sourceC.Install (c.Get (7));
-    sourceApps2.Start (Seconds (0.0));
-    sourceApps2.Stop (Seconds (1.0));
-    */
 
     for (int i = 0; i < 6; i++)
     {
@@ -490,20 +667,10 @@ int main (int argc, char *argv[])
     Simulator::ScheduleNow (&CheckThroughput, pktSink, oss.str ());
     }
 
-    /*
-    PacketSinkHelper sink2 ("ns3::UdpSocketFactory",
-            InetSocketAddress (i4i6.GetAddress(1), 9999));
-    ApplicationContainer sinkApp2 = sink2.Install (c.Get(6));
-    sinkApp2.Start (Seconds (0.0));
-    sinkApp2.Stop (Seconds (1.0));
-    */
 
-    // Gnuplot Settings
+        // Gnuplot Settings
     cwndDataset.SetTitle("Cwnd");
     cwndDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
-
-    cwnd2Dataset.SetTitle("Cwnd 2");
-    cwnd2Dataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
     queueDataset.SetTitle("Queue");
     queueDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
@@ -538,13 +705,13 @@ int main (int argc, char *argv[])
 
     if (transportProt.compare ("DcTcp") == 0)
     {
-        Ptr<QueueDisc> queueDisc = qd1d3.Get (0);
+        Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot, &queueDiscDataset);
 
         Ptr<QueueDisc> queueDisc3 = qd3d4.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3, &queueDisc3Dataset);
 
-        Ptr<QueueDisc> queueDisc2 = qd1d2.Get (0);
+        Ptr<QueueDisc> queueDisc2 = qd2d4.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc2, queueDiscPlot2, &queueDisc2Dataset);
 
         Ptr<QueueDisc> queueDisc4 = qd4d5.Get(0);
@@ -559,7 +726,7 @@ int main (int argc, char *argv[])
     Ptr<Queue> queue3 = DynamicCast<PointToPointNetDevice>(nd3)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue3, queuePlot3, &queue3Dataset);
 
-    Ptr<NetDevice> nd2 = d1d2.Get (0);
+    Ptr<NetDevice> nd2 = d2d4.Get (0);
     Ptr<Queue> queue2 = DynamicCast<PointToPointNetDevice>(nd2)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue2, queuePlot2, &queue2Dataset);
 
@@ -567,13 +734,27 @@ int main (int argc, char *argv[])
     Ptr<Queue> queue4 = DynamicCast<PointToPointNetDevice>(nd4)->GetQueue ();
     Simulator::ScheduleNow (&CheckQueueSize, queue4, queuePlot4, &queue4Dataset);
 
+    //Ptr<PacketSink> pktSink = sinkApp.Get (0)->GetObject<PacketSink> ();
+    //Simulator::ScheduleNow (&CheckThroughput, pktSink);
+
+
     p2p.EnablePcapAll ("load-balance");
+
+    Ptr<FlowMonitor> flowMonitor;
+    FlowMonitorHelper flowHelper;
+    flowMonitor = flowHelper.InstallAll();
 
     NS_LOG_INFO ("Run Simulations");
 
     Simulator::Stop (Seconds (0.2));
     Simulator::Run ();
+
+    flowMonitor->SerializeToXmlFile("flow-monitor.xml", true, true);
+
     Simulator::Destroy ();
+
+    NS_LOG_INFO ("Probing in V0: " << static_cast<double>(v0PacketMarked) / v0PacketTotal);
+    NS_LOG_INFO ("Probing in V1: " << static_cast<double>(v1PacketMarked) / v1PacketTotal);
 
     DoGnuPlot (transportProt);
 
