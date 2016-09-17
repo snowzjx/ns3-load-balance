@@ -44,17 +44,36 @@ public:
 
     void ProbeEventTimeout (uint32_t id, uint32_t path);
 
+    void StartProbe ();
+
+    void StopProbe (Time stopTime);
+
 private:
+
+    void DoProbe ();
+    void DoStop ();
 
     // Parameters
     Ipv4Address m_sourceAddress;
     Ipv4Address m_probeAddress; // The flow destination
 
     Time m_probeTimeout;
+    Time m_probeInterval;
 
     uint32_t m_id;
 
     std::map <uint32_t, EventId> m_probingTimeoutMap;
+
+    /* Best path related */
+    bool m_hasBestPath;
+    uint32_t m_bestPath;
+
+    Time m_bestPathRtt;
+    bool m_bestPathECN;
+    uint32_t m_bestPathSize;
+    /* ----------------- */
+
+    EventId m_probeEvent;
 
     Ptr<Socket> m_socket;
 

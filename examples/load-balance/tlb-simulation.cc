@@ -9,6 +9,7 @@
 #include "ns3/ipv4-xpath-routing-helper.h"
 #include "ns3/ipv4-list-routing-helper.h"
 #include "ns3/ipv4-tlb.h"
+#include "ns3/ipv4-tlb-probing.h"
 
 #include "ns3/gnuplot.h"
 
@@ -423,6 +424,19 @@ int main (int argc, char *argv[])
     tlb0->AddAvailPath (4, 303);
     tlb5->AddAvailPath (1, 101);
     tlb5->AddAvailPath (1, 204);
+
+    NS_LOG_INFO ("Configuring TLB Probing");
+    Ptr<Ipv4TLBProbing> probing0 = CreateObject<Ipv4TLBProbing> ();
+    probing0->SetNode (c.Get (0));
+    probing0->SetSourceAddress (i0i1.GetAddress (0));
+    probing0->Init ();
+    probing0->SetProbeAddress (i4i5.GetAddress (1));
+    probing0->StartProbe ();
+
+    Ptr<Ipv4TLBProbing> probing5 = CreateObject<Ipv4TLBProbing> ();
+    probing5->SetNode (c.Get (5));
+    probing5->SetSourceAddress (i4i5.GetAddress (1));
+    probing5->Init ();
 
     NS_LOG_INFO ("Install TCP based application");
 

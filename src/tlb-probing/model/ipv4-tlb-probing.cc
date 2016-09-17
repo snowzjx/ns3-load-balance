@@ -45,7 +45,13 @@ Ipv4TLBProbing::Ipv4TLBProbing ()
     : m_sourceAddress (Ipv4Address ("127.0.0.1")),
       m_probeAddress (Ipv4Address ("127.0.0.1")),
       m_probeTimeout (Seconds (0.1)),
+      m_probeInterval (MicroSeconds (400)),
       m_id (0),
+      m_hasBestPath (false),
+      m_bestPath (0),
+      m_bestPathRtt (Seconds (666)),
+      m_bestPathECN (false),
+      m_bestPathSize (0),
       m_node ()
 {
     NS_LOG_FUNCTION (this);
@@ -55,7 +61,13 @@ Ipv4TLBProbing::Ipv4TLBProbing (const Ipv4TLBProbing &other)
     : m_sourceAddress (other.m_sourceAddress),
       m_probeAddress (other.m_probeAddress),
       m_probeTimeout (other.m_probeTimeout),
+      m_probeInterval (other.m_probeInterval),
       m_id (0),
+      m_hasBestPath (false),
+      m_bestPath (0),
+      m_bestPathRtt (Seconds (666)),
+      m_bestPathECN (false),
+      m_bestPathSize (0),
       m_node ()
 {
     NS_LOG_FUNCTION (this);
@@ -140,6 +152,9 @@ Ipv4TLBProbing::SendProbe (uint32_t path)
     // Add timeout
     m_probingTimeoutMap[m_id] =
         Simulator::Schedule (m_probeTimeout, &Ipv4TLBProbing::ProbeEventTimeout, this, m_id, path);
+
+    Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+    ipv4TLB->ProbeSend (m_probeAddress, path);
 }
 
 void
@@ -148,7 +163,6 @@ Ipv4TLBProbing::ProbeEventTimeout (uint32_t id, uint32_t path)
     m_probingTimeoutMap.erase (id);
     Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
     ipv4TLB->ProbeTimeout (path, m_probeAddress);
-
 }
 
 void
@@ -167,7 +181,7 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
     Ipv4Header ipv4Header;
     found = packet->RemoveHeader (ipv4Header);
 
-    NS_LOG_LOGIC (this << "Ipv4 Header: " << ipv4Header);
+    NS_LOG_LOGIC (this << " Ipv4 Header: " << ipv4Header);
 
     if (probingTag.GetIsReply () == 0)
     {
@@ -218,10 +232,66 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         uint32_t path = probingTag.GetPath ();
         Time oneWayRtt = probingTag.GetTime ();
         bool isCE = probingTag.GetIsCE () == 1 ? true : false;
+        uint32_t size = packet->GetSize () + ipv4Header.GetSerializedSize ();
+
+        // Update best path
+        if (oneWayRtt < m_bestPathRtt)
+        {
+            m_hasBestPath = true;
+            m_bestPath = path;
+            m_bestPathRtt = oneWayRtt;
+            m_bestPathECN = isCE;
+            m_bestPathSize = size;
+        }
 
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        ipv4TLB->ProbeRecv (path, m_probeAddress, packet->GetSize (), isCE, oneWayRtt);
+        ipv4TLB->ProbeRecv (path, m_probeAddress, size, isCE, oneWayRtt);
     }
+}
+
+void
+Ipv4TLBProbing::StartProbe ()
+{
+    m_probeEvent = Simulator::ScheduleNow (&Ipv4TLBProbing::DoProbe, this);
+}
+
+void
+Ipv4TLBProbing::StopProbe (Time stopTime)
+{
+    Simulator::Schedule (stopTime, &Ipv4TLBProbing::DoStop, this);
+}
+
+void
+Ipv4TLBProbing::DoProbe ()
+{
+    uint32_t probingCount = 3;
+    if (m_hasBestPath)
+    {
+        // TODO
+        // Notify other clients in the same rack
+        //
+
+        Ipv4TLBProbing::SendProbe (m_bestPath);
+        probingCount --;
+    }
+    Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+    std::vector<uint32_t> availPaths = ipv4TLB->GetAvailPath (m_probeAddress);
+    if (!availPaths.empty ())
+    {
+        for (uint32_t i = 0; i < probingCount; i++)
+        {
+            uint32_t path = availPaths[rand() % availPaths.size ()];
+            Ipv4TLBProbing::SendProbe (path);
+        }
+    }
+
+    m_probeEvent = Simulator::Schedule (m_probeInterval, &Ipv4TLBProbing::DoProbe, this);
+}
+
+void
+Ipv4TLBProbing::DoStop ()
+{
+    m_probeEvent.Cancel ();
 }
 
 }

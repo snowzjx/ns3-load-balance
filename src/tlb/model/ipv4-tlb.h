@@ -45,6 +45,8 @@ public:
 
     void AddAvailPath (uint32_t destTor, uint32_t path);
 
+    std::vector<uint32_t> GetAvailPath (Ipv4Address daddr);
+
     // These methods are used for TCP flows
     uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
 
@@ -55,6 +57,8 @@ public:
     void FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
     // These methods are used in probing
+    void ProbeSend (Ipv4Address daddr, uint32_t path);
+
     void ProbeRecv (uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
     void ProbeTimeout (uint32_t path, Ipv4Address daddr);
@@ -68,6 +72,8 @@ private:
                         uint32_t size, bool withECN, Time rtt, bool isProbing);
 
     bool UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN);
+
+    TLBPathInfo GetInitPathInfo (uint32_t path);
 
     void UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool withECN, Time rtt);
 
