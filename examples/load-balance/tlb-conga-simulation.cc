@@ -467,9 +467,12 @@ int main (int argc, char *argv[])
     tc2.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
                                                "MaxTh", DoubleValue (65 * 1400));
 
+    Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.005));
 
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
     QueueDiscContainer qd3d4 = tc2.Install (d3d4);
+
+    Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
 
     p2p.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));  // link rate of 4-5
 
