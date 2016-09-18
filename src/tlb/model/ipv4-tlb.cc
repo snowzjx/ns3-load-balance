@@ -5,7 +5,7 @@
 #include "ns3/node.h"
 #include "ns3/simulator.h"
 
-#define RANDOM_BASE 10
+#define RANDOM_BASE 100
 
 namespace ns3 {
 
@@ -20,14 +20,15 @@ Ipv4TLB::Ipv4TLB ():
     m_T1 (MicroSeconds (640)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (70)),
+    m_minRtt (MicroSeconds (60)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.7),
     m_flowRetransHigh (4200),
     m_flowRetransVeryHigh (140000),
+    m_flowTimeoutCount (2),
     m_betterPathEcnThresh (0.1),
-    m_betterPathRttThresh (MicroSeconds (800))
+    m_betterPathRttThresh (MicroSeconds (199))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -45,6 +46,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_ecnPortionHigh (other.m_ecnPortionHigh),
     m_flowRetransHigh (other.m_flowRetransHigh),
     m_flowRetransVeryHigh (other.m_flowRetransVeryHigh),
+    m_flowTimeoutCount (other.m_flowTimeoutCount),
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
     m_betterPathRttThresh (other.m_betterPathRttThresh)
 {
@@ -135,7 +137,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         if ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
-                || (flowItr->second).isTimeout)
+                || (flowItr->second).timeoutCount >= 1)
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
@@ -160,8 +162,13 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
                 && (flowItr->second).size >= m_S
                 && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
-                && rand () % RANDOM_BASE >= RANDOM_BASE / 100 * 50)
+                && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
         {
+            if (rand () % RANDOM_BASE < RANDOM_BASE / 100 * 60)
+            {
+                (flowItr->second).tryChangePath = Simulator::Now ();
+                return oldPath;
+            }
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
@@ -225,7 +232,8 @@ Ipv4TLB::FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t s
     if (isRetransmission)
     {
         bool needRetransPath = false;
-        bool notChangePath = Ipv4TLB::RetransFlow (flowId, path, size, needRetransPath);
+        bool needHighRetransPath = false;
+        bool notChangePath = Ipv4TLB::RetransFlow (flowId, path, size, needRetransPath, needHighRetransPath);
         if (!notChangePath)
         {
             NS_LOG_LOGIC ("Cannot send flow on the expired path");
@@ -233,7 +241,7 @@ Ipv4TLB::FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t s
         }
         if (needRetransPath)
         {
-            Ipv4TLB::RetransPath (destTor, path);
+            Ipv4TLB::RetransPath (destTor, path, needHighRetransPath);
         }
     }
 }
@@ -248,12 +256,13 @@ Ipv4TLB::FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path)
         return;
     }
 
-    bool notChangePath = Ipv4TLB::TimeoutFlow (flowId, path);
+    bool isVeryTimeout = false;
+    bool notChangePath = Ipv4TLB::TimeoutFlow (flowId, path, isVeryTimeout);
     if (!notChangePath)
     {
         NS_LOG_LOGIC ("The flow has changed the path");
     }
-    Ipv4TLB::TimeoutPath (destTor, path, false);
+    Ipv4TLB::TimeoutPath (destTor, path, false, isVeryTimeout);
 }
 
 void
@@ -310,7 +319,7 @@ Ipv4TLB::ProbeTimeout (uint32_t path, Ipv4Address daddr)
         return;
     }
 
-    Ipv4TLB::TimeoutPath (path, destTor, true);
+    Ipv4TLB::TimeoutPath (path, destTor, true, false);
 }
 
 
@@ -382,8 +391,9 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
 }
 
 bool
-Ipv4TLB::TimeoutFlow (uint32_t flowId, uint32_t path)
+Ipv4TLB::TimeoutFlow (uint32_t flowId, uint32_t path, bool &isVeryTimeout)
 {
+    isVeryTimeout = false;
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
     {
@@ -394,7 +404,11 @@ Ipv4TLB::TimeoutFlow (uint32_t flowId, uint32_t path)
     {
         return false;
     }
-    (itr->second).isTimeout = true;
+    (itr->second).timeoutCount ++;
+    if ((itr->second).timeoutCount >= m_flowTimeoutCount)
+    {
+        isVeryTimeout = true;
+    }
     return true;
 }
 
@@ -416,9 +430,10 @@ Ipv4TLB::SendFlow (uint32_t flowId, uint32_t path, uint32_t size)
 }
 
 bool
-Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath)
+Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath, bool &needHighRetransPath)
 {
     needRetranPath = false;
+    needHighRetransPath = false;
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
     {
@@ -438,12 +453,16 @@ Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needR
     {
         needRetranPath = true;
     }
+    if ((itr->second).retransmissionSize > m_flowRetransVeryHigh)
+    {
+        needHighRetransPath = true;
+    }
     return true;
 }
 
 
 void
-Ipv4TLB::TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing)
+Ipv4TLB::TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing, bool isVeryTimeout)
 {
     std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
@@ -455,6 +474,10 @@ Ipv4TLB::TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing)
     if (!isProbing)
     {
         (itr->second).isTimeout = true;
+        if (isVeryTimeout)
+        {
+            (itr->second).isVeryTimeout = true;
+        }
     }
     else
     {
@@ -463,7 +486,7 @@ Ipv4TLB::TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing)
 }
 
 void
-Ipv4TLB::RetransPath (uint32_t destTor, uint32_t path)
+Ipv4TLB::RetransPath (uint32_t destTor, uint32_t path, bool needHighRetransPath)
 {
     std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
@@ -473,6 +496,10 @@ Ipv4TLB::RetransPath (uint32_t destTor, uint32_t path)
         return;
     }
     (itr->second).isRetransmission = true;
+    if (needHighRetransPath)
+    {
+        (itr->second).isHighRetransmission = true;
+    }
 }
 
 void
@@ -484,9 +511,9 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
     flowInfo.ecnSize = 0;
     flowInfo.sendSize = 0;
     flowInfo.retransmissionSize = 0;
-    flowInfo.isTimeout = false;
+    flowInfo.timeoutCount = 0;
     flowInfo.timeStamp = Simulator::Now ();
-
+    flowInfo.tryChangePath = Simulator::Now ();
     m_flowInfo[flowId] = flowInfo;
 }
 
@@ -499,7 +526,9 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
     pathInfo.ecnSize = 0;
     pathInfo.minRtt = Seconds (666);
     pathInfo.isRetransmission = false;
+    pathInfo.isHighRetransmission = false;
     pathInfo.isTimeout = false;
+    pathInfo.isVeryTimeout = false;
     pathInfo.isProbingTimeout = false;
     pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
     pathInfo.timeStamp1 = Simulator::Now ();
@@ -614,8 +643,23 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         return true;
     }
 
+    // Thirdly, checking bad path
+    vectorItr = (itr->second).begin ();
+    for ( ; vectorItr != (itr->second).end (); ++vectorItr)
+    {
+        uint32_t pathId = *vectorItr;
+        struct PathInfo pathInfo = JudgePath (destTor, pathId);
+        if (pathInfo.pathType == BadPath
+            && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
+        {
+            newPath = pathId;
+            NS_LOG_LOGIC ("Find Bad Path: " << newPath);
+            return true;
+        }
+    }
+
     // Thirdly, indicating no paths available
-    NS_LOG_LOGIC ("No path returned");
+    NS_LOG_LOGIC ("No Path Returned");
     return false;
 }
 
@@ -636,7 +680,7 @@ Ipv4TLB::SelectRandomPath (uint32_t destTor)
     {
         uint32_t pathId = *vectorItr;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
-        if (pathInfo.pathType == GoodPath || pathInfo.pathType == GreyPath)
+        if (pathInfo.pathType == GoodPath || pathInfo.pathType == GreyPath || pathInfo.pathType == BadPath)
         {
             availablePaths.push_back (pathId);
         }
@@ -675,24 +719,30 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     path.ecnPortion = static_cast<double>(pathInfo.ecnSize) / pathInfo.size;
     path.counter = pathInfo.flowCounter;
     if ((pathInfo.minRtt < m_minRtt
-            || (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
+            && (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
             && (pathInfo.isRetransmission) == false
-            && (pathInfo.isTimeout) == false)
+            /*&& (pathInfo.isHighRetransmission) == false*/
+            && (pathInfo.isTimeout) == false
+            /*&& (pathInfo.isVeryTimeout) == false*/
+            && (pathInfo.isProbingTimeout == false))
     {
         path.pathType = GoodPath;
         return path;
     }
-    if (static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
-            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )
-    {
-        path.pathType = BadPath;
-        return path;
-    }
-    if (pathInfo.isRetransmission
-            || pathInfo.isTimeout
+    if (pathInfo.isHighRetransmission
+            || pathInfo.isVeryTimeout
             || pathInfo.isProbingTimeout)
     {
         path.pathType = FailPath;
+        return path;
+    }
+
+    if ((static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
+            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )
+            || pathInfo.isTimeout == true
+            || pathInfo.isRetransmission == true)
+    {
+        path.pathType = BadPath;
         return path;
     }
     path.pathType = GreyPath;
@@ -738,7 +788,9 @@ Ipv4TLB::PathAging (void)
                            << " ECN Size: " << (itr->second).ecnSize
                            << " Min RTT: " << (itr->second).minRtt
                            << " Is Retransmission: " << (itr->second).isRetransmission
+                           << " Is HRetransmission: " << (itr->second).isHighRetransmission
                            << " Is Timeout: " << (itr->second).isTimeout
+                           << " Is VTimeout: " << (itr->second).isVeryTimeout
                            << " Is ProbingTimeout: " << (itr->second).isProbingTimeout
                            << " Flow Counter: " << (itr->second).flowCounter);
         if (Simulator::Now() - (itr->second).timeStamp1 > m_T1)
@@ -751,7 +803,9 @@ Ipv4TLB::PathAging (void)
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)
         {
             (itr->second).isRetransmission = false;
+            (itr->second).isHighRetransmission = false;
             (itr->second).isTimeout = false;
+            (itr->second).isVeryTimeout = false;
             (itr->second).isProbingTimeout = false;
             (itr->second).timeStamp2 = Simulator::Now ();
         }

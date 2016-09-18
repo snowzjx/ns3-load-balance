@@ -13,7 +13,9 @@ public:
   uint32_t ecnSize;
   Time minRtt;
   bool isRetransmission;
+  bool isHighRetransmission;
   bool isTimeout;
+  bool isVeryTimeout;
   bool isProbingTimeout;
   uint32_t flowCounter;
   Time timeStamp1;

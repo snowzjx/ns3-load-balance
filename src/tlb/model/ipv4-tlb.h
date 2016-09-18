@@ -79,15 +79,15 @@ private:
 
     void UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool withECN, Time rtt);
 
-    bool TimeoutFlow (uint32_t flowId, uint32_t path);
+    bool TimeoutFlow (uint32_t flowId, uint32_t path, bool &isVeryTimeout);
 
-    void TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing);
+    void TimeoutPath (uint32_t destTor, uint32_t path, bool isProbing, bool isVeryTimeout);
 
     bool SendFlow (uint32_t flowId, uint32_t path, uint32_t size);
 
-    bool RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath);
+    bool RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath, bool &needHighRetransPath);
 
-    void RetransPath (uint32_t destTor, uint32_t path);
+    void RetransPath (uint32_t destTor, uint32_t path, bool needHighRetransPath);
 
     void UpdateFlowPath (uint32_t flowId, uint32_t path);
 
@@ -130,6 +130,8 @@ private:
 
     uint32_t m_flowRetransHigh;
     uint32_t m_flowRetransVeryHigh;
+
+    uint32_t m_flowTimeoutCount;
 
     double m_betterPathEcnThresh;
 

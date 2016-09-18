@@ -14,8 +14,9 @@ public:
   uint32_t ecnSize;
   uint32_t sendSize;
   uint32_t retransmissionSize;
-  bool isTimeout;
+  uint32_t timeoutCount;
   Time timeStamp;
+  Time tryChangePath;
 };
 
 }
