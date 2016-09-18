@@ -20,13 +20,13 @@ Ipv4TLB::Ipv4TLB ():
     m_T1 (MicroSeconds (640)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (100)),
+    m_minRtt (MicroSeconds (70)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
-    m_ecnPortionHigh (0.5),
-    m_flowRetransHigh (1400000),
+    m_ecnPortionHigh (0.7),
+    m_flowRetransHigh (14000),
     m_betterPathEcnThresh (0.1),
-    m_betterPathRttThresh (MicroSeconds (100))
+    m_betterPathRttThresh (MicroSeconds (800))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -154,7 +154,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 && (flowItr->second).size >= m_S
                 && static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh
                 && Simulator::Now () - (flowItr->second).timeStamp >= m_T
-                && rand () % RANDOM_BASE >= RANDOM_BASE / 2)
+                && rand () % RANDOM_BASE >= RANDOM_BASE / 100 * 93)
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
