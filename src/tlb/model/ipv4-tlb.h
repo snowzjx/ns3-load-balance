@@ -129,6 +129,7 @@ private:
     double m_ecnPortionHigh;
 
     uint32_t m_flowRetransHigh;
+    uint32_t m_flowRetransVeryHigh;
 
     double m_betterPathEcnThresh;
 

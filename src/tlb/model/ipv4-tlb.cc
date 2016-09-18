@@ -24,7 +24,8 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.7),
-    m_flowRetransHigh (14000),
+    m_flowRetransHigh (4200),
+    m_flowRetransVeryHigh (140000),
     m_betterPathEcnThresh (0.1),
     m_betterPathRttThresh (MicroSeconds (800))
 {
@@ -43,6 +44,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_ecnPortionLow (other.m_ecnPortionLow),
     m_ecnPortionHigh (other.m_ecnPortionHigh),
     m_flowRetransHigh (other.m_flowRetransHigh),
+    m_flowRetransVeryHigh (other.m_flowRetransVeryHigh),
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
     m_betterPathRttThresh (other.m_betterPathRttThresh)
 {
@@ -132,12 +134,17 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
     {
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
-        if ((flowItr->second).retransmissionSize > m_flowRetransHigh
+        if ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).isTimeout)
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
+                if (newPath == oldPath)
+                {
+                    return oldPath;
+                }
+
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath);
                 Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
@@ -152,13 +159,17 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         }
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
                 && (flowItr->second).size >= m_S
-                && static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh
-                && Simulator::Now () - (flowItr->second).timeStamp >= m_T
-                && rand () % RANDOM_BASE >= RANDOM_BASE / 100 * 93)
+                && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
+                && rand () % RANDOM_BASE >= RANDOM_BASE / 100 * 50)
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
+                if (newPath == oldPath)
+                {
+                    return oldPath;
+                }
+
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath);
                 Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
@@ -418,6 +429,10 @@ Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needR
     {
         return false;
     }
+    if (Simulator::Now () - (itr->second).timeStamp < MicroSeconds (1000))
+    {
+        return false;
+    }
     (itr->second).retransmissionSize += size;
     if ((itr->second).retransmissionSize > m_flowRetransHigh)
     {
@@ -659,8 +674,10 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     path.rttMin = pathInfo.minRtt;
     path.ecnPortion = static_cast<double>(pathInfo.ecnSize) / pathInfo.size;
     path.counter = pathInfo.flowCounter;
-    if (pathInfo.minRtt < m_minRtt
+    if ((pathInfo.minRtt < m_minRtt
             || (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
+            && (pathInfo.isRetransmission) == false
+            && (pathInfo.isTimeout) == false)
     {
         path.pathType = GoodPath;
         return path;

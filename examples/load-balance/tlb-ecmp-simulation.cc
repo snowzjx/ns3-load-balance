@@ -308,6 +308,7 @@ int main (int argc, char *argv[])
 	Config::SetDefault	("ns3::RedQueueDisc::MeanPktSize",	UintegerValue	(1400));
     Config::SetDefault	("ns3::RedQueueDisc::QueueLimit",	UintegerValue	(550 * 1400));
     Config::SetDefault	("ns3::RedQueueDisc::Gentle",	BooleanValue	(false));
+    Config::SetDefault	("ns3::RedQueueDisc::DropRate",	DoubleValue (0.002));
 
     TrafficControlHelper tc;
     tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
@@ -363,7 +364,7 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Node 1 is connected to node 3 with port " << d1d3.Get (0)->GetIfIndex () << "<->" << d1d3.Get (1)->GetIfIndex ());
     QueueDiscContainer qd1d3 = tc.Install (d1d3);
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));
 
     NetDeviceContainer d3d4 = p2p.Install (n3n4);
     NS_LOG_INFO ("Node 3 is connected to node 4 with port " << d3d4.Get (0)->GetIfIndex () << "<->" << d3d4.Get (1)->GetIfIndex ());
