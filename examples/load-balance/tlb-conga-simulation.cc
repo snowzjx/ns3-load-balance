@@ -460,7 +460,7 @@ int main (int argc, char *argv[])
 
 
     //Config::SetDefault ("ns3::RedQueueDisc::QueueLimit", UintegerValue (100));
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));                  // link rate of 1-3 3-4
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("10Gbps"));                  // link rate of 1-3 3-4
     //p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(100)));
 
     TrafficControlHelper tc2;
@@ -626,7 +626,7 @@ int main (int argc, char *argv[])
         Ptr<Ipv4CongaRouting> congaSpine2 = congaRoutingHelper.GetCongaRouting (c.Get (3)->GetObject<Ipv4> ());
 		    congaSpine2->SetTDre (MicroSeconds (100));
 		    congaSpine2->SetAlpha (0.2);
-		    congaSpine2->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY / 10));
+		    congaSpine2->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 
 
 
