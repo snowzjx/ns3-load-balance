@@ -195,6 +195,11 @@ TypeId RedQueueDisc::GetTypeId (void)
                    TimeValue (MilliSeconds (20)),
                    MakeTimeAccessor (&RedQueueDisc::m_linkDelay),
                    MakeTimeChecker ())
+    .AddAttribute ("DropRate",
+                   "The packet black hole drop rate",
+                   DoubleValue (0.0),
+                   MakeDoubleAccessor (&RedQueueDisc::m_dropRate),
+                   MakeDoubleChecker<double> ())
   ;
 
   return tid;
@@ -307,6 +312,17 @@ bool
 RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
 {
   NS_LOG_FUNCTION (this << item);
+
+  if (m_dropRate != 0.0)
+  {
+    if (m_uv->GetValue () <= m_dropRate)
+    {
+      std::cout << "Oh, what the fuck, packet black hole" << std::endl;
+      m_stats.forcedDrop++;
+      Drop (item);
+      return false;
+    }
+  }
 
   uint32_t nQueued = 0;
 

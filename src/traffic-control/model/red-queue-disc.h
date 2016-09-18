@@ -300,6 +300,7 @@ private:
   bool m_isNs1Compat;       //!< Ns-1 compatibility
   DataRate m_linkBandwidth; //!< Link bandwidth
   Time m_linkDelay;         //!< Link delay
+  double m_dropRate;        //!< Packet black hole drop rate (0 - 1), 0 for not dropping
 
   // ** Variables maintained by RED
   double m_vProb1;          //!< Prob. of packet drop before "count"
