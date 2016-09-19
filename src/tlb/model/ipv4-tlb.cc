@@ -16,11 +16,11 @@ NS_OBJECT_ENSURE_REGISTERED (Ipv4TLB);
 Ipv4TLB::Ipv4TLB ():
     m_S (64000),
     m_T (MicroSeconds (1500)),
-    m_K (10),
+    m_K (10000),
     m_T1 (MicroSeconds (640)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (60)),
+    m_minRtt (MicroSeconds (50)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.7),
@@ -28,7 +28,7 @@ Ipv4TLB::Ipv4TLB ():
     m_flowRetransVeryHigh (140000),
     m_flowTimeoutCount (2),
     m_betterPathEcnThresh (0.1),
-    m_betterPathRttThresh (MicroSeconds (199))
+    m_betterPathRttThresh (MicroSeconds (309))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -373,21 +373,26 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
 
+    TLBPathInfo pathInfo;
     if (itr == m_pathInfo.end ())
     {
-        NS_LOG_ERROR ("Cannot update a non-existing path");
-        return;
+        pathInfo = Ipv4TLB::GetInitPathInfo (path);
+    }
+    else
+    {
+        pathInfo = itr->second;
     }
 
-    (itr->second).size += size;
+    pathInfo.size += size;
     if (withECN)
     {
-        (itr->second).ecnSize += size;
+        pathInfo.ecnSize += size;
     }
-    if (rtt < (itr->second).minRtt)
+    if (rtt < pathInfo.minRtt)
     {
-        (itr->second).minRtt = rtt;
+        pathInfo.minRtt = rtt;
     }
+    m_pathInfo[key] = pathInfo;
 }
 
 bool

@@ -10,7 +10,6 @@ def build(bld):
     module = bld.create_ns3_module('tlb-probing', ['core', 'internet', 'tlb', 'xpath-routing'])
     module.source = [
         'model/ipv4-tlb-probing.cc',
-        'model/ipv4-tlb-probing-tag.cc',
         'helper/tlb-probing-helper.cc',
         ]
 
@@ -23,7 +22,6 @@ def build(bld):
     headers.module = 'tlb-probing'
     headers.source = [
         'model/ipv4-tlb-probing.h',
-        'model/ipv4-tlb-probing-tag.h',
         'helper/tlb-probing-helper.h',
         ]
 

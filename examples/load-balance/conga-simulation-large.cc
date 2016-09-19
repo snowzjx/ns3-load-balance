@@ -8,10 +8,14 @@
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/ipv4-static-routing-helper.h"
 #include "ns3/ipv4-drb-helper.h"
+#include "ns3/ipv4-xpath-routing-helper.h"
+#include "ns3/ipv4-tlb.h"
+#include "ns3/ipv4-tlb-probing.h"
 #include "ns3/link-monitor-module.h"
 #include "ns3/traffic-control-module.h"
 
 #include <vector>
+#include <map>
 #include <utility>
 
 // The CDF in TrafficGenerator
@@ -22,15 +26,15 @@ extern "C"
 
 #define LINK_CAPACITY_BASE    1000000000          // 1Gbps
 #define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
-#define BUFFER_SIZE 250                           // 250 packets
+#define BUFFER_SIZE 600                           // 250 packets
 
 #define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 10.0
+#define END_TIME 0.1
 
-#define FLOW_LAUNCH_END_TIME 4.0
+#define FLOW_LAUNCH_END_TIME 0.05
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -47,6 +51,7 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("CongaSimulationLarge");
 
 enum RunMode {
+    TLB,
     CONGA,
     CONGA_FLOW,
     CONGA_ECMP,
@@ -142,12 +147,12 @@ int main (int argc, char *argv[])
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
 
-    int SERVER_COUNT = 32;
-    int SPINE_COUNT = 2;
-    int LEAF_COUNT = 2;
-    int LINK_COUNT = 2;
+    int SERVER_COUNT = 8;
+    int SPINE_COUNT = 4;
+    int LEAF_COUNT = 4;
+    int LINK_COUNT = 1;
 
-    uint64_t spineLeafCapacity = 40;
+    uint64_t spineLeafCapacity = 10;
     uint64_t leafServerCapacity = 10;
 
     CommandLine cmd;
@@ -204,9 +209,23 @@ int main (int argc, char *argv[])
     {
         runMode = ECMP;
     }
+    else if (runModeStr.compare ("TLB") == 0)
+    {
+        if (LINK_COUNT != 1)
+        {
+            NS_LOG_ERROR ("TLB currently not supports link count more than 1");
+            return 0;
+        }
+        if (asym || asym2)
+        {
+            NS_LOG_ERROR ("TLB currently not supports asym topology");
+            return 0;
+        }
+        runMode = TLB;
+    }
     else
     {
-        NS_LOG_ERROR ("The running mode should be Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
+        NS_LOG_ERROR ("The running mode should be pLB, Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
         return 0;
     }
 
@@ -236,6 +255,12 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (250)));
     }
 
+    if (runMode == TLB)
+    {
+        NS_LOG_INFO ("Enabling TLB");
+        Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
+    }
+
     NS_LOG_INFO ("Config parameters");
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
@@ -259,6 +284,7 @@ int main (int argc, char *argv[])
     Ipv4CongaRoutingHelper congaRoutingHelper;
     Ipv4GlobalRoutingHelper globalRoutingHelper;
     Ipv4ListRoutingHelper listRoutingHelper;
+    Ipv4XPathRoutingHelper xpathRoutingHelper;
 
     Ipv4DrbHelper drbHelper;
 
@@ -281,6 +307,18 @@ int main (int argc, char *argv[])
         internet.Install (spines);
 
         internet.SetDrb (true);
+        internet.Install (leaves);
+    }
+    else if (runMode == TLB)
+    {
+        internet.SetTLB (true);
+        internet.Install (servers);
+
+        internet.SetTLB (false);
+        listRoutingHelper.Add (xpathRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+        internet.Install (spines);
         internet.Install (leaves);
     }
     else if (runMode == ECMP || runMode == FlowBender)
@@ -337,9 +375,16 @@ int main (int argc, char *argv[])
 
     std::vector<Ipv4Address> leafNetworks (LEAF_COUNT);
 
+    std::vector<Ipv4Address> serverAddresses (SERVER_COUNT * LEAF_COUNT);
+
+    std::map<std::pair<int, int>, uint32_t> leafToSpinePath;
+    std::map<std::pair<int, int>, uint32_t> spineToLeafPath;
+
+    std::vector<Ptr<Ipv4TLBProbing> > probings (SERVER_COUNT * LEAF_COUNT);
+
     for (int i = 0; i < LEAF_COUNT; i++)
     {
-	Ipv4Address network = ipv4.NewNetwork ();
+	    Ipv4Address network = ipv4.NewNetwork ();
         leafNetworks[i] = network;
 
         for (int j = 0; j < SERVER_COUNT; j++)
@@ -353,6 +398,7 @@ int main (int argc, char *argv[])
 	            tc.Install (netDeviceContainer);
             }
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+            serverAddresses [serverIndex] = interfaceContainer.GetAddress (1);
 		    if (transportProt.compare ("Tcp") == 0)
             {
                 tc.Uninstall (netDeviceContainer);
@@ -371,10 +417,20 @@ int main (int argc, char *argv[])
 				                           Ipv4Mask("255.255.255.255"),
                                            netDeviceContainer.Get (0)->GetIfIndex ());
                 for (int k = 0; k < LEAF_COUNT; k++)
-	        {
+	            {
                     congaRoutingHelper.GetCongaRouting (leaves.Get (k)->GetObject<Ipv4> ())->
-			    AddAddressToLeafIdMap (interfaceContainer.GetAddress (1), i);
-	        }
+			                 AddAddressToLeafIdMap (interfaceContainer.GetAddress (1), i);
+	            }
+            }
+
+            if (runMode == TLB)
+            {
+                for (int k = 0; k < SERVER_COUNT * LEAF_COUNT; k++)
+                {
+                    Ptr<Ipv4TLB> tlb = servers.Get (k)->GetObject<Ipv4TLB> ();
+                    tlb->AddAddressWithTor (interfaceContainer.GetAddress (1), i);
+                    // NS_LOG_INFO ("Configuring TLB with " << k << "'s server, inserting server: " << j << " under leaf: " << i);
+                }
             }
         }
     }
@@ -438,6 +494,16 @@ int main (int argc, char *argv[])
             NS_LOG_INFO ("Leaf-" << i << " is connected to Spine-" << j << " with address "
                     << ipv4InterfaceContainer.GetAddress(0) << "<->" << ipv4InterfaceContainer.GetAddress (1)
                     << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << "<->" << netDeviceContainer.Get (1)->GetIfIndex ());
+
+            if (runMode == TLB)
+            {
+                std::pair<int, int> leafToSpine = std::make_pair<int, int> (i, j);
+                leafToSpinePath[leafToSpine] = netDeviceContainer.Get (0)->GetIfIndex ();
+
+                std::pair<int, int> spineToLeaf = std::make_pair<int, int> (j, i);
+                spineToLeafPath[spineToLeaf] = netDeviceContainer.Get (1)->GetIfIndex ();
+            }
+
 		    if (transportProt.compare ("Tcp") == 0)
             {
                 tc.Uninstall (netDeviceContainer);
@@ -486,10 +552,76 @@ int main (int argc, char *argv[])
         }
     }
 
-    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender)
+    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender || runMode == TLB)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    }
+
+    if (runMode == TLB)
+    {
+        NS_LOG_INFO ("Configuring TLB available paths");
+        for (int i = 0; i < LEAF_COUNT; i++)
+        {
+            for (int j = 0; j < SERVER_COUNT; j++)
+            {
+                int serverIndex = i * SERVER_COUNT + j;
+                for (int k = 0; k < SPINE_COUNT; k++)
+                {
+                    int path = 0;
+                    int pathBase = 1;
+                    path += leafToSpinePath[std::make_pair (i, k)] * pathBase;
+                    pathBase *= 100;
+                    for (int l = 0; l < LEAF_COUNT; l++)
+                    {
+                        if (i == l)
+                        {
+                            continue;
+                        }
+                        int newPath = spineToLeafPath[std::make_pair (k, l)] * pathBase + path;
+                        Ptr<Ipv4TLB> tlb = servers.Get (serverIndex)->GetObject<Ipv4TLB> ();
+                        tlb->AddAvailPath (l, newPath);
+                        // NS_LOG_INFO ("Configuring server: " << serverIndex << " to leaf: " << l << " with path: " << newPath);
+                    }
+                }
+            }
+        }
+
+        NS_LOG_INFO ("Configuring TLB Probing");
+        for (int i = 0; i < SERVER_COUNT * LEAF_COUNT; i++)
+        {
+            // The i th server under one leaf is used to probe the leaf i by contacting the i th server under that leaf
+            Ptr<Ipv4TLBProbing> probing = CreateObject<Ipv4TLBProbing> ();
+            probings[i] = probing;
+            probing->SetNode (servers.Get (i));
+            probing->SetSourceAddress (serverAddresses[i]);
+            probing->Init ();
+
+            int serverIndexUnderLeaf = i % SERVER_COUNT;
+
+            if (serverIndexUnderLeaf < LEAF_COUNT)
+            {
+                int serverBeingProbed = SERVER_COUNT * serverIndexUnderLeaf;
+                if (serverBeingProbed == i)
+                {
+                    continue;
+                }
+                probing->SetProbeAddress (serverAddresses[serverBeingProbed]);
+                NS_LOG_INFO ("Server: " << i << " is going to probe server: " << serverBeingProbed);
+                int leafIndex = i / SERVER_COUNT;
+                for (int j = leafIndex * SERVER_COUNT; j < leafIndex * SERVER_COUNT + SERVER_COUNT; j++)
+                {
+                    if (i == j)
+                    {
+                        continue;
+                    }
+                    probing->AddBroadCastAddress (serverAddresses[j]);
+                    NS_LOG_INFO ("Server:" << i << " is going to broadcast to server: " << j);
+                }
+                probing->StartProbe ();
+                probing->StopProbe (Seconds (END_TIME));
+            }
+        }
     }
 
     double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT * LINK_COUNT);
@@ -565,8 +697,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "13-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "233-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "233-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -603,14 +735,19 @@ int main (int argc, char *argv[])
         flowMonitorFilename << "flow-bender-" << flowBenderT << "-" << flowBenderN << "-simulation-";
         linkMonitorFilename << "flow-bender-" << flowBenderT << "-" << flowBenderN << "-simulation-";
     }
+    else if (runMode == TLB)
+    {
+        flowMonitorFilename << "tlb-";
+        linkMonitorFilename << "tlb-";
+    }
 
     flowMonitorFilename << randomSeed << "-";
     linkMonitorFilename << randomSeed << "-";
 
     if (asym)
     {
-	flowMonitorFilename << "asym-";
-	linkMonitorFilename << "asym-";
+    	flowMonitorFilename << "asym-";
+	    linkMonitorFilename << "asym-";
     }
 
     if (asym2)
@@ -621,8 +758,8 @@ int main (int argc, char *argv[])
 
     if (resequenceBuffer)
     {
-	flowMonitorFilename << "rb-";
-	linkMonitorFilename << "rb-";
+	    flowMonitorFilename << "rb-";
+	    linkMonitorFilename << "rb-";
     }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";

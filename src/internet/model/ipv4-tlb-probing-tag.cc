@@ -18,28 +18,40 @@ Ipv4TLBProbingTag::Ipv4TLBProbingTag ()
 
 }
 
-uint32_t
+uint16_t
 Ipv4TLBProbingTag::GetId (void) const
 {
     return m_id;
 }
 
 void
-Ipv4TLBProbingTag::SetId (uint32_t id)
+Ipv4TLBProbingTag::SetId (uint16_t id)
 {
     m_id = id;
 }
 
-uint32_t
+uint16_t
 Ipv4TLBProbingTag::GetPath (void) const
 {
     return m_path;
 }
 
 void
-Ipv4TLBProbingTag::SetPath (uint32_t path)
+Ipv4TLBProbingTag::SetPath (uint16_t path)
 {
     m_path = path;
+}
+
+Ipv4Address
+Ipv4TLBProbingTag::GetProbeAddres (void) const
+{
+    return m_probeAddress;
+}
+
+void
+Ipv4TLBProbingTag::SetProbeAddress (Ipv4Address address)
+{
+    m_probeAddress = address;
 }
 
 uint8_t
@@ -99,7 +111,8 @@ Ipv4TLBProbingTag::GetInstanceTypeId (void) const
 uint32_t
 Ipv4TLBProbingTag::GetSerializedSize (void) const
 {
-    return sizeof (uint32_t)
+    return sizeof (uint16_t)
+         + sizeof (uint16_t)
          + sizeof (uint32_t)
          + sizeof (uint8_t)
          + sizeof (double)
@@ -110,8 +123,9 @@ Ipv4TLBProbingTag::GetSerializedSize (void) const
 void
 Ipv4TLBProbingTag::Serialize (TagBuffer i) const
 {
-    i.WriteU32 (m_id);
-    i.WriteU32 (m_path);
+    i.WriteU16 (m_id);
+    i.WriteU16 (m_path);
+    i.WriteU32 (m_probeAddress.Get ());
     i.WriteU8 (m_isReply);
     i.WriteDouble (m_time.GetSeconds ());
     i.WriteU8 (m_isCE);
@@ -121,8 +135,9 @@ Ipv4TLBProbingTag::Serialize (TagBuffer i) const
 void
 Ipv4TLBProbingTag::Deserialize (TagBuffer i)
 {
-    m_id = i.ReadU32 ();
-    m_path = i.ReadU32 ();
+    m_id = i.ReadU16 ();
+    m_path = i.ReadU16 ();
+    m_probeAddress = Ipv4Address (i.ReadU32 ());
     m_isReply = i.ReadU8 ();
     m_time = Time::FromDouble (i.ReadDouble (), Time::S);
     m_isCE = i.ReadU8 ();
@@ -134,6 +149,7 @@ Ipv4TLBProbingTag::Print (std::ostream &os) const
 {
     os << "id: " << m_id;
     os << "path: " << m_path;
+    os << "probe address: " << m_probeAddress;
     os << "Is Reply: " << m_isReply;
     os << "Time: " << m_time;
     os << "Is CE: " << m_isCE;

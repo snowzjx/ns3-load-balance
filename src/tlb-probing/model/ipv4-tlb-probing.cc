@@ -2,7 +2,7 @@
 
 #include "ipv4-tlb-probing.h"
 
-#include "ipv4-tlb-probing-tag.h"
+#include "ns3/ipv4-tlb-probing-tag.h"
 
 #include "ns3/log.h"
 #include "ns3/uinteger.h"
@@ -147,6 +147,7 @@ Ipv4TLBProbing::SendProbe (uint32_t path)
     Ipv4TLBProbingTag probingTag;
     probingTag.SetId (m_id);
     probingTag.SetPath (path);
+    probingTag.SetProbeAddress (m_probeAddress);
     probingTag.SetIsReply (0);
     probingTag.SetTime (Simulator::Now ());
     probingTag.SetIsCE (0);
@@ -205,6 +206,7 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         Ipv4TLBProbingTag replyProbingTag;
         replyProbingTag.SetId (probingTag.GetId ());
         replyProbingTag.SetPath (probingTag.GetPath ());
+        replyProbingTag.SetProbeAddress (probingTag.GetProbeAddres ());
         replyProbingTag.SetIsReply (1);
         replyProbingTag.SetIsBroadcast (0);
         replyProbingTag.SetTime (Simulator::Now() - probingTag.GetTime ());
@@ -256,7 +258,7 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         }
 
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        ipv4TLB->ProbeRecv (path, m_probeAddress, size, isCE, oneWayRtt);
+        ipv4TLB->ProbeRecv (path, probingTag.GetProbeAddres (), size, isCE, oneWayRtt);
     }
 }
 
@@ -337,6 +339,7 @@ Ipv4TLBProbing::BroadcastBestPathTo (Ipv4Address addr)
     Ipv4TLBProbingTag probingTag;
     probingTag.SetId (0);
     probingTag.SetPath (m_bestPath);
+    probingTag.SetProbeAddress (m_probeAddress);
     probingTag.SetIsReply (1);
     probingTag.SetTime (m_bestPathRtt);
     probingTag.SetIsCE (m_bestPathECN);
