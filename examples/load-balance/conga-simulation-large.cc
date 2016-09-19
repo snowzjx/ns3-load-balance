@@ -32,9 +32,9 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 0.1
+#define END_TIME 10.0
 
-#define FLOW_LAUNCH_END_TIME 0.05
+#define FLOW_LAUNCH_END_TIME 4.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
