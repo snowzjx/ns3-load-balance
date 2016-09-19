@@ -6,6 +6,7 @@
 #include "ns3/simulator.h"
 
 #define RANDOM_BASE 100
+// RAND POSS 30% 60% 90% will change path
 
 namespace ns3 {
 
@@ -20,15 +21,16 @@ Ipv4TLB::Ipv4TLB ():
     m_T1 (MicroSeconds (640)),
     m_T2 (Seconds (5)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (50)),
+    m_minRtt (MicroSeconds (50)), // 40 70 100
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.7),
-    m_flowRetransHigh (4200),
+    m_flowRetransHigh (140000),
     m_flowRetransVeryHigh (140000),
-    m_flowTimeoutCount (2),
+    m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0.1),
-    m_betterPathRttThresh (MicroSeconds (309))
+    m_betterPathRttThresh (MicroSeconds (300)), // 100 200 300
+    m_pathChangePoss (50)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -48,7 +50,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_flowRetransVeryHigh (other.m_flowRetransVeryHigh),
     m_flowTimeoutCount (other.m_flowTimeoutCount),
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
-    m_betterPathRttThresh (other.m_betterPathRttThresh)
+    m_betterPathRttThresh (other.m_betterPathRttThresh),
+    m_pathChangePoss (50)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -59,7 +62,16 @@ Ipv4TLB::GetTypeId (void)
     static TypeId tid = TypeId ("ns3::Ipv4TLB")
         .SetParent<Object> ()
         .SetGroupName ("TLB")
-        .AddConstructor<Ipv4TLB> ();
+        .AddConstructor<Ipv4TLB> ()
+        .AddAttribute ("MinRTT", "Min RTT used to judge a good path",
+                      TimeValue (MicroSeconds(50)),
+                      MakeTimeAccessor (&Ipv4TLB::m_minRtt),
+                      MakeTimeChecker ())
+        .AddAttribute ("BetterPathRTTThresh", "RTT Threshold used to judge one path is better than another",
+                      TimeValue (MicroSeconds (300)),
+                      MakeTimeAccessor (&Ipv4TLB::m_betterPathRttThresh),
+                      MakeTimeChecker ())
+    ;
 
     return tid;
 }
@@ -164,7 +176,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
         {
-            if (rand () % RANDOM_BASE < RANDOM_BASE / 100 * 60)
+            if (rand () % RANDOM_BASE < RANDOM_BASE / static_cast<int> (100 * (1 - m_pathChangePoss)))
             {
                 (flowItr->second).tryChangePath = Simulator::Now ();
                 return oldPath;
