@@ -32,9 +32,9 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 0.1
+#define END_TIME 10.0
 
-#define FLOW_LAUNCH_END_TIME 0.05
+#define FLOW_LAUNCH_END_TIME 4.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -155,6 +155,10 @@ int main (int argc, char *argv[])
     uint64_t spineLeafCapacity = 10;
     uint64_t leafServerCapacity = 10;
 
+    uint32_t TLBMinRTT = 40;
+    uint32_t TLBPoss = 30;
+    uint32_t TLBBetterPathRTT = 100;
+
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
@@ -174,6 +178,10 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("spineLeafCapacity", "Spine <-> Leaf capacity in Gbps", spineLeafCapacity);
     cmd.AddValue ("leafServerCapacity", "Leaf <-> Server capacity in Gbps", leafServerCapacity);
+
+    cmd.AddValue ("TLBMinRTT", "TLBMinRTT", TLBMinRTT);
+    cmd.AddValue ("TLBPoss", "TLBPoss", TLBPoss);
+    cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
 
     cmd.Parse (argc, argv);
 
@@ -259,6 +267,9 @@ int main (int argc, char *argv[])
     {
         NS_LOG_INFO ("Enabling TLB");
         Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
+        Config::SetDefault ("ns3::Ipv4TLB::MinRTT", TimeValue (MicroSeconds (TLBMinRTT)));
+        Config::SetDefault ("ns3::Ipv4TLB::BetterPathRTTThresh", TimeValue (MicroSeconds (TLBBetterPathRTT)));
+        Config::SetDefault ("ns3::Ipv4TLB::ChangePathPoss", UintegerValue (TLBPoss));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -737,8 +748,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-";
-        linkMonitorFilename << "tlb-";
+        flowMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-";
+        linkMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
@@ -759,7 +770,7 @@ int main (int argc, char *argv[])
     if (resequenceBuffer)
     {
 	    flowMonitorFilename << "rb-";
-	    linkMonitorFilename << "rb-";
+        linkMonitorFilename << "rb-";
     }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";

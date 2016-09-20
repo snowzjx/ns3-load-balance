@@ -4,6 +4,7 @@
 #include "ns3/log.h"
 #include "ns3/node.h"
 #include "ns3/simulator.h"
+#include "ns3/uinteger.h"
 
 #define RANDOM_BASE 100
 // RAND POSS 30% 60% 90% will change path
@@ -71,6 +72,10 @@ Ipv4TLB::GetTypeId (void)
                       TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_betterPathRttThresh),
                       MakeTimeChecker ())
+        .AddAttribute ("ChangePathPoss", "Possibility to change the path",
+                      UintegerValue (50),
+                      MakeUintegerAccessor (&Ipv4TLB::m_pathChangePoss),
+                      MakeUintegerChecker<uint32_t> ())
     ;
 
     return tid;
