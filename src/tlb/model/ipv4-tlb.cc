@@ -19,15 +19,15 @@ Ipv4TLB::Ipv4TLB ():
     m_S (64000),
     m_T (MicroSeconds (1500)),
     m_K (10000),
-    m_T1 (MicroSeconds (640)),
-    m_T2 (Seconds (5)),
+    m_T1 (MicroSeconds (320)),
+    m_T2 (MicroSeconds (320)),
     m_agingCheckTime (MicroSeconds (100)),
     m_minRtt (MicroSeconds (50)), // 40 70 100
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.1),
     m_ecnPortionHigh (0.7),
-    m_flowRetransHigh (140000),
-    m_flowRetransVeryHigh (140000),
+    m_flowRetransHigh (1400000000),
+    m_flowRetransVeryHigh (1400000000),
     m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0.1),
     m_betterPathRttThresh (MicroSeconds (300)), // 100 200 300
@@ -52,7 +52,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_flowTimeoutCount (other.m_flowTimeoutCount),
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
     m_betterPathRttThresh (other.m_betterPathRttThresh),
-    m_pathChangePoss (50)
+    m_pathChangePoss (other.m_pathChangePoss)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -153,8 +153,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
     {
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
-        if ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
-                || (flowItr->second).timeoutCount >= 1)
+        if (0 == 1 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
+                || (flowItr->second).timeoutCount >= 1))
         {
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
