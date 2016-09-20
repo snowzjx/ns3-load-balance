@@ -32,9 +32,9 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 10.0
+#define END_TIME 2.5
 
-#define FLOW_LAUNCH_END_TIME 4.0
+#define FLOW_LAUNCH_END_TIME 1.0
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -391,7 +391,7 @@ int main (int argc, char *argv[])
     std::map<std::pair<int, int>, uint32_t> leafToSpinePath;
     std::map<std::pair<int, int>, uint32_t> spineToLeafPath;
 
-    std::vector<Ptr<Ipv4TLBProbing> > probings (SERVER_COUNT * LEAF_COUNT);
+    //std::vector<Ptr<Ipv4TLBProbing> > probings (SERVER_COUNT * LEAF_COUNT);
 
     for (int i = 0; i < LEAF_COUNT; i++)
     {
@@ -598,6 +598,7 @@ int main (int argc, char *argv[])
             }
         }
 
+        /*
         NS_LOG_INFO ("Configuring TLB Probing");
         for (int i = 0; i < SERVER_COUNT * LEAF_COUNT; i++)
         {
@@ -633,6 +634,7 @@ int main (int argc, char *argv[])
                 probing->StopProbe (Seconds (END_TIME));
             }
         }
+        */
     }
 
     double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT * LINK_COUNT);
