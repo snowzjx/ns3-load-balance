@@ -544,9 +544,9 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
 {
     TLBPathInfo pathInfo;
     pathInfo.pathId = path;
-    pathInfo.size = 1;
-    pathInfo.ecnSize = 0;
-    pathInfo.minRtt = Seconds (666);
+    pathInfo.size = 3;
+    pathInfo.ecnSize = 1;
+    pathInfo.minRtt = m_betterPathRttThresh + MicroSeconds (100);
     pathInfo.isRetransmission = false;
     pathInfo.isHighRetransmission = false;
     pathInfo.isTimeout = false;
@@ -616,15 +616,20 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
+        uint32_t randomNumber = rand () % RANDOM_BASE;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
-        if (pathInfo.pathType == GoodPath && pathInfo.counter < minCounter)
+        if (pathInfo.pathType == GoodPath
+            /*&& pathInfo.counter < minCounter)*/
+            && randomNumber < minCounter)
         {
             newPath = pathId;
-            minCounter = pathInfo.counter;
+            /*minCounter = pathInfo.counter;*/
+            minCounter = randomNumber;
         }
     }
 
-    if (minCounter <= m_K)
+    /*if (minCounter <= m_K)*/
+    if (minCounter < RANDOM_BASE)
     {
         NS_LOG_LOGIC ("Find Good Path: " << newPath);
         return true;
@@ -649,17 +654,21 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
+        uint32_t randomNumber = rand () % RANDOM_BASE;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GreyPath
-            && pathInfo.counter < minCounter
+            /*&& pathInfo.counter < minCounter*/
+            && randomNumber < minCounter
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
             newPath = pathId;
-            minCounter = pathInfo.counter;
+            /*minCounter = pathInfo.counter;*/
+            minCounter = randomNumber;
         }
     }
 
-    if (minCounter <= m_K)
+    /*if (minCounter <= m_K)*/
+    if (minCounter < RANDOM_BASE)
     {
         NS_LOG_LOGIC ("Find Grey Path: " << newPath);
         return true;
@@ -731,9 +740,9 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     if (itr == m_pathInfo.end ())
     {
         path.pathType = GreyPath;
-        path.rttMin = Seconds (666);
-        path.ecnPortion = 1;
-        path.counter = std::numeric_limits<uint32_t>::max ();
+        path.rttMin = m_betterPathRttThresh + MicroSeconds (100);
+        path.ecnPortion = 0.3;
+        path.counter = 0;
         return path;
     }
     TLBPathInfo pathInfo = itr->second;
