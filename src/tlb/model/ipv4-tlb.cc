@@ -176,7 +176,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
         {
-            if (rand () % RANDOM_BASE < RANDOM_BASE / static_cast<int> (100 * (1 - m_pathChangePoss)))
+            if (rand () % RANDOM_BASE < static_cast<int>(RANDOM_BASE - m_pathChangePoss))
             {
                 (flowItr->second).tryChangePath = Simulator::Now ();
                 return oldPath;
