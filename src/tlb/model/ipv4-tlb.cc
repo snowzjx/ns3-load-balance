@@ -283,7 +283,7 @@ Ipv4TLB::FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path)
 }
 
 void
-Ipv4TLB::FlowFinish (uint32_t flowId, Ipv4Address daddr, uint32_t path)
+Ipv4TLB::FlowFinish (uint32_t flowId, Ipv4Address daddr)
 {
     uint32_t destTor = 0;
     if (!Ipv4TLB::FindTorId (daddr, destTor))
@@ -291,7 +291,14 @@ Ipv4TLB::FlowFinish (uint32_t flowId, Ipv4Address daddr, uint32_t path)
         NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
         return;
     }
-    Ipv4TLB::RemoveFlowFromPath (flowId, destTor, path);
+    std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
+    if (itr == m_flowInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot finish a non-existing flow");
+        return;
+    }
+
+    Ipv4TLB::RemoveFlowFromPath (flowId, destTor, (itr->second).path);
 
 }
 
@@ -739,7 +746,8 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     struct PathInfo path;
     if (itr == m_pathInfo.end ())
     {
-        path.pathType = GreyPath;
+        /*path.pathType = GreyPath;*/
+        path.pathType = GoodPath;
         path.rttMin = m_betterPathRttThresh + MicroSeconds (100);
         path.ecnPortion = 0.3;
         path.counter = 0;
