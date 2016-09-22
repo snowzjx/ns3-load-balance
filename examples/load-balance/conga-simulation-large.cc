@@ -716,8 +716,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "235-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "235-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "236-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "236-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {

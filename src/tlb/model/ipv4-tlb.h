@@ -89,7 +89,7 @@ private:
 
     void RetransPath (uint32_t destTor, uint32_t path, bool needHighRetransPath);
 
-    void UpdateFlowPath (uint32_t flowId, uint32_t path);
+    void UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor);
 
     void AssignFlowToPath (uint32_t flowId, uint32_t destTor, uint32_t path);
 
@@ -138,6 +138,8 @@ private:
     Time m_betterPathRttThresh;
 
     uint32_t m_pathChangePoss;
+
+    Time m_flowDieTime;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */

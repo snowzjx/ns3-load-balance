@@ -32,7 +32,8 @@ Ipv4TLB::Ipv4TLB ():
     m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
-    m_pathChangePoss (50)
+    m_pathChangePoss (50),
+    m_flowDieTime (MicroSeconds (1000))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -53,7 +54,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_flowTimeoutCount (other.m_flowTimeoutCount),
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
     m_betterPathRttThresh (other.m_betterPathRttThresh),
-    m_pathChangePoss (other.m_pathChangePoss)
+    m_pathChangePoss (other.m_pathChangePoss),
+    m_flowDieTime (other.m_flowDieTime)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -155,7 +157,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
             newPath = Ipv4TLB::SelectRandomPath (destTor);
         }
         /*std::cout <<flowId << " - " << newPath << std::endl;*/
-        Ipv4TLB::UpdateFlowPath (flowId, newPath);
+        Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
         Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
         /*std::cout << "Select: " << newPath << std::endl;*/
         /*std::cout << "------" << std::endl;*/
@@ -178,7 +180,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 }
 
                 // Change path
-                Ipv4TLB::UpdateFlowPath (flowId, newPath);
+                Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
                 Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
                 Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
                 return newPath;
@@ -209,7 +211,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 }
 
                 // Change path
-                Ipv4TLB::UpdateFlowPath (flowId, newPath);
+                Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
                 Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
                 Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
                 return newPath;
@@ -402,6 +404,7 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
     {
         (itr->second).ecnSize += size;
     }
+    (itr->second).liveTime = Simulator::Now ();
     return true;
 }
 
@@ -546,10 +549,11 @@ Ipv4TLB::RetransPath (uint32_t destTor, uint32_t path, bool needHighRetransPath)
 }
 
 void
-Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
+Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
 {
     TLBFlowInfo flowInfo;
     flowInfo.path = path;
+    flowInfo.destTor = destTor;
     flowInfo.size = 0;
     flowInfo.ecnSize = 0;
     flowInfo.sendSize = 0;
@@ -557,6 +561,7 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path)
     flowInfo.timeoutCount = 0;
     flowInfo.timeStamp = Simulator::Now ();
     flowInfo.tryChangePath = Simulator::Now ();
+    flowInfo.liveTime = Simulator::Now ();
     m_flowInfo[flowId] = flowInfo;
 }
 
@@ -633,29 +638,26 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     std::vector<uint32_t>::iterator vectorItr = (itr->second).begin ();
 
-    /*newPath = (itr->second)[rand () % (itr->second).size ()];*/
-    /*return true;*/
-
     // Firstly, checking good path
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
         /*std::cout << pathId << std::endl;*/
-        uint32_t randomNumber = rand () % RANDOM_BASE;
+        /*uint32_t randomNumber = rand () % RANDOM_BASE;*/
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GoodPath
-            /*&& pathInfo.counter < minCounter)*/
-            && randomNumber < minCounter)
+            && pathInfo.counter <= minCounter)
+            /*&& randomNumber < minCounter)*/
         {
             newPath = pathId;
-            /*minCounter = pathInfo.counter;*/
-            minCounter = randomNumber;
+            minCounter = pathInfo.counter;
+            /*minCounter = randomNumber;*/
         }
     }
 
-    /*if (minCounter <= m_K)*/
-    if (minCounter < RANDOM_BASE)
+    if (minCounter <= m_K)
+    /*if (minCounter < RANDOM_BASE)*/
     {
         NS_LOG_LOGIC ("Find Good Path: " << newPath);
         return true;
@@ -680,21 +682,21 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
-        uint32_t randomNumber = rand () % RANDOM_BASE;
+        /*uint32_t randomNumber = rand () % RANDOM_BASE;*/
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GreyPath
-            /*&& pathInfo.counter < minCounter*/
-            && randomNumber < minCounter
+            && pathInfo.counter <= minCounter
+            /*&& randomNumber < minCounter*/
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
             newPath = pathId;
-            /*minCounter = pathInfo.counter;*/
-            minCounter = randomNumber;
+            minCounter = pathInfo.counter;
+            /*minCounter = randomNumber;*/
         }
     }
 
-    /*if (minCounter <= m_K)*/
-    if (minCounter < RANDOM_BASE)
+    if (minCounter <= m_K)
+    /*if (minCounter < RANDOM_BASE)*/
     {
         NS_LOG_LOGIC ("Find Grey Path: " << newPath);
         return true;
@@ -867,6 +869,16 @@ Ipv4TLB::PathAging (void)
             (itr->second).isVeryTimeout = false;
             (itr->second).isProbingTimeout = false;
             (itr->second).timeStamp2 = Simulator::Now ();
+        }
+    }
+
+    std::map<uint32_t, TLBFlowInfo>::iterator itr2 = m_flowInfo.begin ();
+    for ( ; itr2 != m_flowInfo.end (); ++itr2)
+    {
+        if (Simulator::Now () - (itr2->second).liveTime >= m_flowDieTime)
+        {
+            Ipv4TLB::RemoveFlowFromPath ((itr2->second).flowId, (itr2->second).destTor, (itr2->second).path);
+            m_flowInfo.erase (itr2);
         }
     }
 
