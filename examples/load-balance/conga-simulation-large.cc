@@ -159,7 +159,7 @@ int main (int argc, char *argv[])
     uint32_t TLBPoss = 0;
     uint32_t TLBBetterPathRTT = 1;
     uint32_t TLBT1 = 100;
-    double TLBECNPortitionLow = 0.1;
+    double TLBECNPortionLow = 0.1;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -185,7 +185,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBPoss", "TLBPoss", TLBPoss);
     cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
     cmd.AddValue ("TLBT1", "TLBT1", TLBT1);
-    cmd.AddValue ("TLBECNPortionLow", "TLBECNPortionLow", TLBECNPortitionLow);
+    cmd.AddValue ("TLBECNPortionLow", "TLBECNPortionLow", TLBECNPortionLow);
 
     cmd.Parse (argc, argv);
 
@@ -756,8 +756,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-";
-        linkMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-";
+        flowMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-";
+        linkMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
