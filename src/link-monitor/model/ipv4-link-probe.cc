@@ -68,7 +68,7 @@ Ipv4LinkProbe::Ipv4LinkProbe (Ptr<Node> node, Ptr<LinkMonitor> linkMonitor)
             MakeCallback (&Ipv4QueueProbe::PacketsInQueueDiscLogger, m_queueProbe[interface]));
 
     std::ostringstream oss5;
-    oss5 << "/NodeList/" << node->GetId () << "/$ns3::TrafficControlLayer/RootQueueDiscList/" << interface << "BytesInQueue";
+    oss5 << "/NodeList/" << node->GetId () << "/$ns3::TrafficControlLayer/RootQueueDiscList/" << interface << "/BytesInQueue";
     Config::ConnectWithoutContext (oss5.str (),
             MakeCallback (&Ipv4QueueProbe::BytesInQueueDiscLogger, m_queueProbe[interface]));
 

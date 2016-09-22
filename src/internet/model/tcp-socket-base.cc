@@ -334,7 +334,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_resequenceBufferEnabled (false),
     m_flowBenderEnabled (false),
     m_TLBEnabled (false),
-    m_TLBSent (false),
+    m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
@@ -427,7 +427,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_flowBenderEnabled (sock.m_flowBenderEnabled),
     m_TLBEnabled (sock.m_TLBEnabled),
-    m_TLBSent (false),
+    m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
@@ -1097,6 +1097,10 @@ TcpSocketBase::DoConnect (void)
         sendflags |= (TcpHeader::ECE | TcpHeader::CWR);
         NS_LOG_LOGIC (this << " ECN capable connection, sending ECN setup SYN");
       }
+      if (m_TLBEnabled)
+      {
+          m_TLBSendSide = true;
+      }
       SendEmptyPacket (sendflags);
       // XXX Resequence Buffer Support, disable resequence buffer on sender side
       m_resequenceBufferEnabled = false;
@@ -1583,7 +1587,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
   }
 
   // XXX TLB Support
-  if (m_TLBEnabled && m_TLBSent)
+  if (m_TLBEnabled && m_TLBSendSide)
   {
     TcpTLBTag tcpTLBTag;
     bool found = packet->RemovePacketTag(tcpTLBTag);
@@ -1593,6 +1597,7 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
                 m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
         m_pathAcked = tcpTLBTag.GetPath ();
+        // std::cout << this << " Path acked: " << m_pathAcked << std::endl;
         ipv4TLB->FlowRecv (flowId, m_pathAcked, m_endPoint->GetPeerAddress (), bytesAcked, withECE, tcpTLBTag.GetTime ());
     }
   }
@@ -2239,6 +2244,7 @@ TcpSocketBase::PeerClose (Ptr<Packet> p, const TcpHeader& tcpHeader)
       return;
     }
 
+  /*
   if (m_TLBEnabled && m_TLBSent)
   {
     TcpTLBTag tcpTLBTag;
@@ -2252,6 +2258,7 @@ TcpSocketBase::PeerClose (Ptr<Packet> p, const TcpHeader& tcpHeader)
         ipv4TLB->FlowFinish (flowId, m_endPoint->GetPeerAddress (), path);
     }
   }
+  */
 
   DoPeerClose (); // Change state, respond with ACK
 }
@@ -2433,12 +2440,35 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
     }
 
   // XXX TLB Support
-  if (m_TLBEnabled && m_piggybackTLBInfo)
+  if (m_TLBEnabled)
   {
-    TcpTLBTag tcpTLBTag;
-    tcpTLBTag.SetPath (m_TLBPath);
-    tcpTLBTag.SetTime (m_onewayRtt);
-    p->AddPacketTag (tcpTLBTag);
+    if (m_TLBSendSide)
+    {
+      uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+      Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+      uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
+      // std::cout << this << " Get Path From TLB: " << path << std::endl;
+
+      // XPath Support
+      Ipv4XPathTag ipv4XPathTag;
+      ipv4XPathTag.SetPathId (path);
+      p->AddPacketTag (ipv4XPathTag);
+
+      // TLB Support
+      TcpTLBTag tcpTLBTag;
+      tcpTLBTag.SetPath (path);
+      tcpTLBTag.SetTime (Simulator::Now ());
+      p->AddPacketTag (tcpTLBTag);
+      ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), false);
+    }
+    if (m_piggybackTLBInfo)
+    {
+      TcpTLBTag tcpTLBTag;
+      tcpTLBTag.SetPath (m_TLBPath);
+      tcpTLBTag.SetTime (m_onewayRtt);
+      p->AddPacketTag (tcpTLBTag);
+    }
   }
 
   m_txTrace (p, header, this);
@@ -2771,12 +2801,13 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
       TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
       // XXX TLB Support
-      if (m_TLBEnabled)
+      if (m_TLBEnabled && m_TLBSendSide)
       {
         uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
         uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
+        // std::cout << this << " Get Path From TLB: " << path << std::endl;
 
         // XPath Support
         Ipv4XPathTag ipv4XPathTag;
@@ -2789,8 +2820,8 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
         tcpTLBTag.SetTime (Simulator::Now ());
         p->AddPacketTag (tcpTLBTag);
         ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), isRetransmission);
-        m_TLBSent = true;
       }
+
       m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
       NS_LOG_DEBUG ("Send segment of size " << sz << " with remaining data " <<
@@ -3026,7 +3057,7 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
   }
 
   // XXX TLB Support
-  if (m_TLBEnabled)
+  if (m_TLBEnabled && !m_TLBSendSide)
   {
     TcpTLBTag tcpTLBTag;
     bool found = p->RemovePacketTag(tcpTLBTag);

@@ -88,7 +88,9 @@ Ipv4XPathRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
 
   uint32_t currentPort = pathId - (pathId / 100) * 100;
 
-  NS_LOG_LOGIC (this << "Current port is: " << currentPort);
+  // NS_LOG_LOGIC (this << " Current port is: " << currentPort);
+
+  // std::cout << "Path: " << pathId << ", Current Port: " << currentPort << std::endl;
 
   if (currentPort > m_ipv4->GetNInterfaces ())
   {

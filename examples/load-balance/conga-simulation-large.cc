@@ -32,9 +32,9 @@ extern "C"
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 2.5
+#define END_TIME 0.25
 
-#define FLOW_LAUNCH_END_TIME 1.0
+#define FLOW_LAUNCH_END_TIME 0.1
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -156,8 +156,10 @@ int main (int argc, char *argv[])
     uint64_t leafServerCapacity = 10;
 
     uint32_t TLBMinRTT = 40;
-    uint32_t TLBPoss = 30;
-    uint32_t TLBBetterPathRTT = 100;
+    uint32_t TLBPoss = 0;
+    uint32_t TLBBetterPathRTT = 1;
+    uint32_t TLBT1 = 100;
+    double TLBECNPortitionLow = 0.1;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -182,6 +184,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBMinRTT", "TLBMinRTT", TLBMinRTT);
     cmd.AddValue ("TLBPoss", "TLBPoss", TLBPoss);
     cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
+    cmd.AddValue ("TLBT1", "TLBT1", TLBT1);
+    cmd.AddValue ("TLBECNPortionLow", "TLBECNPortionLow", TLBECNPortitionLow);
 
     cmd.Parse (argc, argv);
 
@@ -329,6 +333,8 @@ int main (int argc, char *argv[])
         listRoutingHelper.Add (xpathRoutingHelper, 1);
         listRoutingHelper.Add (globalRoutingHelper, 0);
         internet.SetRoutingHelper (listRoutingHelper);
+        Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
+
         internet.Install (spines);
         internet.Install (leaves);
     }
@@ -592,7 +598,7 @@ int main (int argc, char *argv[])
                         int newPath = spineToLeafPath[std::make_pair (k, l)] * pathBase + path;
                         Ptr<Ipv4TLB> tlb = servers.Get (serverIndex)->GetObject<Ipv4TLB> ();
                         tlb->AddAvailPath (l, newPath);
-                        // NS_LOG_INFO ("Configuring server: " << serverIndex << " to leaf: " << l << " with path: " << newPath);
+                        NS_LOG_INFO ("Configuring server: " << serverIndex << " to leaf: " << l << " with path: " << newPath);
                     }
                 }
             }
@@ -710,8 +716,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "234-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "234-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "235-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "235-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {

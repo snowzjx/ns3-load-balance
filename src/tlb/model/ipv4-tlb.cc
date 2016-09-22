@@ -5,6 +5,7 @@
 #include "ns3/node.h"
 #include "ns3/simulator.h"
 #include "ns3/uinteger.h"
+#include "ns3/double.h"
 
 #define RANDOM_BASE 100
 // RAND POSS 30% 60% 90% will change path
@@ -19,18 +20,18 @@ Ipv4TLB::Ipv4TLB ():
     m_S (64000),
     m_T (MicroSeconds (1500)),
     m_K (10000),
-    m_T1 (MicroSeconds (320)),
+    m_T1 (MicroSeconds (320)), // 100 200 300
     m_T2 (MicroSeconds (320)),
     m_agingCheckTime (MicroSeconds (100)),
-    m_minRtt (MicroSeconds (50)), // 40 70 100
+    m_minRtt (MicroSeconds (60)), // 50 70 100
     m_ecnSampleMin (14000),
-    m_ecnPortionLow (0.1),
-    m_ecnPortionHigh (0.7),
+    m_ecnPortionLow (0.3), // 0.3 0.1
+    m_ecnPortionHigh (1.1),
     m_flowRetransHigh (1400000000),
     m_flowRetransVeryHigh (1400000000),
     m_flowTimeoutCount (10),
-    m_betterPathEcnThresh (0.1),
-    m_betterPathRttThresh (MicroSeconds (300)), // 100 200 300
+    m_betterPathEcnThresh (0),
+    m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50)
 {
     NS_LOG_FUNCTION (this);
@@ -76,6 +77,14 @@ Ipv4TLB::GetTypeId (void)
                       UintegerValue (50),
                       MakeUintegerAccessor (&Ipv4TLB::m_pathChangePoss),
                       MakeUintegerChecker<uint32_t> ())
+        .AddAttribute ("T1", "The path aging time interval",
+                      TimeValue (MicroSeconds (320)),
+                      MakeTimeAccessor (&Ipv4TLB::m_T1),
+                      MakeTimeChecker ())
+        .AddAttribute ("ECNPortionLow", "The ECN portion used in judging a good path",
+                      DoubleValue (0.3),
+                      MakeDoubleAccessor (&Ipv4TLB::m_ecnPortionLow),
+                      MakeDoubleChecker<double> (0.0))
     ;
 
     return tid;
@@ -145,6 +154,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         {
             newPath = Ipv4TLB::SelectRandomPath (destTor);
         }
+        /*std::cout <<flowId << " - " << newPath << std::endl;*/
         Ipv4TLB::UpdateFlowPath (flowId, newPath);
         Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
         return newPath;
@@ -156,6 +166,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         if (0 == 1 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {
+            std::cout << "!!!" << std::endl;
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
@@ -186,6 +197,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
                 (flowItr->second).tryChangePath = Simulator::Now ();
                 return oldPath;
             }
+            std::cout << "!!!" << std::endl;
             uint32_t newPath = 0;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
@@ -611,6 +623,9 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     std::vector<uint32_t>::iterator vectorItr = (itr->second).begin ();
 
+    /*newPath = (itr->second)[rand () % (itr->second).size ()];*/
+    /*return true;*/
+
     // Firstly, checking good path
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
@@ -783,8 +798,8 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
 bool
 Ipv4TLB::PathLIsBetterR (struct PathInfo pathL, struct PathInfo pathR)
 {
-    if (pathR.ecnPortion - pathL.ecnPortion > m_betterPathEcnThresh
-        && pathR.rttMin - pathL.rttMin > m_betterPathRttThresh)
+    if (pathR.ecnPortion - pathL.ecnPortion >= m_betterPathEcnThresh
+        && pathR.rttMin - pathL.rttMin >= m_betterPathRttThresh)
     {
         return true;
     }
