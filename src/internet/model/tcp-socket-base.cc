@@ -812,6 +812,17 @@ TcpSocketBase::Close (void)
         }
       return 0;
     }
+  /*
+  // XXX FlowFinish ?
+  if (m_TLBEnabled && m_TLBSent)
+  {
+    std::cout << "!!!" << std::endl;
+    uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+            m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
+    Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+    ipv4TLB->FlowFinish (flowId, m_endPoint->GetPeerAddress ());
+  }
+  */
   return DoClose ();
 }
 
@@ -1164,6 +1175,7 @@ void
 TcpSocketBase::CloseAndNotify (void)
 {
   NS_LOG_FUNCTION (this);
+
 
   if (!m_closeNotified)
     {
@@ -2244,22 +2256,6 @@ TcpSocketBase::PeerClose (Ptr<Packet> p, const TcpHeader& tcpHeader)
       return;
     }
 
-  /*
-  if (m_TLBEnabled && m_TLBSent)
-  {
-    TcpTLBTag tcpTLBTag;
-    bool found = p->RemovePacketTag(tcpTLBTag);
-    if (found)
-    {
-        uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
-                m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
-        Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        uint32_t path = tcpTLBTag.GetPath ();
-        ipv4TLB->FlowFinish (flowId, m_endPoint->GetPeerAddress (), path);
-    }
-  }
-  */
-
   DoPeerClose (); // Change state, respond with ACK
 }
 
@@ -2522,6 +2518,8 @@ TcpSocketBase::DeallocateEndPoint (void)
 {
   // XXX Stop the resequence buffer
   m_resequenceBuffer->Stop ();
+
+
   if (m_endPoint != 0)
     {
       CancelAllTimers ();

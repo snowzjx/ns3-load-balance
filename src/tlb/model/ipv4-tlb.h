@@ -56,7 +56,7 @@ public:
 
     void FlowTimeout (uint32_t flowId, Ipv4Address daddr, uint32_t path);
 
-    void FlowFinish (uint32_t flowId, Ipv4Address daddr, uint32_t path);
+    void FlowFinish (uint32_t flowId, Ipv4Address daddr);
 
     // These methods are used in probing
     void ProbeSend (Ipv4Address daddr, uint32_t path);
