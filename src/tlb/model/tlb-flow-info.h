@@ -10,6 +10,7 @@ class TLBFlowInfo
 public:
   uint32_t flowId;
   uint32_t path;
+  uint32_t destTor;
   uint32_t size;
   uint32_t ecnSize;
   uint32_t sendSize;
@@ -17,6 +18,7 @@ public:
   uint32_t timeoutCount;
   Time timeStamp;
   Time tryChangePath;
+  Time liveTime;
 };
 
 }
