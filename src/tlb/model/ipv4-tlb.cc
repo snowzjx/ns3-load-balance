@@ -640,25 +640,26 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     // Firstly, checking good path
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
+    std::vector<uint32_t> candidatePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
-        /*std::cout << pathId << std::endl;*/
-        /*uint32_t randomNumber = rand () % RANDOM_BASE;*/
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GoodPath
             && pathInfo.counter <= minCounter)
-            /*&& randomNumber < minCounter)*/
         {
-            newPath = pathId;
-            minCounter = pathInfo.counter;
-            /*minCounter = randomNumber;*/
+            if (pathInfo.counter < minCounter)
+            {
+                candidatePaths.clear ();
+                minCounter = pathInfo.counter;
+            }
+            candidatePaths.push_back (pathId);
         }
     }
 
     if (minCounter <= m_K)
-    /*if (minCounter < RANDOM_BASE)*/
     {
+        newPath = candidatePaths[rand () % candidatePaths.size ()];
         NS_LOG_LOGIC ("Find Good Path: " << newPath);
         return true;
     }
@@ -678,26 +679,29 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     }
 
     minCounter = std::numeric_limits<uint32_t>::max ();
+    candidatePaths.clear ();
     vectorItr = (itr->second).begin ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
-        /*uint32_t randomNumber = rand () % RANDOM_BASE;*/
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GreyPath
             && pathInfo.counter <= minCounter
-            /*&& randomNumber < minCounter*/
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
+            if (pathInfo.counter < minCounter)
+            {
+                candidatePaths.clear ();
+                minCounter = pathInfo.counter;
+            }
+            candidatePaths.push_back (pathId);
             newPath = pathId;
-            minCounter = pathInfo.counter;
-            /*minCounter = randomNumber;*/
         }
     }
 
     if (minCounter <= m_K)
-    /*if (minCounter < RANDOM_BASE)*/
     {
+        newPath = candidatePaths[rand () % candidatePaths.size ()];
         NS_LOG_LOGIC ("Find Grey Path: " << newPath);
         return true;
     }

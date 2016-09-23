@@ -11,7 +11,7 @@ do
         do
             for ecnPortionL in 0.1 0.3
             do
-                nohup ./waf --run "conga-simulation-large --runMode=TLB --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBECNPortionLow=$ecnPortionL --transportProt=DcTcp --cdfFileName=examples/load-balance/DCTCP_CDF.txt --load=0.8 --randomSeed=1" > /dev/null 2>&1
+                nohup ./waf --run "conga-simulation-large --runMode=TLB --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBECNPortionLow=$ecnPortionL --transportProt=DcTcp --cdfFileName=examples/load-balance/DCTCP_CDF.txt --load=0.8 --randomSeed=1" > /dev/null 2>&1 &
            done
 		done
 	done
