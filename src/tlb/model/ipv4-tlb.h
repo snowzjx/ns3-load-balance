@@ -108,6 +108,8 @@ private:
     void PathAging (void);
 
     // Parameters
+    uint32_t m_runMode; // Running Mode 0 for minimize counter, 1 for minimize RTT, 2 for random
+
     uint32_t m_S;
 
     Time m_T;

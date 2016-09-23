@@ -8,7 +8,6 @@
 #include "ns3/double.h"
 
 #define RANDOM_BASE 100
-// RAND POSS 30% 60% 90% will change path
 
 namespace ns3 {
 
@@ -17,12 +16,13 @@ NS_LOG_COMPONENT_DEFINE ("Ipv4TLB");
 NS_OBJECT_ENSURE_REGISTERED (Ipv4TLB);
 
 Ipv4TLB::Ipv4TLB ():
+    m_runMode (0),
     m_S (64000),
     m_T (MicroSeconds (1500)),
     m_K (10000),
     m_T1 (MicroSeconds (320)), // 100 200 300
-    m_T2 (MicroSeconds (320)),
-    m_agingCheckTime (MicroSeconds (100)),
+    m_T2 (MicroSeconds (100000000)),
+    m_agingCheckTime (MicroSeconds (25)),
     m_minRtt (MicroSeconds (60)), // 50 70 100
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
@@ -39,6 +39,7 @@ Ipv4TLB::Ipv4TLB ():
 }
 
 Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
+    m_runMode (other.m_runMode),
     m_S (other.m_S),
     m_T (other.m_T),
     m_K (other.m_K),
@@ -67,6 +68,10 @@ Ipv4TLB::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("TLB")
         .AddConstructor<Ipv4TLB> ()
+        .AddAttribute ("RunMode", "The running mode of TLB, 0 for minimize counter, 1 for minimize RTT, 2 for random",
+                      UintegerValue (0),
+                      MakeUintegerAccessor (&Ipv4TLB::m_runMode),
+                      MakeUintegerChecker<uint32_t> ())
         .AddAttribute ("MinRTT", "Min RTT used to judge a good path",
                       TimeValue (MicroSeconds(50)),
                       MakeTimeAccessor (&Ipv4TLB::m_minRtt),
@@ -640,26 +645,62 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     // Firstly, checking good path
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
+    Time minRTT = Seconds (666);
     std::vector<uint32_t> candidatePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
-        if (pathInfo.pathType == GoodPath
-            && pathInfo.counter <= minCounter)
+        if (pathInfo.pathType == GoodPath)
         {
-            if (pathInfo.counter < minCounter)
+            if (m_runMode == 0)
             {
-                candidatePaths.clear ();
-                minCounter = pathInfo.counter;
+                if (pathInfo.counter <= minCounter)
+                {
+                    if (pathInfo.counter < minCounter)
+                    {
+                        candidatePaths.clear ();
+                        minCounter = pathInfo.counter;
+                    }
+                    candidatePaths.push_back (pathId);
+                }
             }
-            candidatePaths.push_back (pathId);
+            if (m_runMode == 1)
+            {
+                if (pathInfo.rttMin <= minRTT)
+                {
+                    if (pathInfo.rttMin < minRTT)
+                    {
+                        candidatePaths.clear ();
+                        minRTT = pathInfo.rttMin;
+                    }
+                    candidatePaths.push_back (pathId);
+                }
+            }
+            else
+            {
+                candidatePaths.push_back (pathId);
+            }
         }
     }
 
-    if (minCounter <= m_K)
+    if (!candidatePaths.empty ())
     {
-        newPath = candidatePaths[rand () % candidatePaths.size ()];
+        if (m_runMode == 0)
+        {
+            if (minCounter <= m_K)
+            {
+                newPath = candidatePaths[rand () % candidatePaths.size ()];
+            }
+        }
+        else if (m_runMode == 1)
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
+        else
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
         NS_LOG_LOGIC ("Find Good Path: " << newPath);
         return true;
     }
@@ -679,6 +720,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     }
 
     minCounter = std::numeric_limits<uint32_t>::max ();
+    minRTT = Seconds (666);
     candidatePaths.clear ();
     vectorItr = (itr->second).begin ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
@@ -686,27 +728,61 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         uint32_t pathId = *vectorItr;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GreyPath
-            && pathInfo.counter <= minCounter
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
-            if (pathInfo.counter < minCounter)
+            if (m_runMode == 0)
             {
-                candidatePaths.clear ();
-                minCounter = pathInfo.counter;
+                if (pathInfo.counter <= minCounter)
+                {
+                    if (pathInfo.counter < minCounter)
+                    {
+                        candidatePaths.clear ();
+                        minCounter = pathInfo.counter;
+                    }
+                    candidatePaths.push_back (pathId);
+                }
             }
-            candidatePaths.push_back (pathId);
-            newPath = pathId;
+            if (m_runMode == 1)
+            {
+                if (pathInfo.rttMin <= minRTT)
+                {
+                    if (pathInfo.rttMin < minRTT)
+                    {
+                        candidatePaths.clear ();
+                        minRTT = pathInfo.rttMin;
+                    }
+                    candidatePaths.push_back (pathId);
+                }
+            }
+            else
+            {
+                candidatePaths.push_back (pathId);
+            }
         }
     }
 
-    if (minCounter <= m_K)
+    if (!candidatePaths.empty ())
     {
-        newPath = candidatePaths[rand () % candidatePaths.size ()];
+        if (m_runMode == 0)
+        {
+            if (minCounter <= m_K)
+            {
+                newPath = candidatePaths[rand () % candidatePaths.size ()];
+            }
+        }
+        else if (m_runMode == 1)
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
+        else
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
         NS_LOG_LOGIC ("Find Grey Path: " << newPath);
         return true;
     }
 
-    // Thirdly, checking bad path
+   // Thirdly, checking bad path
     vectorItr = (itr->second).begin ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {

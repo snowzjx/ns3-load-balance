@@ -161,6 +161,10 @@ int main (int argc, char *argv[])
     uint32_t TLBT1 = 100;
     double TLBECNPortionLow = 0.1;
 
+    uint32_t TLBRunMode = 0;
+    bool TLBProbingEnable = true;
+    uint32_t TLBProbingInterval = 100;
+
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
@@ -186,6 +190,9 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
     cmd.AddValue ("TLBT1", "TLBT1", TLBT1);
     cmd.AddValue ("TLBECNPortionLow", "TLBECNPortionLow", TLBECNPortionLow);
+    cmd.AddValue ("TLBRunMode", "TLBRunMode", TLBRunMode);
+    cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
+    cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
 
     cmd.Parse (argc, argv);
 
@@ -276,6 +283,8 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::ChangePathPoss", UintegerValue (TLBPoss));
         Config::SetDefault ("ns3::Ipv4TLB::T1", TimeValue (MicroSeconds (TLBT1)));
         Config::SetDefault ("ns3::Ipv4TLB::ECNPortionLow", DoubleValue (TLBECNPortionLow));
+        Config::SetDefault ("ns3::Ipv4TLB::RunMode", UintegerValue (TLBRunMode));
+        Config::SetDefault ("ns3::Ipv4TLBProbing::ProbeInterval", TimeValue (MicroSeconds (TLBProbingInterval)));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -607,6 +616,8 @@ int main (int argc, char *argv[])
         }
 
 
+        if (TLBProbingEnable)
+        {
         NS_LOG_INFO ("Configuring TLB Probing");
         for (int i = 0; i < SERVER_COUNT * LEAF_COUNT; i++)
         {
@@ -642,7 +653,7 @@ int main (int argc, char *argv[])
                 probing->StopProbe (Seconds (END_TIME));
             }
         }
-
+        }
     }
 
     double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT * LINK_COUNT);
@@ -718,8 +729,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "240-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "240-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "250-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "250-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -758,8 +769,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-";
-        linkMonitorFilename << "tlb-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-";
+        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-";
+        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";

@@ -17,6 +17,7 @@
 #include "ns3/ipv4-xpath-tag.h"
 
 #include <sys/socket.h>
+#include <set>
 
 namespace ns3 {
 
@@ -30,7 +31,12 @@ Ipv4TLBProbing::GetTypeId (void)
     static TypeId tid = TypeId ("ns3::Ipv4TLBProbing")
         .SetParent<Object> ()
         .SetGroupName ("TLB")
-        .AddConstructor<Ipv4TLBProbing> ();
+        .AddConstructor<Ipv4TLBProbing> ()
+        .AddAttribute ("ProbeInterval", "Probing Interval",
+                      TimeValue (MicroSeconds (100)),
+                      MakeTimeAccessor (&Ipv4TLBProbing::m_probeInterval),
+                      MakeTimeChecker ())
+    ;
 
     return tid;
 }
@@ -278,6 +284,9 @@ void
 Ipv4TLBProbing::DoProbe ()
 {
     uint32_t probingCount = 3;
+
+    std::set<uint32_t> pathSet;
+
     if (m_hasBestPath)
     {
         std::vector<Ipv4Address>::iterator itr = m_broadcastAddresses.begin ();
@@ -288,6 +297,7 @@ Ipv4TLBProbing::DoProbe ()
 
         Ipv4TLBProbing::SendProbe (m_bestPath);
         probingCount --;
+        pathSet.insert (m_bestPath);
     }
     Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
     std::vector<uint32_t> availPaths = ipv4TLB->GetAvailPath (m_probeAddress);
@@ -296,7 +306,7 @@ Ipv4TLBProbing::DoProbe ()
         for (uint32_t i = 0; i < 8; i++) // Try 8 times
         {
             uint32_t path = availPaths[rand() % availPaths.size ()];
-            if (path == m_bestPath)
+            if (pathSet.find (path) != pathSet.end ())
             {
                 continue;
             }
@@ -305,6 +315,7 @@ Ipv4TLBProbing::DoProbe ()
             {
                 break;
             }
+            pathSet.insert (path);
             Ipv4TLBProbing::SendProbe (path);
         }
     }
