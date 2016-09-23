@@ -399,7 +399,7 @@ int main (int argc, char *argv[])
     std::map<std::pair<int, int>, uint32_t> leafToSpinePath;
     std::map<std::pair<int, int>, uint32_t> spineToLeafPath;
 
-    //std::vector<Ptr<Ipv4TLBProbing> > probings (SERVER_COUNT * LEAF_COUNT);
+    std::vector<Ptr<Ipv4TLBProbing> > probings (SERVER_COUNT * LEAF_COUNT);
 
     for (int i = 0; i < LEAF_COUNT; i++)
     {
@@ -606,7 +606,7 @@ int main (int argc, char *argv[])
             }
         }
 
-        /*
+
         NS_LOG_INFO ("Configuring TLB Probing");
         for (int i = 0; i < SERVER_COUNT * LEAF_COUNT; i++)
         {
@@ -642,7 +642,7 @@ int main (int argc, char *argv[])
                 probing->StopProbe (Seconds (END_TIME));
             }
         }
-        */
+
     }
 
     double oversubRatio = (SERVER_COUNT * LEAF_SERVER_CAPACITY) / (SPINE_LEAF_CAPACITY * SPINE_COUNT * LINK_COUNT);
@@ -718,8 +718,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "236-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "236-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "237-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "237-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
