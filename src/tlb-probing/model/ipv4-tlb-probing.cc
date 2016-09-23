@@ -45,7 +45,7 @@ Ipv4TLBProbing::Ipv4TLBProbing ()
     : m_sourceAddress (Ipv4Address ("127.0.0.1")),
       m_probeAddress (Ipv4Address ("127.0.0.1")),
       m_probeTimeout (Seconds (0.1)),
-      m_probeInterval (MicroSeconds (400)),
+      m_probeInterval (MicroSeconds (100)),
       m_id (0),
       m_hasBestPath (false),
       m_bestPath (0),
