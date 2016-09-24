@@ -847,8 +847,8 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     struct PathInfo path;
     if (itr == m_pathInfo.end ())
     {
-        /*path.pathType = GreyPath;*/
-        path.pathType = GoodPath;
+        path.pathType = GreyPath;
+        /*path.pathType = GoodPath;*/
         /*path.rttMin = m_betterPathRttThresh + MicroSeconds (100);*/
         path.rttMin = m_minRtt;
         path.ecnPortion = 0.3;
