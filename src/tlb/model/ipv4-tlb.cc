@@ -702,6 +702,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
         NS_LOG_LOGIC ("Find Good Path: " << newPath);
+        std::cout << "Select Good Path: " << newPath << std::endl;
         return true;
     }
 
@@ -779,6 +780,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
         NS_LOG_LOGIC ("Find Grey Path: " << newPath);
+        std::cout << "Select Grey Path: " << newPath << std::endl;
         return true;
     }
 
@@ -793,6 +795,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         {
             newPath = pathId;
             NS_LOG_LOGIC ("Find Bad Path: " << newPath);
+            std::cout << "Select Bad Path: " << newPath << std::endl;
             return true;
         }
     }
@@ -835,6 +838,7 @@ Ipv4TLB::SelectRandomPath (uint32_t destTor)
         newPath = (itr->second)[rand() % (itr->second).size ()];
     }
     NS_LOG_LOGIC ("Random selection return path: " << newPath);
+    std::cout << "Select Random Path: " << newPath << std::endl;
     return newPath;
 }
 
