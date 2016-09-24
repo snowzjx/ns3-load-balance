@@ -665,7 +665,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            if (m_runMode == 1)
+            else if (m_runMode == 1)
             {
                 if (pathInfo.rttMin <= minRTT)
                 {
@@ -742,7 +742,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            if (m_runMode == 1)
+            else if (m_runMode == 1)
             {
                 if (pathInfo.rttMin <= minRTT)
                 {
