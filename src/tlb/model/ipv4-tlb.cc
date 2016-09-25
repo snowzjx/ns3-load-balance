@@ -33,7 +33,9 @@ Ipv4TLB::Ipv4TLB ():
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50),
-    m_flowDieTime (MicroSeconds (1000))
+    m_flowDieTime (MicroSeconds (1000)),
+    m_isSmooth (true),
+    m_smoothAlpha (0.5)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -56,7 +58,9 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_betterPathEcnThresh (other.m_betterPathEcnThresh),
     m_betterPathRttThresh (other.m_betterPathRttThresh),
     m_pathChangePoss (other.m_pathChangePoss),
-    m_flowDieTime (other.m_flowDieTime)
+    m_flowDieTime (other.m_flowDieTime),
+    m_isSmooth (other.m_isSmooth),
+    m_smoothAlpha (other.m_smoothAlpha)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -434,9 +438,16 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     {
         pathInfo.ecnSize += size;
     }
-    if (rtt < pathInfo.minRtt)
+    if (m_isSmooth)
     {
-        pathInfo.minRtt = rtt;
+        pathInfo.minRtt = (1 - m_smoothAlpha) * pathInfo.minRtt + (m_smoothAlpha) * rtt;
+    }
+    else
+    {
+        if (rtt < pathInfo.minRtt)
+        {
+            pathInfo.minRtt = rtt;
+        }
     }
     m_pathInfo[key] = pathInfo;
 }
