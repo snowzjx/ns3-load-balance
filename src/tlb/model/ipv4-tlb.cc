@@ -6,6 +6,7 @@
 #include "ns3/simulator.h"
 #include "ns3/uinteger.h"
 #include "ns3/double.h"
+#include "ns3/boolean.h"
 
 #define RANDOM_BASE 100
 
@@ -34,8 +35,9 @@ Ipv4TLB::Ipv4TLB ():
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50),
     m_flowDieTime (MicroSeconds (1000)),
-    m_isSmooth (true),
-    m_smoothAlpha (0.5)
+    m_isSmooth (false),
+    m_smoothAlpha (0.5),
+    m_smoothBeta (1.1)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -60,7 +62,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_pathChangePoss (other.m_pathChangePoss),
     m_flowDieTime (other.m_flowDieTime),
     m_isSmooth (other.m_isSmooth),
-    m_smoothAlpha (other.m_smoothAlpha)
+    m_smoothAlpha (other.m_smoothAlpha),
+    m_smoothBeta (other.m_smoothBeta)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -96,6 +99,10 @@ Ipv4TLB::GetTypeId (void)
                       DoubleValue (0.3),
                       MakeDoubleAccessor (&Ipv4TLB::m_ecnPortionLow),
                       MakeDoubleChecker<double> (0.0))
+        .AddAttribute ("IsSmooth", "Whether the RTT calculation is smooth",
+                      BooleanValue (false),
+                      MakeBooleanAccessor (&Ipv4TLB::m_isSmooth),
+                      MakeBooleanChecker ())
     ;
 
     return tid;
@@ -953,7 +960,14 @@ Ipv4TLB::PathAging (void)
         {
             (itr->second).size = 1;
             (itr->second).ecnSize = 0;
-            (itr->second).minRtt = Seconds (666);
+            if (m_isSmooth)
+            {
+                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta;
+            }
+            else
+            {
+                (itr->second).minRtt = Seconds (666);
+            }
             (itr->second).timeStamp1 = Simulator::Now ();
         }
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)

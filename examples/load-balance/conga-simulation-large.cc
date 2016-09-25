@@ -164,6 +164,7 @@ int main (int argc, char *argv[])
     uint32_t TLBRunMode = 0;
     bool TLBProbingEnable = true;
     uint32_t TLBProbingInterval = 100;
+    bool TLBSmooth = false;
 
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
@@ -193,6 +194,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBRunMode", "TLBRunMode", TLBRunMode);
     cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
     cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
+    cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
 
     cmd.Parse (argc, argv);
 
@@ -285,6 +287,7 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::ECNPortionLow", DoubleValue (TLBECNPortionLow));
         Config::SetDefault ("ns3::Ipv4TLB::RunMode", UintegerValue (TLBRunMode));
         Config::SetDefault ("ns3::Ipv4TLBProbing::ProbeInterval", TimeValue (MicroSeconds (TLBProbingInterval)));
+        Config::SetDefault ("ns3::Ipv4TLB::IsSmooth", BooleanValue (TLBSmooth));
     }
 
     NS_LOG_INFO ("Config parameters");
@@ -729,8 +732,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "250-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "250-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -769,8 +772,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-";
-        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-";
+        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
+        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
