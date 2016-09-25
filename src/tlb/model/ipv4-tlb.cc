@@ -9,6 +9,7 @@
 #include "ns3/boolean.h"
 
 #define RANDOM_BASE 100
+#define SMOOTH_BASE 10
 
 namespace ns3 {
 
@@ -36,8 +37,8 @@ Ipv4TLB::Ipv4TLB ():
     m_pathChangePoss (50),
     m_flowDieTime (MicroSeconds (1000)),
     m_isSmooth (false),
-    m_smoothAlpha (0.5),
-    m_smoothBeta (1.1)
+    m_smoothAlpha (5),
+    m_smoothBeta (11)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -447,7 +448,7 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     }
     if (m_isSmooth)
     {
-        pathInfo.minRtt = (1 - m_smoothAlpha) * pathInfo.minRtt + (m_smoothAlpha) * rtt;
+        pathInfo.minRtt = (SMOOTH_BASE - m_smoothAlpha) * pathInfo.minRtt / SMOOTH_BASE + m_smoothAlpha * rtt / SMOOTH_BASE;
     }
     else
     {
@@ -962,7 +963,7 @@ Ipv4TLB::PathAging (void)
             (itr->second).ecnSize = 0;
             if (m_isSmooth)
             {
-                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta;
+                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta / SMOOTH_BASE;
             }
             else
             {

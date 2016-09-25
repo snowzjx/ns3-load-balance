@@ -144,8 +144,8 @@ private:
     Time m_flowDieTime;
 
     bool m_isSmooth;
-    double m_smoothAlpha;
-    double m_smoothBeta;
+    uint32_t m_smoothAlpha;
+    uint32_t m_smoothBeta;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
