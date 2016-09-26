@@ -209,19 +209,22 @@ def parse (fileName):
     return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct}
 
 def main (argv):
-    files = glob.glob (argv[0])
+    files = glob.glob (argv[1])
     total_fct = 0
     total_large_fct = 0
     total_small_fct = 0
-    for file in files:
-        result = parse (file)
-        total_fct += result.avg_fct
-        total_large_fct += result.avg_large_fct
-        total_small_fct += result.avg_small_fct
+    print files
+    for fileName in files:
+	print (fileName)
+        result = parse (fileName)
+        total_fct += result['avg_fct']
+        total_large_fct += result['avg_large_fct']
+        total_small_fct += result['avg_small_fct']
+	print ('')
 
-    print "AVG FCT: %6f" % total_fct / len (file)
-    print "AVG Large flow FCT: %6f" % total_large_fct / len (file)
-    print "AVG Small flow FCT: %6f" % total_small_fct / len (file)
+    print "AVG FCT: %6f" % (total_fct / len(files))
+    print "AVG Large flow FCT: %6f" % (total_large_fct / len(files))
+    print "AVG Small flow FCT: %6f" % (total_small_fct / len(files))
 
 if __name__ == '__main__':
     main(sys.argv)
