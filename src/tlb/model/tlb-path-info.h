@@ -20,6 +20,7 @@ public:
   uint32_t flowCounter;
   Time timeStamp1;
   Time timeStamp2;
+  uint32_t dreValue;
 };
 
 }
