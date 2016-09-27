@@ -8,6 +8,8 @@
 #include "ns3/double.h"
 #include "ns3/boolean.h"
 
+#include <algorithm>
+
 #define RANDOM_BASE 100
 #define SMOOTH_BASE 10
 
@@ -25,6 +27,10 @@ Ipv4TLB::Ipv4TLB ():
     m_T1 (MicroSeconds (320)), // 100 200 300
     m_T2 (MicroSeconds (100000000)),
     m_agingCheckTime (MicroSeconds (25)),
+    m_dreTime (MicroSeconds (30)),
+    m_dreAlpha (0.2),
+    m_dreDataRate (DataRate ("1Gbps")),
+    m_dreQ (3),
     m_minRtt (MicroSeconds (60)), // 50 70 100
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
@@ -51,6 +57,10 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_T1 (other.m_T1),
     m_T2 (other.m_T2),
     m_agingCheckTime (other.m_agingCheckTime),
+    m_dreTime (other.m_dreTime),
+    m_dreAlpha (other.m_dreAlpha),
+    m_dreDataRate (other.m_dreDataRate),
+    m_dreQ (other.m_dreQ),
     m_minRtt (other.m_minRtt),
     m_ecnSampleMin (other.m_ecnSampleMin),
     m_ecnPortionLow (other.m_ecnPortionLow),
@@ -153,6 +163,11 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
     if (!m_agingEvent.IsRunning ())
     {
         m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
+    }
+
+    if (!m_dreEvent.IsRunning ())
+    {
+        m_dreEvent = Simulator::Schedule (m_dreTime, &Ipv4TLB::DreAging, this);
     }
 
     uint32_t destTor = 0;
@@ -278,6 +293,8 @@ Ipv4TLB::FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t s
         NS_LOG_ERROR ("Cannot send flow on the expired path");
         return;
     }
+
+    Ipv4TLB::SendPath (destTor, path, size);
 
     if (isRetransmission)
     {
@@ -499,6 +516,21 @@ Ipv4TLB::SendFlow (uint32_t flowId, uint32_t path, uint32_t size)
     return true;
 }
 
+void
+Ipv4TLB::SendPath (uint32_t destTor, uint32_t path, uint32_t size)
+{
+    std::pair<uint32_t, uint32_t> key = std::make_pair(destTor, path);
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
+
+    if (itr == m_pathInfo.end ())
+    {
+        NS_LOG_ERROR ("Cannot send a non-existing path");
+        return;
+    }
+
+    (itr->second).dreValue += size;
+}
+
 bool
 Ipv4TLB::RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath, bool &needHighRetransPath)
 {
@@ -606,6 +638,7 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
     pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
     pathInfo.timeStamp1 = Simulator::Now ();
     pathInfo.timeStamp2 = Simulator::Now ();
+    pathInfo.dreValue = 0;
 
     return pathInfo;
 }
@@ -666,6 +699,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
     Time minRTT = Seconds (666);
     uint32_t minRTTLevel = 5;
+    uint32_t minDre = std::pow (2, m_dreQ);
     std::vector<uint32_t> candidatePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
@@ -697,7 +731,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
             {
                 uint32_t RTTLevel = Ipv4TLB::QuantifyRtt (pathInfo.rttMin);
                 if (RTTLevel < minRTTLevel)
@@ -708,14 +742,30 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                 }
                 if (RTTLevel == minRTTLevel)
                 {
-                    if (pathInfo.counter < minCounter)
+
+                    if (m_runMode == TLB_RUNMODE_RTT_DRE)
                     {
-                        minCounter = pathInfo.counter;
-                        candidatePaths.clear ();
+                        if (pathInfo.counter < minCounter)
+                        {
+                            minCounter = pathInfo.counter;
+                            candidatePaths.clear ();
+                        }
+                        if (pathInfo.counter == minCounter)
+                        {
+                            candidatePaths.push_back (pathId);
+                        }
                     }
-                    if (pathInfo.counter == minCounter)
+                    else if (m_runMode == TLB_RUNMODE_RTT_DRE)
                     {
-                        candidatePaths.push_back (pathId);
+                        if (pathInfo.quantifiedDre < minDre)
+                        {
+                            minDre = pathInfo.quantifiedDre;
+                            candidatePaths.clear ();
+                        }
+                        if (pathInfo.quantifiedDre == minDre)
+                        {
+                            candidatePaths.push_back (pathId);
+                        }
                     }
                 }
             }
@@ -739,7 +789,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
-        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
@@ -764,10 +814,12 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         originalPath.rttMin = Seconds (666);
         originalPath.ecnPortion = 1;
         originalPath.counter = std::numeric_limits<uint32_t>::max ();
+        originalPath.quantifiedDre = std::pow (2, m_dreQ);
     }
 
     minCounter = std::numeric_limits<uint32_t>::max ();
     minRTT = Seconds (666);
+    minDre = std::pow (2, m_dreQ);
     candidatePaths.clear ();
     vectorItr = (itr->second).begin ();
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
@@ -801,7 +853,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
             {
                 uint32_t RTTLevel = Ipv4TLB::QuantifyRtt (pathInfo.rttMin);
                 if (RTTLevel < minRTTLevel)
@@ -812,18 +864,33 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                 }
                 if (RTTLevel == minRTTLevel)
                 {
-                    if (pathInfo.counter < minCounter)
+
+                    if (m_runMode == TLB_RUNMODE_RTT_DRE)
                     {
-                        minCounter = pathInfo.counter;
-                        candidatePaths.clear ();
+                        if (pathInfo.counter < minCounter)
+                        {
+                            minCounter = pathInfo.counter;
+                            candidatePaths.clear ();
+                        }
+                        if (pathInfo.counter == minCounter)
+                        {
+                            candidatePaths.push_back (pathId);
+                        }
                     }
-                    if (pathInfo.counter == minCounter)
+                    else if (m_runMode == TLB_RUNMODE_RTT_DRE)
                     {
-                        candidatePaths.push_back (pathId);
+                        if (pathInfo.quantifiedDre < minDre)
+                        {
+                            minDre = pathInfo.quantifiedDre;
+                            candidatePaths.clear ();
+                        }
+                        if (pathInfo.quantifiedDre == minDre)
+                        {
+                            candidatePaths.push_back (pathId);
+                        }
                     }
                 }
             }
-
             else
             {
                 candidatePaths.push_back (pathId);
@@ -844,7 +911,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
-        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
@@ -931,12 +998,14 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         path.rttMin = m_minRtt;
         path.ecnPortion = 0.3;
         path.counter = 0;
+        path.quantifiedDre = 0;
         return path;
     }
     TLBPathInfo pathInfo = itr->second;
     path.rttMin = pathInfo.minRtt;
     path.ecnPortion = static_cast<double>(pathInfo.ecnSize) / pathInfo.size;
     path.counter = pathInfo.flowCounter;
+    path.quantifiedDre = Ipv4TLB::QuantifyDre (pathInfo.dreValue);
     if ((pathInfo.minRtt < m_minRtt
             && (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
             && (pathInfo.isRetransmission) == false
@@ -1050,8 +1119,22 @@ Ipv4TLB::PathAging (void)
     m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
 }
 
- uint32_t
- Ipv4TLB::QuantifyRtt (Time rtt)
+void
+Ipv4TLB::DreAging (void)
+{
+    std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.begin ();
+    for ( ; itr != m_pathInfo.end (); ++itr)
+    {
+        NS_LOG_LOGIC ("<" << (itr->first).first << "," << (itr->first).second << ">");
+        (itr->second).dreValue *= m_dreAlpha;
+        NS_LOG_LOGIC ("\tDre value :" << Ipv4TLB::QuantifyDre ((itr->second).dreValue));
+    }
+
+    m_dreEvent = Simulator::Schedule (m_dreTime, &Ipv4TLB::DreAging, this);
+}
+
+uint32_t
+Ipv4TLB::QuantifyRtt (Time rtt)
 {
     if (rtt <= m_minRtt + MicroSeconds (10))
     {
@@ -1075,4 +1158,10 @@ Ipv4TLB::PathAging (void)
     }
 }
 
+uint32_t
+Ipv4TLB::QuantifyDre (uint32_t dre)
+{
+    double ratio = static_cast<double> (dre * 8) / (m_dreDataRate.GetBitRate () * m_dreTime.GetSeconds () / m_dreAlpha);
+    return static_cast<uint32_t> (ratio * std::pow (2, m_dreQ));
+}
 }

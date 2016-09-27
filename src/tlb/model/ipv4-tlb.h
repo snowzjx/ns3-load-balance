@@ -4,6 +4,7 @@
 
 #include "ns3/object.h"
 #include "ns3/ipv4-address.h"
+#include "ns3/data-rate.h"
 #include "ns3/event-id.h"
 #include "tlb-flow-info.h"
 #include "tlb-path-info.h"
@@ -32,6 +33,7 @@ struct PathInfo {
     Time rttMin;
     double ecnPortion;
     uint32_t counter;
+    uint32_t quantifiedDre;
 };
 
 class Node;
@@ -91,6 +93,8 @@ private:
 
     bool SendFlow (uint32_t flowId, uint32_t path, uint32_t size);
 
+    void SendPath (uint32_t destTor, uint32_t path, uint32_t size);
+
     bool RetransFlow (uint32_t flowId, uint32_t path, uint32_t size, bool &needRetranPath, bool &needHighRetransPath);
 
     void RetransPath (uint32_t destTor, uint32_t path, bool needHighRetransPath);
@@ -113,7 +117,10 @@ private:
 
     void PathAging (void);
 
+    void DreAging (void);
+
     uint32_t QuantifyRtt (Time rtt);
+    uint32_t QuantifyDre (uint32_t dre);
 
     // Parameters
     uint32_t m_runMode; // Running Mode 0 for minimize counter, 1 for minimize RTT, 2 for random
@@ -129,6 +136,14 @@ private:
     Time m_T2;
 
     Time m_agingCheckTime;
+
+    Time m_dreTime;
+
+    double m_dreAlpha;
+
+    DataRate m_dreDataRate;
+
+    uint32_t m_dreQ;
 
     Time m_minRtt;
 
@@ -166,6 +181,8 @@ private:
     std::map<uint32_t, Ipv4Address> m_probingAgent; /* <DestTorId, ProbingAgentAddress>*/
 
     EventId m_agingEvent;
+
+    EventId m_dreEvent;
 
     Ptr<Node> m_node;
 };
