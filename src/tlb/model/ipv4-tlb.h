@@ -12,6 +12,12 @@
 #include <map>
 #include <utility>
 
+#define TLB_RUNMODE_COUNTER 0
+#define TLB_RUNMODE_MINRTT 1
+#define TLB_RUNMODE_RANDOM 2
+#define TLB_RUNMODE_RTT_COUNTER 11
+#define TLB_RUNMODE_RTT_DRE 12
+
 namespace ns3 {
 
 enum PathType {
@@ -106,6 +112,8 @@ private:
     bool FindTorId (Ipv4Address daddr, uint32_t &destTorId);
 
     void PathAging (void);
+
+    uint32_t QuantifyRtt (Time rtt);
 
     // Parameters
     uint32_t m_runMode; // Running Mode 0 for minimize counter, 1 for minimize RTT, 2 for random

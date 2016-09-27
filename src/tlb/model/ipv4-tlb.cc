@@ -665,6 +665,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     // Firstly, checking good path
     uint32_t minCounter = std::numeric_limits<uint32_t>::max ();
     Time minRTT = Seconds (666);
+    uint32_t minRTTLevel = 5;
     std::vector<uint32_t> candidatePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
@@ -672,7 +673,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GoodPath)
         {
-            if (m_runMode == 0)
+            if (m_runMode == TLB_RUNMODE_COUNTER)
             {
                 if (pathInfo.counter <= minCounter)
                 {
@@ -684,7 +685,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            else if (m_runMode == 1)
+            else if (m_runMode == TLB_RUNMODE_MINRTT)
             {
                 if (pathInfo.rttMin <= minRTT)
                 {
@@ -696,6 +697,28 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
+            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+            {
+                uint32_t RTTLevel = Ipv4TLB::QuantifyRtt (pathInfo.rttMin);
+                if (RTTLevel < minRTTLevel)
+                {
+                    minRTTLevel = RTTLevel;
+                    minCounter = std::numeric_limits<uint32_t>::max ();
+                    candidatePaths.clear ();
+                }
+                if (RTTLevel == minRTTLevel)
+                {
+                    if (pathInfo.counter < minCounter)
+                    {
+                        minCounter = pathInfo.counter;
+                        candidatePaths.clear ();
+                    }
+                    if (pathInfo.counter == minCounter)
+                    {
+                        candidatePaths.push_back (pathId);
+                    }
+                }
+            }
             else
             {
                 candidatePaths.push_back (pathId);
@@ -705,14 +728,18 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     if (!candidatePaths.empty ())
     {
-        if (m_runMode == 0)
+        if (m_runMode == TLB_RUNMODE_COUNTER)
         {
             if (minCounter <= m_K)
             {
                 newPath = candidatePaths[rand () % candidatePaths.size ()];
             }
         }
-        else if (m_runMode == 1)
+        else if (m_runMode == TLB_RUNMODE_MINRTT)
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
+        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
@@ -750,7 +777,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         if (pathInfo.pathType == GreyPath
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
-            if (m_runMode == 0)
+            if (m_runMode == TLB_RUNMODE_COUNTER)
             {
                 if (pathInfo.counter <= minCounter)
                 {
@@ -762,7 +789,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
-            else if (m_runMode == 1)
+            else if (m_runMode == TLB_RUNMODE_MINRTT)
             {
                 if (pathInfo.rttMin <= minRTT)
                 {
@@ -774,6 +801,29 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                     candidatePaths.push_back (pathId);
                 }
             }
+            else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+            {
+                uint32_t RTTLevel = Ipv4TLB::QuantifyRtt (pathInfo.rttMin);
+                if (RTTLevel < minRTTLevel)
+                {
+                    minRTTLevel = RTTLevel;
+                    minCounter = std::numeric_limits<uint32_t>::max ();
+                    candidatePaths.clear ();
+                }
+                if (RTTLevel == minRTTLevel)
+                {
+                    if (pathInfo.counter < minCounter)
+                    {
+                        minCounter = pathInfo.counter;
+                        candidatePaths.clear ();
+                    }
+                    if (pathInfo.counter == minCounter)
+                    {
+                        candidatePaths.push_back (pathId);
+                    }
+                }
+            }
+
             else
             {
                 candidatePaths.push_back (pathId);
@@ -783,17 +833,22 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
 
     if (!candidatePaths.empty ())
     {
-        if (m_runMode == 0)
+        if (m_runMode == TLB_RUNMODE_COUNTER)
         {
             if (minCounter <= m_K)
             {
                 newPath = candidatePaths[rand () % candidatePaths.size ()];
             }
         }
-        else if (m_runMode == 1)
+        else if (m_runMode == TLB_RUNMODE_MINRTT)
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
+        else if (m_runMode == TLB_RUNMODE_RTT_COUNTER)
+        {
+            newPath = candidatePaths[rand () % candidatePaths.size ()];
+        }
+
         else
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
@@ -993,6 +1048,31 @@ Ipv4TLB::PathAging (void)
     }
 
     m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
+}
+
+ uint32_t
+ Ipv4TLB::QuantifyRtt (Time rtt)
+{
+    if (rtt <= m_minRtt + MicroSeconds (10))
+    {
+        return 0;
+    }
+    else if (rtt <= m_minRtt + MicroSeconds (20))
+    {
+        return 1;
+    }
+    else if (rtt <= m_minRtt + MicroSeconds (30))
+    {
+        return 2;
+    }
+    else if (rtt <= m_minRtt + MicroSeconds (40))
+    {
+        return 3;
+    }
+    else
+    {
+        return 4;
+    }
 }
 
 }
