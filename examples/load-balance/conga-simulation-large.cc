@@ -166,6 +166,8 @@ int main (int argc, char *argv[])
     uint32_t TLBProbingInterval = 100;
     bool TLBSmooth = false;
 
+    bool tcpPause = false;
+
     CommandLine cmd;
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
@@ -195,6 +197,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
     cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
     cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
+    cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
     cmd.Parse (argc, argv);
 
@@ -290,6 +293,12 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::IsSmooth", BooleanValue (TLBSmooth));
     }
 
+    if (tcpPause)
+    {
+        NS_LOG_INFO ("Enabling TCP pause");
+        Config::SetDefault ("ns3::TcpSocketBase::Pause", BooleanValue (true));
+    }
+
     NS_LOG_INFO ("Config parameters");
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
@@ -363,7 +372,6 @@ int main (int argc, char *argv[])
                 return 0;
             }
             Config::SetDefault ("ns3::TcpSocketBase::FlowBender", BooleanValue (true));
-            Config::SetDefault ("ns3::TcpFlowBender::RTT", TimeValue (MicroSeconds (80)));
             Config::SetDefault ("ns3::TcpFlowBender::T", DoubleValue (flowBenderT));
             Config::SetDefault ("ns3::TcpFlowBender::N", UintegerValue (flowBenderN));
         }

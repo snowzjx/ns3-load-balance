@@ -18,7 +18,7 @@ TcpFlowBender::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("Internent")
         .AddConstructor<TcpFlowBender> ()
-        .AddAttribute ("T", "The congestion degree within one RTT",
+         .AddAttribute ("T", "The congestion degree within one RTT",
             DoubleValue (0.05),
             MakeDoubleAccessor (&TcpFlowBender::m_T),
             MakeDoubleChecker<double> (0))
@@ -35,7 +35,7 @@ TcpFlowBender::TcpFlowBender ()
      m_totalPackets (0),
      m_markedPackets (0),
      m_numCongestionRtt (0),
-     m_V (0),
+     m_V (1),
      m_highTxMark (0),
      m_T (0.05),
      m_N (1),
@@ -50,7 +50,7 @@ TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
     m_totalPackets (0),
      m_markedPackets (0),
      m_numCongestionRtt (0),
-     m_V (0),
+     m_V (1),
      m_highTxMark (0),
      m_T (other.m_T),
      m_N (other.m_N),

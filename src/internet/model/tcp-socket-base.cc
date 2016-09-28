@@ -148,6 +148,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_TLBEnabled),
                    MakeBooleanChecker ())
+    .AddAttribute ("Pause", "Whether TCP should pause in FlowBender & TLB",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_isPauseEnabled),
+                   MakeBooleanChecker ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -336,6 +340,10 @@ TcpSocketBase::TcpSocketBase (void)
     m_TLBEnabled (false),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    m_isPauseEnabled (false),
+    m_isPause (false),
+    m_pauseTime (MicroSeconds (80)),
+    m_oldPath (0),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
 {
@@ -360,6 +368,9 @@ TcpSocketBase::TcpSocketBase (void)
 
   // Flow Bender support
   m_flowBender = CreateObject<TcpFlowBender> ();
+
+  // Pause support
+  m_pauseBuffer = CreateObject<TcpPauseBuffer> ();
 
   bool ok;
 
@@ -429,6 +440,10 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_TLBEnabled (sock.m_TLBEnabled),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    m_isPauseEnabled (sock.m_isPauseEnabled),
+    m_isPause (false),
+    m_pauseTime (sock.m_pauseTime),
+    m_oldPath (0),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
     m_rxTrace (sock.m_rxTrace)
@@ -467,6 +482,9 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
 
   // Flow Bender support
   m_flowBender = CreateObject<TcpFlowBender> ();
+
+  // Pause support
+  m_pauseBuffer = CreateObject<TcpPauseBuffer> ();
 
   if (sock.m_congestionControl)
     {
@@ -812,17 +830,7 @@ TcpSocketBase::Close (void)
         }
       return 0;
     }
-  /*
-  // XXX FlowFinish ?
-  if (m_TLBEnabled && m_TLBSent)
-  {
-    std::cout << "!!!" << std::endl;
-    uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
-            m_endPoint->GetPeerAddress (), m_endPoint->GetLocalPort (), m_endPoint->GetPeerPort ());
-    Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-    ipv4TLB->FlowFinish (flowId, m_endPoint->GetPeerAddress ());
-  }
-  */
+
   return DoClose ();
 }
 
@@ -1649,15 +1657,15 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               m_recover = m_highTxMark;
               m_tcb->m_congState = TcpSocketState::CA_RECOVERY;
 
-	      if (m_flowBenderEnabled)
-	      {
-                m_tcb->m_ssThresh = m_tcb->m_cWnd / 2;
-              }
-              else
-              {
+	       // if (m_flowBenderEnabled)
+	       // {
+           //     m_tcb->m_ssThresh = m_tcb->m_cWnd / 2;
+           // }
+           // else
+           // {
                 m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
                                                                       BytesInFlight ());
-              }
+           // }
               m_tcb->m_cWnd = m_tcb->m_ssThresh + m_dupAckCount * m_tcb->m_segmentSize;
               NS_LOG_INFO (m_dupAckCount << " dupack. Enter fast recovery mode." <<
                            "Reset cwnd to " << m_tcb->m_cWnd << ", ssthresh to " <<
@@ -2457,7 +2465,24 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       tcpTLBTag.SetTime (Simulator::Now ());
       p->AddPacketTag (tcpTLBTag);
       ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), false);
+
+      // Pause Support
+      if (m_isPauseEnabled && m_oldPath == 0)
+      {
+          m_oldPath = path;
+      }
+
+      if (m_isPauseEnabled
+            && !m_isPause
+            && m_oldPath != path)
+      {
+          std::cout << "Turning on pause" << std::endl;
+          m_isPause = true;
+          m_oldPath = path;
+          Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+      }
     }
+
     if (m_piggybackTLBInfo)
     {
       TcpTLBTag tcpTLBTag;
@@ -2474,8 +2499,17 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       TcpSocketBase::AttachFlowId (p, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
 
-      m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
+      if (m_isPause)
+      {
+          std::cout << "Pause enabled, buffering packet..." <<std::endl;
+          m_pauseBuffer->BufferItem (p, header);
+      }
+      else
+      {
+          m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
+
+      }
     }
   else
     {
@@ -2818,10 +2852,34 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
         tcpTLBTag.SetTime (Simulator::Now ());
         p->AddPacketTag (tcpTLBTag);
         ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), isRetransmission);
+
+        // Pause Support
+        if (m_isPauseEnabled && m_oldPath == 0)
+        {
+            m_oldPath = path;
+        }
+        if (m_isPauseEnabled
+            && !m_isPause
+            && m_oldPath != path)
+        {
+            std::cout << "Turning on pause ..." << std::endl;
+            m_isPause = true;
+            m_oldPath = path;
+            Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+        }
       }
 
-      m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
+      if (m_isPause)
+      {
+          std::cout << "Pause enabled, buffering packet ..." <<std::endl;
+          m_pauseBuffer->BufferItem (p, header);
+      }
+      else
+      {
+          m_tcp->SendPacket (p, header, m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), m_boundnetdevice);
+      }
+
       NS_LOG_DEBUG ("Send segment of size " << sz << " with remaining data " <<
                     remainingData << " via TcpL4Protocol to " <<  m_endPoint->GetPeerAddress () <<
                     ". Header " << header);
@@ -3875,7 +3933,24 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
   // XXX Flow Bender support
   if (m_flowBenderEnabled)
   {
-    flowId += m_flowBender->GetV ();
+    uint32_t path = m_flowBender->GetV ();
+    flowId += path;
+
+    // Pause Support
+    if (m_isPauseEnabled && m_oldPath == 0)
+    {
+        m_oldPath = path;
+    }
+    if (m_isPauseEnabled
+            && !m_isPause
+            && m_oldPath != 0
+            && m_oldPath != path)
+    {
+        std::cout << "Turning on pause ..." << std::endl;
+        m_isPause = true;
+        m_oldPath = path;
+        Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+    }
   }
 
   packet->AddPacketTag(FlowIdTag(flowId));
@@ -3886,6 +3961,20 @@ TcpSocketBase::CalFlowId (const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport)
 {
   return dport;
+}
+
+void
+TcpSocketBase::RecoverFromPause (void)
+{
+    std::cout << "Recovering from pause, flushing packets out..." <<std::endl;
+    while (m_pauseBuffer->HasBufferedItem ())
+    {
+        struct TcpPauseItem item = m_pauseBuffer->GetBufferedItem ();
+
+        m_tcp->SendPacket (item.packet, item.header, m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), m_boundnetdevice);
+    }
+    m_isPause = false;
 }
 
 //RttHistory methods

@@ -40,6 +40,7 @@
 #include "tcp-resequence-buffer.h"
 #include "tcp-flow-bender.h"
 #include "ns3/ipv4-tlb.h"
+#include "tcp-pause-buffer.h"
 
 namespace ns3 {
 
@@ -927,6 +928,8 @@ protected:
   uint32_t CalFlowId (const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport);
 
+  void RecoverFromPause (void);
+
 protected:
   // Counters and events
   EventId           m_retxEvent;       //!< Retransmission event
@@ -1022,6 +1025,13 @@ protected:
   uint32_t                  m_TLBPath;
 
   uint32_t                  m_pathAcked;
+
+  bool                      m_isPauseEnabled;
+  bool                      m_isPause;
+  Time                      m_pauseTime;
+  uint32_t                  m_oldPath;
+  Ptr<TcpPauseBuffer>       m_pauseBuffer;
+
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
