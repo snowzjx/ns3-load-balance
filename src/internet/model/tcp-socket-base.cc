@@ -2450,8 +2450,9 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
     {
       uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+
       Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-      uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
+      uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetLocalAddress (), m_endPoint->GetPeerAddress ());
       // std::cout << this << " Get Path From TLB: " << path << std::endl;
 
       // XPath Support
@@ -2838,7 +2839,7 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
         uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                          m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
-        uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetPeerAddress ());
+        uint32_t path = ipv4TLB->GetPath (flowId, m_endPoint->GetLocalAddress (), m_endPoint->GetPeerAddress ());
         // std::cout << this << " Get Path From TLB: " << path << std::endl;
 
         // XPath Support

@@ -3,6 +3,8 @@
 #define IPV4_TLB_H
 
 #include "ns3/object.h"
+#include "ns3/callback.h"
+#include "ns3/traced-value.h"
 #include "ns3/ipv4-address.h"
 #include "ns3/data-rate.h"
 #include "ns3/event-id.h"
@@ -12,6 +14,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <string>
 
 #define TLB_RUNMODE_COUNTER 0
 #define TLB_RUNMODE_MINRTT 1
@@ -25,10 +28,11 @@ enum PathType {
     GoodPath,
     GreyPath,
     BadPath,
-    FailPath
+    FailPath,
 };
 
 struct PathInfo {
+    uint32_t pathId;
     PathType pathType;
     Time rttMin;
     double ecnPortion;
@@ -56,7 +60,7 @@ public:
     std::vector<uint32_t> GetAvailPath (Ipv4Address daddr);
 
     // These methods are used for TCP flows
-    uint32_t GetPath (uint32_t flowId, Ipv4Address daddr);
+    uint32_t GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr);
 
     void FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
@@ -75,6 +79,10 @@ public:
 
     // Node
     void SetNode (Ptr<Node> node);
+
+    static std::string GetPathType (PathType type);
+
+    static std::string GetLogo (void);
 
 private:
 
@@ -105,9 +113,9 @@ private:
 
     void RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path);
 
-    bool WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, uint32_t oldPath);
+    bool WhereToChange (uint32_t destTor, struct PathInfo &newPath, bool hasOldPath, uint32_t oldPath);
 
-    uint32_t SelectRandomPath (uint32_t destTor);
+    struct PathInfo SelectRandomPath (uint32_t destTor);
 
     struct PathInfo JudgePath (uint32_t destTor, uint32_t path);
 
@@ -118,6 +126,8 @@ private:
     void PathAging (void);
 
     void DreAging (void);
+
+    std::vector<PathInfo> GatherParallelPaths (uint32_t destTor);
 
     uint32_t QuantifyRtt (Time rtt);
     uint32_t QuantifyDre (uint32_t dre);
@@ -185,6 +195,14 @@ private:
     EventId m_dreEvent;
 
     Ptr<Node> m_node;
+
+    typedef void (* TLBPathCallback) (uint32_t flowId, uint32_t fromTor,
+            uint32_t toTor, uint32_t path, bool isRandom, PathInfo info, std::vector<PathInfo> parallelPaths);
+
+
+    TracedCallback <uint32_t, uint32_t, uint32_t, uint32_t, bool, PathInfo, std::vector<PathInfo> > m_pathSelectTrace;
+
+
 };
 
 }

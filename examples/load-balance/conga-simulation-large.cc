@@ -61,6 +61,26 @@ enum RunMode {
     ECMP
 };
 
+void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, uint32_t path, bool isRandom, PathInfo pathInfo, std::vector<PathInfo> parallelPaths)
+{
+    NS_LOG_UNCOND ("Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") selects path: " << path);
+    NS_LOG_UNCOND ("\t Is random select: " << isRandom);
+    NS_LOG_UNCOND ("\t Path info: type -> " << Ipv4TLB::GetPathType (pathInfo.pathType) << ", min RTT -> " << pathInfo.rttMin
+            << ", ECN Portion -> " << pathInfo.ecnPortion << ", Flow counter -> " << pathInfo.counter
+            << ", Quantified DRE -> " << pathInfo.quantifiedDre);
+
+    NS_LOG_UNCOND ("\t Parallel path info: ");
+    std::vector<PathInfo>::iterator itr = parallelPaths.begin ();
+    for (; itr != parallelPaths.end (); ++itr)
+    {
+        struct PathInfo path = *itr;
+        NS_LOG_UNCOND ("\t\t Path info: " << path.pathId << ", type -> " << Ipv4TLB::GetPathType (path.pathType) << ", min RTT -> " << path.rttMin
+            << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
+            << ", Quantified DRE -> " << path.quantifiedDre);
+    }
+    NS_LOG_UNCOND ("\n");
+}
+
 // Port from Traffic Generator
 // Acknowledged to https://github.com/HKUST-SING/TrafficGenerator/blob/master/src/common/common.c
 double poission_gen_interval(double avg_rate)
@@ -155,7 +175,7 @@ int main (int argc, char *argv[])
     uint64_t spineLeafCapacity = 10;
     uint64_t leafServerCapacity = 10;
 
-    uint32_t TLBMinRTT = 40;
+    uint32_t TLBMinRTT = 100;
     uint32_t TLBPoss = 0;
     uint32_t TLBBetterPathRTT = 1;
     uint32_t TLBT1 = 100;
@@ -164,7 +184,7 @@ int main (int argc, char *argv[])
     uint32_t TLBRunMode = 0;
     bool TLBProbingEnable = true;
     uint32_t TLBProbingInterval = 100;
-    bool TLBSmooth = false;
+    bool TLBSmooth = true;
 
     bool tcpPause = false;
 
@@ -235,6 +255,7 @@ int main (int argc, char *argv[])
     }
     else if (runModeStr.compare ("TLB") == 0)
     {
+        std::cout << Ipv4TLB::GetLogo () << std::endl;
         if (LINK_COUNT != 1)
         {
             NS_LOG_ERROR ("TLB currently not supports link count more than 1");
@@ -620,7 +641,7 @@ int main (int argc, char *argv[])
                         int newPath = spineToLeafPath[std::make_pair (k, l)] * pathBase + path;
                         Ptr<Ipv4TLB> tlb = servers.Get (serverIndex)->GetObject<Ipv4TLB> ();
                         tlb->AddAvailPath (l, newPath);
-                        NS_LOG_INFO ("Configuring server: " << serverIndex << " to leaf: " << l << " with path: " << newPath);
+                        //NS_LOG_INFO ("Configuring server: " << serverIndex << " to leaf: " << l << " with path: " << newPath);
                     }
                 }
             }
@@ -649,7 +670,7 @@ int main (int argc, char *argv[])
                     continue;
                 }
                 probing->SetProbeAddress (serverAddresses[serverBeingProbed]);
-                NS_LOG_INFO ("Server: " << i << " is going to probe server: " << serverBeingProbed);
+                //NS_LOG_INFO ("Server: " << i << " is going to probe server: " << serverBeingProbed);
                 int leafIndex = i / SERVER_COUNT;
                 for (int j = leafIndex * SERVER_COUNT; j < leafIndex * SERVER_COUNT + SERVER_COUNT; j++)
                 {
@@ -658,7 +679,7 @@ int main (int argc, char *argv[])
                         continue;
                     }
                     probing->AddBroadCastAddress (serverAddresses[j]);
-                    NS_LOG_INFO ("Server:" << i << " is going to broadcast to server: " << j);
+                    //NS_LOG_INFO ("Server:" << i << " is going to broadcast to server: " << j);
                 }
                 probing->StartProbe ();
                 probing->StopProbe (Seconds (END_TIME));
@@ -705,6 +726,11 @@ int main (int argc, char *argv[])
     Ptr<FlowMonitor> flowMonitor;
     FlowMonitorHelper flowHelper;
     flowMonitor = flowHelper.InstallAll();
+
+    NS_LOG_INFO ("Enabling TLB tracing");
+
+    Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/SelectPath",
+            MakeCallback (&TLBPathSelectTrace));
 
     NS_LOG_INFO ("Enabling link monitor");
 

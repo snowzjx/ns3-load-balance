@@ -8,6 +8,7 @@
 #include "ns3/double.h"
 #include "ns3/boolean.h"
 
+#include <cstdio>
 #include <algorithm>
 
 #define RANDOM_BASE 100
@@ -114,6 +115,10 @@ Ipv4TLB::GetTypeId (void)
                       BooleanValue (false),
                       MakeBooleanAccessor (&Ipv4TLB::m_isSmooth),
                       MakeBooleanChecker ())
+        .AddTraceSource ("SelectPath",
+                         "When the new flow is assigned the path",
+                         MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
+                         "ns3::Ipv4TLB::TLBPathCallback")
     ;
 
     return tid;
@@ -158,7 +163,7 @@ Ipv4TLB::GetAvailPath (Ipv4Address daddr)
 }
 
 uint32_t
-Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
+Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
 {
     if (!m_agingEvent.IsRunning ())
     {
@@ -177,23 +182,31 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         return 0;
     }
 
+    uint32_t sourceTor = 0;
+    if (!Ipv4TLB::FindTorId (saddr, sourceTor))
+    {
+        NS_LOG_ERROR ("Cannot find source tor id based on the given source address");
+    }
+
     std::map<uint32_t, TLBFlowInfo>::iterator flowItr = m_flowInfo.find (flowId);
 
     // First check if the flow is a new flow
     if (flowItr == m_flowInfo.end ())
     {
         // New flow
-        uint32_t newPath = 0;
-        if (!Ipv4TLB::WhereToChange (destTor, newPath, false, 0))
+        struct PathInfo newPath;
+        if (Ipv4TLB::WhereToChange (destTor, newPath, false, 0))
+        {
+            m_pathSelectTrace (flowId, sourceTor, destTor, newPath.pathId, false, newPath, Ipv4TLB::GatherParallelPaths (destTor));
+        }
+        else
         {
             newPath = Ipv4TLB::SelectRandomPath (destTor);
+            m_pathSelectTrace (flowId, sourceTor, destTor, newPath.pathId, true, newPath, Ipv4TLB::GatherParallelPaths (destTor));
         }
-        /*std::cout <<flowId << " - " << newPath << std::endl;*/
-        Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
-        Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
-        /*std::cout << "Select: " << newPath << std::endl;*/
-        /*std::cout << "------" << std::endl;*/
-        return newPath;
+        Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
+        Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
+        return newPath.pathId;
     }
     else
     {
@@ -202,51 +215,49 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address daddr)
         if (0 == 1 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {
-            std::cout << "!!!" << std::endl;
-            uint32_t newPath = 0;
+            struct PathInfo newPath;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
-                if (newPath == oldPath)
-                {
-                    return oldPath;
-                }
-
-                // Change path
-                Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
-                Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
-                Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
-                return newPath;
-
+                // TODO
             }
             else
             {
-                return Ipv4TLB::SelectRandomPath (destTor);
+                newPath = Ipv4TLB::SelectRandomPath (destTor);
             }
+
+            if (newPath.pathId == oldPath)
+            {
+                return oldPath;
+            }
+            // Change path
+            Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
+            Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
+            Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
+            return newPath.pathId;
         }
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
                 && (flowItr->second).size >= m_S
                 && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
         {
-            if (rand () % RANDOM_BASE < static_cast<int>(RANDOM_BASE - m_pathChangePoss))
+            if (rand () % RANDOM_BASE < static_cast<int> (RANDOM_BASE - m_pathChangePoss))
             {
                 (flowItr->second).tryChangePath = Simulator::Now ();
                 return oldPath;
             }
-            std::cout << "!!!" << std::endl;
-            uint32_t newPath = 0;
+            struct PathInfo newPath;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
-                if (newPath == oldPath)
+                if (newPath.pathId == oldPath)
                 {
                     return oldPath;
                 }
 
                 // Change path
-                Ipv4TLB::UpdateFlowPath (flowId, newPath, destTor);
+                Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
                 Ipv4TLB::RemoveFlowFromPath (flowId, destTor, oldPath);
-                Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath);
-                return newPath;
+                Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
+                return newPath.pathId;
             }
             else
             {
@@ -683,7 +694,7 @@ Ipv4TLB::RemoveFlowFromPath (uint32_t flowId, uint32_t destTor, uint32_t path)
 }
 
 bool
-Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, uint32_t oldPath)
+Ipv4TLB::WhereToChange (uint32_t destTor, PathInfo &newPath, bool hasOldPath, uint32_t oldPath)
 {
     std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
 
@@ -700,7 +711,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     Time minRTT = Seconds (666);
     uint32_t minRTTLevel = 5;
     uint32_t minDre = std::pow (2, m_dreQ);
-    std::vector<uint32_t> candidatePaths;
+    std::vector<PathInfo> candidatePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
@@ -716,7 +727,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         candidatePaths.clear ();
                         minCounter = pathInfo.counter;
                     }
-                    candidatePaths.push_back (pathId);
+                    candidatePaths.push_back (pathInfo);
                 }
             }
             else if (m_runMode == TLB_RUNMODE_MINRTT)
@@ -728,7 +739,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         candidatePaths.clear ();
                         minRTT = pathInfo.rttMin;
                     }
-                    candidatePaths.push_back (pathId);
+                    candidatePaths.push_back (pathInfo);
                 }
             }
             else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
@@ -752,7 +763,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         }
                         if (pathInfo.counter == minCounter)
                         {
-                            candidatePaths.push_back (pathId);
+                            candidatePaths.push_back (pathInfo);
                         }
                     }
                     else if (m_runMode == TLB_RUNMODE_RTT_DRE)
@@ -764,14 +775,14 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         }
                         if (pathInfo.quantifiedDre == minDre)
                         {
-                            candidatePaths.push_back (pathId);
+                            candidatePaths.push_back (pathInfo);
                         }
                     }
                 }
             }
             else
             {
-                candidatePaths.push_back (pathId);
+                candidatePaths.push_back (pathInfo);
             }
         }
     }
@@ -797,8 +808,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
-        NS_LOG_LOGIC ("Find Good Path: " << newPath);
-        std::cout << "Select Good Path: " << newPath << std::endl;
+        NS_LOG_LOGIC ("Find Good Path: " << newPath.pathId);
         return true;
     }
 
@@ -838,7 +848,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         candidatePaths.clear ();
                         minCounter = pathInfo.counter;
                     }
-                    candidatePaths.push_back (pathId);
+                    candidatePaths.push_back (pathInfo);
                 }
             }
             else if (m_runMode == TLB_RUNMODE_MINRTT)
@@ -850,7 +860,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         candidatePaths.clear ();
                         minRTT = pathInfo.rttMin;
                     }
-                    candidatePaths.push_back (pathId);
+                    candidatePaths.push_back (pathInfo);
                 }
             }
             else if (m_runMode == TLB_RUNMODE_RTT_COUNTER || m_runMode == TLB_RUNMODE_RTT_DRE)
@@ -874,7 +884,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         }
                         if (pathInfo.counter == minCounter)
                         {
-                            candidatePaths.push_back (pathId);
+                            candidatePaths.push_back (pathInfo);
                         }
                     }
                     else if (m_runMode == TLB_RUNMODE_RTT_DRE)
@@ -886,14 +896,14 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
                         }
                         if (pathInfo.quantifiedDre == minDre)
                         {
-                            candidatePaths.push_back (pathId);
+                            candidatePaths.push_back (pathInfo);
                         }
                     }
                 }
             }
             else
             {
-                candidatePaths.push_back (pathId);
+                candidatePaths.push_back (pathInfo);
             }
         }
     }
@@ -920,8 +930,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         {
             newPath = candidatePaths[rand () % candidatePaths.size ()];
         }
-        NS_LOG_LOGIC ("Find Grey Path: " << newPath);
-        std::cout << "Select Grey Path: " << newPath << std::endl;
+        NS_LOG_LOGIC ("Find Grey Path: " << newPath.pathId);
         return true;
     }
 
@@ -934,9 +943,8 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
         if (pathInfo.pathType == BadPath
             && Ipv4TLB::PathLIsBetterR (pathInfo, originalPath))
         {
-            newPath = pathId;
-            NS_LOG_LOGIC ("Find Bad Path: " << newPath);
-            std::cout << "Select Bad Path: " << newPath << std::endl;
+            newPath = pathInfo;
+            NS_LOG_LOGIC ("Find Bad Path: " << newPath.pathId);
             return true;
         }
     }
@@ -946,7 +954,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, uint32_t &newPath, bool hasOldPath, ui
     return false;
 }
 
-uint32_t
+struct PathInfo
 Ipv4TLB::SelectRandomPath (uint32_t destTor)
 {
     std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
@@ -954,32 +962,34 @@ Ipv4TLB::SelectRandomPath (uint32_t destTor)
     if (itr == m_availablePath.end ())
     {
         NS_LOG_ERROR ("Cannot find available paths");
-        return false;
+        PathInfo pathInfo;
+        pathInfo.pathId = 0;
+        return pathInfo;
     }
 
     std::vector<uint32_t>::iterator vectorItr = (itr->second).begin ();
-    std::vector<uint32_t> availablePaths;
+    std::vector<PathInfo> availablePaths;
     for ( ; vectorItr != (itr->second).end (); ++vectorItr)
     {
         uint32_t pathId = *vectorItr;
         struct PathInfo pathInfo = JudgePath (destTor, pathId);
         if (pathInfo.pathType == GoodPath || pathInfo.pathType == GreyPath || pathInfo.pathType == BadPath)
         {
-            availablePaths.push_back (pathId);
+            availablePaths.push_back (pathInfo);
         }
     }
 
-    uint32_t newPath;
+    struct PathInfo newPath;
     if (!availablePaths.empty ())
     {
         newPath = availablePaths[rand() % availablePaths.size ()];
     }
     else
     {
-        newPath = (itr->second)[rand() % (itr->second).size ()];
+        uint32_t pathId = (itr->second)[rand() % (itr->second).size ()];
+        newPath = Ipv4TLB::JudgePath (destTor, pathId);
     }
-    NS_LOG_LOGIC ("Random selection return path: " << newPath);
-    std::cout << "Select Random Path: " << newPath << std::endl;
+    NS_LOG_LOGIC ("Random selection return path: " << newPath.pathId);
     return newPath;
 }
 
@@ -990,6 +1000,7 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo>::iterator itr = m_pathInfo.find (key);
 
     struct PathInfo path;
+    path.pathId = pathId;
     if (itr == m_pathInfo.end ())
     {
         path.pathType = GreyPath;
@@ -1119,6 +1130,26 @@ Ipv4TLB::PathAging (void)
     m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
 }
 
+std::vector<PathInfo>
+Ipv4TLB::GatherParallelPaths (uint32_t destTor)
+{
+    std::vector<PathInfo> paths;
+
+    std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
+    if (itr == m_availablePath.end ())
+    {
+        return paths;
+    }
+
+    std::vector<uint32_t>::iterator innerItr = (itr->second).begin ();
+    for ( ; innerItr != (itr->second).end (); ++innerItr )
+    {
+        paths.push_back(Ipv4TLB::JudgePath ((itr->first), *innerItr));
+    }
+
+    return paths;
+}
+
 void
 Ipv4TLB::DreAging (void)
 {
@@ -1164,4 +1195,46 @@ Ipv4TLB::QuantifyDre (uint32_t dre)
     double ratio = static_cast<double> (dre * 8) / (m_dreDataRate.GetBitRate () * m_dreTime.GetSeconds () / m_dreAlpha);
     return static_cast<uint32_t> (ratio * std::pow (2, m_dreQ));
 }
+
+std::string
+Ipv4TLB::GetPathType (PathType type)
+{
+    if (type == GoodPath)
+    {
+        return "GoodPath";
+    }
+    else if (type == GreyPath)
+    {
+        return "GreyPath";
+    }
+    else if (type == BadPath)
+    {
+        return "BadPath";
+    }
+    else if (type == FailPath)
+    {
+        return "FailPath";
+    }
+    else
+    {
+        return "Unknown";
+    }
+}
+
+std::string
+Ipv4TLB::GetLogo (void)
+{
+    std::stringstream oss;
+    oss << " .-') _           .-. .-')           ('-.       .-') _    ('-.    .-. .-')               ('-.  _ .-') _   " << std::endl;
+    oss << "(  OO) )          \\  ( OO )        _(  OO)     ( OO ) )  ( OO ).-.\\  ( OO )            _(  OO)( (  OO) )  " << std::endl;
+    oss << "/     '._ ,--.     ;-----.\\       (,------.,--./ ,--,'   / . --. / ;-----.\\  ,--.     (,------.\\     .'_  " << std::endl;
+    oss << "|'--...__)|  |.-') | .-.  |        |  .---'|   \\ |  |\\   | \\-.  \\  | .-.  |  |  |.-')  |  .---',`'--..._) " << std::endl;
+    oss << "'--.  .--'|  | OO )| '-' /_)       |  |    |    \\|  | ).-'-'  |  | | '-' /_) |  | OO ) |  |    |  |  \\  ' " << std::endl;
+    oss << "   |  |   |  |`-' || .-. `.       (|  '--. |  .     |/  \\| |_.'  | | .-. `.  |  |`-' |(|  '--. |  |   ' | " << std::endl;
+    oss << "   |  |  (|  '---.'| |  \\  |       |  .--' |  |\\    |    |  .-.  | | |  \\  |(|  '---.' |  .--' |  |   / : " << std::endl;
+    oss << "   |  |   |      | | '--'  /       |  `---.|  | \\   |    |  | |  | | '--'  / |      |  |  `---.|  '--'  / " << std::endl;
+    oss << "   `--'   `------' `------'        `------'`--'  `--'    `--' `--' `------'  `------'  `------'`-------'  " << std::endl;
+    return oss.str ();
+}
+
 }
