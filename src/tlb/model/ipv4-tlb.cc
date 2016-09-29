@@ -12,7 +12,7 @@
 #include <algorithm>
 
 #define RANDOM_BASE 100
-#define SMOOTH_BASE 10
+#define SMOOTH_BASE 10000
 
 namespace ns3 {
 
@@ -44,8 +44,8 @@ Ipv4TLB::Ipv4TLB ():
     m_pathChangePoss (50),
     m_flowDieTime (MicroSeconds (1000)),
     m_isSmooth (false),
-    m_smoothAlpha (5),
-    m_smoothBeta (11)
+    m_smoothAlpha (5000),
+    m_smoothBeta (10100)
 {
     NS_LOG_FUNCTION (this);
 }
