@@ -1157,7 +1157,7 @@ Ipv4TLB::DreAging (void)
     for ( ; itr != m_pathInfo.end (); ++itr)
     {
         NS_LOG_LOGIC ("<" << (itr->first).first << "," << (itr->first).second << ">");
-        (itr->second).dreValue *= m_dreAlpha;
+        (itr->second).dreValue *= (1 - m_dreAlpha);
         NS_LOG_LOGIC ("\tDre value :" << Ipv4TLB::QuantifyDre ((itr->second).dreValue));
     }
 
