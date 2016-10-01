@@ -485,6 +485,7 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
             pathInfo.minRtt = rtt;
         }
     }
+    pathInfo.timeStamp3 = Simulator::Now ();
     m_pathInfo[key] = pathInfo;
 }
 
@@ -649,6 +650,7 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
     pathInfo.flowCounter = 0; // XXX Notice the flow count will be update using Add/Remove Flow To/From Path method
     pathInfo.timeStamp1 = Simulator::Now ();
     pathInfo.timeStamp2 = Simulator::Now ();
+    pathInfo.timeStamp3 = Simulator::Now ();
     pathInfo.dreValue = 0;
 
     return pathInfo;
@@ -1096,14 +1098,6 @@ Ipv4TLB::PathAging (void)
         {
             (itr->second).size = 1;
             (itr->second).ecnSize = 0;
-            if (m_isSmooth)
-            {
-                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta / SMOOTH_BASE;
-            }
-            else
-            {
-                (itr->second).minRtt = Seconds (666);
-            }
             (itr->second).timeStamp1 = Simulator::Now ();
         }
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)
@@ -1114,6 +1108,18 @@ Ipv4TLB::PathAging (void)
             (itr->second).isVeryTimeout = false;
             (itr->second).isProbingTimeout = false;
             (itr->second).timeStamp2 = Simulator::Now ();
+        }
+        if (Simulator::Now () - (itr->second).timeStamp3 > m_T1)
+        {
+            if (m_isSmooth)
+            {
+                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta / SMOOTH_BASE;
+            }
+            else
+            {
+                (itr->second).minRtt = Seconds (666);
+            }
+            (itr->second).timeStamp3 = Simulator::Now ();
         }
     }
 
