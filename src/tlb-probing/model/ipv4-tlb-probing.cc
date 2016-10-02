@@ -265,11 +265,14 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
         ipv4TLB->ProbeRecv (path, probingTag.GetProbeAddres (), size, isCE, oneWayRtt);
 
-        // Forward path information to servers under the same rack
-        std::vector<Ipv4Address>::iterator broadcastItr = m_broadcastAddresses.begin ();
-        for ( ; broadcastItr != m_broadcastAddresses.end (); broadcastItr ++)
+        if (!probingTag.GetIsBroadcast ())
         {
-            Ipv4TLBProbing::ForwardPathInfoTo(*broadcastItr, path, oneWayRtt, isCE);
+            // Forward path information to servers under the same rack
+            std::vector<Ipv4Address>::iterator broadcastItr = m_broadcastAddresses.begin ();
+            for ( ; broadcastItr != m_broadcastAddresses.end (); broadcastItr ++)
+            {
+                Ipv4TLBProbing::ForwardPathInfoTo(*broadcastItr, path, oneWayRtt, isCE);
+            }
         }
     }
 }
