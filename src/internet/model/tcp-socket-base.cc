@@ -1657,15 +1657,9 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               m_recover = m_highTxMark;
               m_tcb->m_congState = TcpSocketState::CA_RECOVERY;
 
-	       // if (m_flowBenderEnabled)
-	       // {
-           //     m_tcb->m_ssThresh = m_tcb->m_cWnd / 2;
-           // }
-           // else
-           // {
-                m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
+              m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
                                                                       BytesInFlight ());
-           // }
+
               m_tcb->m_cWnd = m_tcb->m_ssThresh + m_dupAckCount * m_tcb->m_segmentSize;
               NS_LOG_INFO (m_dupAckCount << " dupack. Enter fast recovery mode." <<
                            "Reset cwnd to " << m_tcb->m_cWnd << ", ssthresh to " <<

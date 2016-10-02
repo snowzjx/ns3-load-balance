@@ -65,7 +65,7 @@ std::stringstream tlbBibleFilename;
 
 void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, uint32_t path, bool isRandom, PathInfo pathInfo, std::vector<PathInfo> parallelPaths)
 {
-    NS_LOG_UNCOND ("Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") selects path: " << path << "at: " << Simulator::Now ());
+    NS_LOG_UNCOND ("Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") selects path: " << path << " at: " << Simulator::Now ());
     NS_LOG_UNCOND ("\t Is random select: " << isRandom);
     NS_LOG_UNCOND ("\t Path info: type -> " << Ipv4TLB::GetPathType (pathInfo.pathType) << ", min RTT -> " << pathInfo.rttMin
             << ", ECN Portion -> " << pathInfo.ecnPortion << ", Flow counter -> " << pathInfo.counter
@@ -83,7 +83,7 @@ void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, ui
     NS_LOG_UNCOND ("\n");
 
     std::ofstream out (tlbBibleFilename.str ().c_str (), std::ios::out|std::ios::app);
-    out << "Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") selects path: " << path << "at: " << Simulator::Now () << std::endl;
+    out << "Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") selects path: " << path << " at: " << Simulator::Now () << std::endl;
     out << "\t Is random select: " << isRandom << std::endl;
     out << "\t Path info: type -> " << Ipv4TLB::GetPathType (pathInfo.pathType) << ", min RTT -> " << pathInfo.rttMin
             << ", ECN Portion -> " << pathInfo.ecnPortion << ", Flow counter -> " << pathInfo.counter
@@ -204,7 +204,7 @@ int main (int argc, char *argv[])
 
     uint32_t TLBRunMode = 0;
     bool TLBProbingEnable = true;
-    uint32_t TLBProbingInterval = 100;
+    uint32_t TLBProbingInterval = 50;
     bool TLBSmooth = true;
 
     bool tcpPause = false;
@@ -238,6 +238,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
     cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
     cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
+
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
     cmd.Parse (argc, argv);

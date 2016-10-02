@@ -45,7 +45,9 @@ Ipv4TLB::Ipv4TLB ():
     m_flowDieTime (MicroSeconds (1000)),
     m_isSmooth (false),
     m_smoothAlpha (5000),
-    m_smoothBeta (10100)
+    m_smoothDesired (15000),
+    m_smoothBeta1 (10100),
+    m_smoothBeta2 (9900)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -75,7 +77,9 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_flowDieTime (other.m_flowDieTime),
     m_isSmooth (other.m_isSmooth),
     m_smoothAlpha (other.m_smoothAlpha),
-    m_smoothBeta (other.m_smoothBeta)
+    m_smoothDesired (other.m_smoothDesired),
+    m_smoothBeta1 (other.m_smoothBeta1),
+    m_smoothBeta2 (other.m_smoothBeta2)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -1113,7 +1117,15 @@ Ipv4TLB::PathAging (void)
         {
             if (m_isSmooth)
             {
-                (itr->second).minRtt = (itr->second).minRtt * m_smoothBeta / SMOOTH_BASE;
+                Time desiredRtt = m_minRtt * m_smoothDesired / SMOOTH_BASE;
+                if ((itr->second).minRtt < desiredRtt)
+                {
+                    (itr->second).minRtt = std::max(desiredRtt, (itr->second).minRtt * m_smoothBeta1 / SMOOTH_BASE);
+                }
+                else
+                {
+                    (itr->second).minRtt = std::min(desiredRtt, (itr->second).minRtt * m_smoothBeta2 / SMOOTH_BASE);
+                }
             }
             else
             {

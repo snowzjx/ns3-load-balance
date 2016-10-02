@@ -55,7 +55,9 @@ private:
     void DoProbe ();
     void DoStop ();
 
-    void BroadcastBestPathTo (Ipv4Address addr);
+    //void BroadcastBestPathTo (Ipv4Address addr);
+
+    void ForwardPathInfoTo (Ipv4Address addr, uint32_t path, Time oneWayRtt, bool isCE);
 
     // Parameters
     Ipv4Address m_sourceAddress;
@@ -73,8 +75,8 @@ private:
     uint32_t m_bestPath;
 
     Time m_bestPathRtt;
-    bool m_bestPathECN;
-    uint32_t m_bestPathSize;
+    //bool m_bestPathECN;
+    //uint32_t m_bestPathSize;
     /* ----------------- */
 
     EventId m_probeEvent;

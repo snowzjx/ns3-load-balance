@@ -178,7 +178,9 @@ private:
 
     bool m_isSmooth;
     uint32_t m_smoothAlpha;
-    uint32_t m_smoothBeta;
+    uint32_t m_smoothDesired;
+    uint32_t m_smoothBeta1;
+    uint32_t m_smoothBeta2;
 
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */

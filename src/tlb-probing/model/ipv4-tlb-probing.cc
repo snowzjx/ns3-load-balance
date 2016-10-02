@@ -56,8 +56,8 @@ Ipv4TLBProbing::Ipv4TLBProbing ()
       m_hasBestPath (false),
       m_bestPath (0),
       m_bestPathRtt (Seconds (666)),
-      m_bestPathECN (false),
-      m_bestPathSize (0),
+      //m_bestPathECN (false),
+      //m_bestPathSize (0),
       m_node ()
 {
     NS_LOG_FUNCTION (this);
@@ -72,8 +72,8 @@ Ipv4TLBProbing::Ipv4TLBProbing (const Ipv4TLBProbing &other)
       m_hasBestPath (false),
       m_bestPath (0),
       m_bestPathRtt (Seconds (666)),
-      m_bestPathECN (false),
-      m_bestPathSize (0),
+      //m_bestPathECN (false),
+      //m_bestPathSize (0),
       m_node ()
 {
     NS_LOG_FUNCTION (this);
@@ -195,7 +195,7 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
     Ipv4Header ipv4Header;
     found = packet->RemoveHeader (ipv4Header);
 
-    NS_LOG_LOGIC (this << " Ipv4 Header: " << ipv4Header);
+    //NS_LOG_LOGIC (this << " Ipv4 Header: " << ipv4Header);
 
     if (probingTag.GetIsReply () == 0)
     {
@@ -253,18 +253,24 @@ Ipv4TLBProbing::ReceivePacket (Ptr<Socket> socket)
         bool isCE = probingTag.GetIsCE () == 1 ? true : false;
         uint32_t size = packet->GetSize () + ipv4Header.GetSerializedSize ();
 
-        // Update best path
         if (oneWayRtt < m_bestPathRtt)
         {
             m_hasBestPath = true;
-            m_bestPath = path;
-            m_bestPathRtt = oneWayRtt;
-            m_bestPathECN = isCE;
-            m_bestPathSize = size;
+            //m_bestPath = path;
+            //m_bestPathRtt = oneWayRtt;
+            //m_bestPathECN = isCE;
+            //m_bestPathSize = size;
         }
 
         Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
         ipv4TLB->ProbeRecv (path, probingTag.GetProbeAddres (), size, isCE, oneWayRtt);
+
+        // Forward path information to servers under the same rack
+        std::vector<Ipv4Address>::iterator broadcastItr = m_broadcastAddresses.begin ();
+        for ( ; broadcastItr != m_broadcastAddresses.end (); broadcastItr ++)
+        {
+            Ipv4TLBProbing::ForwardPathInfoTo(*broadcastItr, path, oneWayRtt, isCE);
+        }
     }
 }
 
@@ -289,11 +295,13 @@ Ipv4TLBProbing::DoProbe ()
 
     if (m_hasBestPath)
     {
+        /*
         std::vector<Ipv4Address>::iterator itr = m_broadcastAddresses.begin ();
         for ( ; itr != m_broadcastAddresses.end (); itr ++)
         {
             Ipv4TLBProbing::BroadcastBestPathTo (*itr);
         }
+        */
 
         Ipv4TLBProbing::SendProbe (m_bestPath);
         probingCount --;
@@ -303,7 +311,7 @@ Ipv4TLBProbing::DoProbe ()
     std::vector<uint32_t> availPaths = ipv4TLB->GetAvailPath (m_probeAddress);
     if (!availPaths.empty ())
     {
-        for (uint32_t i = 0; i < 8; i++) // Try 8 times
+        for (uint32_t i = 0; i < 10; i++) // Try 8 times
         {
             uint32_t path = availPaths[rand() % availPaths.size ()];
             if (pathSet.find (path) != pathSet.end ())
@@ -331,6 +339,7 @@ Ipv4TLBProbing::DoStop ()
     m_probeEvent.Cancel ();
 }
 
+/*
 void
 Ipv4TLBProbing::BroadcastBestPathTo (Ipv4Address addr)
 {
@@ -358,6 +367,37 @@ Ipv4TLBProbing::BroadcastBestPathTo (Ipv4Address addr)
     packet->AddPacketTag (probingTag);
 
     m_socket->SendTo (packet, 0, to);
+}
+*/
+
+void
+Ipv4TLBProbing::ForwardPathInfoTo (Ipv4Address addr, uint32_t path, Time oneWayRtt, bool isCE)
+{
+    Address to = InetSocketAddress (addr, 0);
+
+    Ptr<Packet> packet = Create<Packet> (0);
+    Ipv4Header newHeader;
+    newHeader.SetSource (m_sourceAddress);
+    newHeader.SetDestination (addr);
+    newHeader.SetProtocol (0);
+    newHeader.SetPayloadSize (packet->GetSize ());
+    newHeader.SetEcn (Ipv4Header::ECN_ECT1);
+    newHeader.SetTtl (255);
+    packet->AddHeader (newHeader);
+
+    // Probing tag
+    Ipv4TLBProbingTag probingTag;
+    probingTag.SetId (0);
+    probingTag.SetPath (path);
+    probingTag.SetProbeAddress (m_probeAddress);
+    probingTag.SetIsReply (1);
+    probingTag.SetTime (oneWayRtt);
+    probingTag.SetIsCE (isCE);
+    probingTag.SetIsBroadcast (1);
+    packet->AddPacketTag (probingTag);
+
+    m_socket->SendTo (packet, 0, to);
+
 }
 
 }
