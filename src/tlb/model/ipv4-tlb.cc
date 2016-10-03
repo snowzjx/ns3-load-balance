@@ -12,7 +12,7 @@
 #include <algorithm>
 
 #define RANDOM_BASE 100
-#define SMOOTH_BASE 10000
+#define SMOOTH_BASE 100
 
 namespace ns3 {
 
@@ -45,9 +45,9 @@ Ipv4TLB::Ipv4TLB ():
     m_flowDieTime (MicroSeconds (1000)),
     m_isSmooth (false),
     m_smoothAlpha (5000),
-    m_smoothDesired (15000),
-    m_smoothBeta1 (10100),
-    m_smoothBeta2 (9900)
+    m_smoothDesired (150),
+    m_smoothBeta1 (101),
+    m_smoothBeta2 (99)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -1120,11 +1120,11 @@ Ipv4TLB::PathAging (void)
                 Time desiredRtt = m_minRtt * m_smoothDesired / SMOOTH_BASE;
                 if ((itr->second).minRtt < desiredRtt)
                 {
-                    (itr->second).minRtt = std::max(desiredRtt, (itr->second).minRtt * m_smoothBeta1 / SMOOTH_BASE);
+                    (itr->second).minRtt = std::min(desiredRtt, (itr->second).minRtt * m_smoothBeta1 / SMOOTH_BASE);
                 }
                 else
                 {
-                    (itr->second).minRtt = std::min(desiredRtt, (itr->second).minRtt * m_smoothBeta2 / SMOOTH_BASE);
+                    (itr->second).minRtt = std::max(desiredRtt, (itr->second).minRtt * m_smoothBeta2 / SMOOTH_BASE);
                 }
             }
             else
