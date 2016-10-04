@@ -22,6 +22,7 @@ NS_OBJECT_ENSURE_REGISTERED (Ipv4TLB);
 
 Ipv4TLB::Ipv4TLB ():
     m_runMode (0),
+    m_rerouteEnable (false),
     m_S (64000),
     m_T (MicroSeconds (1500)),
     m_K (10000),
@@ -33,6 +34,7 @@ Ipv4TLB::Ipv4TLB ():
     m_dreDataRate (DataRate ("1Gbps")),
     m_dreQ (3),
     m_minRtt (MicroSeconds (60)), // 50 70 100
+    m_highRtt (MicroSeconds (80)),
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
@@ -44,7 +46,7 @@ Ipv4TLB::Ipv4TLB ():
     m_pathChangePoss (50),
     m_flowDieTime (MicroSeconds (1000)),
     m_isSmooth (false),
-    m_smoothAlpha (5000),
+    m_smoothAlpha (50),
     m_smoothDesired (150),
     m_smoothBeta1 (101),
     m_smoothBeta2 (99)
@@ -54,6 +56,7 @@ Ipv4TLB::Ipv4TLB ():
 
 Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_runMode (other.m_runMode),
+    m_rerouteEnable (other.m_rerouteEnable),
     m_S (other.m_S),
     m_T (other.m_T),
     m_K (other.m_K),
@@ -65,6 +68,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_dreDataRate (other.m_dreDataRate),
     m_dreQ (other.m_dreQ),
     m_minRtt (other.m_minRtt),
+    m_highRtt (other.m_highRtt),
     m_ecnSampleMin (other.m_ecnSampleMin),
     m_ecnPortionLow (other.m_ecnPortionLow),
     m_ecnPortionHigh (other.m_ecnPortionHigh),
@@ -95,6 +99,10 @@ Ipv4TLB::GetTypeId (void)
                       UintegerValue (0),
                       MakeUintegerAccessor (&Ipv4TLB::m_runMode),
                       MakeUintegerChecker<uint32_t> ())
+        .AddAttribute ("Rerouting", "Wether the reroute is enabled",
+                      BooleanValue (false),
+                      MakeBooleanAccessor (&Ipv4TLB::m_rerouteEnable),
+                      MakeBooleanChecker ())
         .AddAttribute ("MinRTT", "Min RTT used to judge a good path",
                       TimeValue (MicroSeconds(50)),
                       MakeTimeAccessor (&Ipv4TLB::m_minRtt),
@@ -123,6 +131,10 @@ Ipv4TLB::GetTypeId (void)
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
                          "ns3::Ipv4TLB::TLBPathCallback")
+        .AddTraceSource ("ChangePath",
+                         "When the flow changes the path",
+                         MakeTraceSourceAccessor (&Ipv4TLB::m_pathChangeTrace),
+                         "ns3::Ipv4TLB::TLBPathChangeCallback")
     ;
 
     return tid;
@@ -212,21 +224,29 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
         return newPath.pathId;
     }
-    else
+    else if (m_rerouteEnable)
     {
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
-        if (0 == 1 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
+        if (0 == 1
+                && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {
             struct PathInfo newPath;
             if (Ipv4TLB::WhereToChange (destTor, newPath, true, oldPath))
             {
-                // TODO
+                if (newPath.pathId != oldPath)
+                {
+                    m_pathChangeTrace (flowId, sourceTor, destTor, newPath.pathId, oldPath, false, Ipv4TLB::GatherParallelPaths (destTor));
+                }
             }
             else
             {
                 newPath = Ipv4TLB::SelectRandomPath (destTor);
+                if (newPath.pathId != oldPath)
+                {
+                    m_pathChangeTrace (flowId, sourceTor, destTor, newPath.pathId, oldPath, true, Ipv4TLB::GatherParallelPaths (destTor));
+                }
             }
 
             if (newPath.pathId == oldPath)
@@ -241,7 +261,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         }
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
                 && (flowItr->second).size >= m_S
-                && ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)
+                /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
         {
             if (rand () % RANDOM_BASE < static_cast<int> (RANDOM_BASE - m_pathChangePoss))
@@ -256,6 +276,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
                 {
                     return oldPath;
                 }
+
+                m_pathChangeTrace (flowId, sourceTor, destTor, newPath.pathId, oldPath, false, Ipv4TLB::GatherParallelPaths (destTor));
 
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
@@ -273,6 +295,11 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         {
             return oldPath;
         }
+    }
+    else
+    {
+        uint32_t oldPath = (flowItr->second).path;
+        return oldPath;
     }
 }
 
@@ -1013,6 +1040,7 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         /*path.pathType = GoodPath;*/
         /*path.rttMin = m_betterPathRttThresh + MicroSeconds (100);*/
         path.rttMin = m_minRtt;
+        path.size = 0;
         path.ecnPortion = 0.3;
         path.counter = 0;
         path.quantifiedDre = 0;
@@ -1020,6 +1048,7 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     }
     TLBPathInfo pathInfo = itr->second;
     path.rttMin = pathInfo.minRtt;
+    path.size = pathInfo.size;
     path.ecnPortion = static_cast<double>(pathInfo.ecnSize) / pathInfo.size;
     path.counter = pathInfo.flowCounter;
     path.quantifiedDre = Ipv4TLB::QuantifyDre (pathInfo.dreValue);
@@ -1042,8 +1071,9 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         return path;
     }
 
-    if ((static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
-            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )
+    if (/*(static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
+            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )*/ // TODO RTT > threshold, comment ECN
+            pathInfo.minRtt >= m_highRtt
             || pathInfo.isTimeout == true
             || pathInfo.isRetransmission == true)
     {
@@ -1057,8 +1087,8 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
 bool
 Ipv4TLB::PathLIsBetterR (struct PathInfo pathL, struct PathInfo pathR)
 {
-    if (pathR.ecnPortion - pathL.ecnPortion >= m_betterPathEcnThresh
-        && pathR.rttMin - pathL.rttMin >= m_betterPathRttThresh)
+    if (/*pathR.ecnPortion - pathL.ecnPortion >= m_betterPathEcnThresh // TODO Comment ECN
+        &&*/ pathR.rttMin - pathL.rttMin >= m_betterPathRttThresh)
     {
         return true;
     }
@@ -1120,11 +1150,11 @@ Ipv4TLB::PathAging (void)
                 Time desiredRtt = m_minRtt * m_smoothDesired / SMOOTH_BASE;
                 if ((itr->second).minRtt < desiredRtt)
                 {
-                    (itr->second).minRtt = std::min(desiredRtt, (itr->second).minRtt * m_smoothBeta1 / SMOOTH_BASE);
+                    (itr->second).minRtt = std::min (desiredRtt, (itr->second).minRtt * m_smoothBeta1 / SMOOTH_BASE);
                 }
                 else
                 {
-                    (itr->second).minRtt = std::max(desiredRtt, (itr->second).minRtt * m_smoothBeta2 / SMOOTH_BASE);
+                    (itr->second).minRtt = std::max (desiredRtt, (itr->second).minRtt * m_smoothBeta2 / SMOOTH_BASE);
                 }
             }
             else

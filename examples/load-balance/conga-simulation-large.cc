@@ -62,6 +62,7 @@ enum RunMode {
 };
 
 std::stringstream tlbBibleFilename;
+std::stringstream tlbBibleFilename2;
 
 void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, uint32_t path, bool isRandom, PathInfo pathInfo, std::vector<PathInfo> parallelPaths)
 {
@@ -77,7 +78,7 @@ void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, ui
     {
         struct PathInfo path = *itr;
         NS_LOG_UNCOND ("\t\t Path info: " << path.pathId << ", type -> " << Ipv4TLB::GetPathType (path.pathType) << ", min RTT -> " << path.rttMin
-            << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
+            << ", Path size -> " << path.size << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
             << ", Quantified DRE -> " << path.quantifiedDre);
     }
     NS_LOG_UNCOND ("\n");
@@ -95,7 +96,37 @@ void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, ui
     {
         struct PathInfo path = *itr;
         out << "\t\t Path info: " << path.pathId << ", type -> " << Ipv4TLB::GetPathType (path.pathType) << ", min RTT -> " << path.rttMin
-            << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
+            << ", Path size -> " << path.size << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
+            << ", Quantified DRE -> " << path.quantifiedDre << std::endl;
+    }
+    out << std::endl;
+}
+
+void TLBPathChangeTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, uint32_t newPath, uint32_t oldPath, bool isRandom, std::vector<PathInfo> parallelPaths)
+{
+    NS_LOG_UNCOND ("Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") changes path from: " << oldPath << " to " << newPath << " at: " << Simulator::Now ());
+    NS_LOG_UNCOND ("\t Is random select: " << isRandom);
+    NS_LOG_UNCOND ("\t Parallel path info: ");
+    std::vector<PathInfo>::iterator itr = parallelPaths.begin ();
+    for (; itr != parallelPaths.end (); ++itr)
+    {
+        struct PathInfo path = *itr;
+        NS_LOG_UNCOND ("\t\t Path info: " << path.pathId << ", type -> " << Ipv4TLB::GetPathType (path.pathType) << ", min RTT -> " << path.rttMin
+            << ", Path size -> " << path.size << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
+            << ", Quantified DRE -> " << path.quantifiedDre);
+    }
+    NS_LOG_UNCOND ("\n");
+
+    std::ofstream out (tlbBibleFilename2.str ().c_str (), std::ios::out|std::ios::app);
+    out << "Flow: " << flowId << " (" << fromTor << " -> " << destTor << ") changes path from: " << oldPath << " to " << newPath << " at: " << Simulator::Now ();
+    out << "\t Is random select: " << isRandom << std::endl;
+    out << "\t Parallel path info: " << std::endl;
+    itr = parallelPaths.begin ();
+    for (; itr != parallelPaths.end (); ++itr)
+    {
+        struct PathInfo path = *itr;
+        out << "\t\t Path info: " << path.pathId << ", type -> " << Ipv4TLB::GetPathType (path.pathType) << ", min RTT -> " << path.rttMin
+            << ", Path size -> " << path.size << ", ECN Portion -> " << path.ecnPortion << ", Flow counter -> " << path.counter
             << ", Quantified DRE -> " << path.quantifiedDre << std::endl;
     }
     out << std::endl;
@@ -169,7 +200,6 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
     }
 }
 
-
 int main (int argc, char *argv[])
 {
 #if 1
@@ -196,8 +226,8 @@ int main (int argc, char *argv[])
     uint64_t spineLeafCapacity = 10;
     uint64_t leafServerCapacity = 10;
 
-    uint32_t TLBMinRTT = 100;
-    uint32_t TLBPoss = 0;
+    uint32_t TLBMinRTT = 40;
+    uint32_t TLBPoss = 50;
     uint32_t TLBBetterPathRTT = 1;
     uint32_t TLBT1 = 100;
     double TLBECNPortionLow = 0.1;
@@ -206,6 +236,7 @@ int main (int argc, char *argv[])
     bool TLBProbingEnable = true;
     uint32_t TLBProbingInterval = 50;
     bool TLBSmooth = true;
+    bool TLBRerouting = true;
 
     bool tcpPause = false;
 
@@ -238,6 +269,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
     cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
     cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
+    cmd.AddValue ("TLBRerouting", "TLBRerouting", TLBRerouting);
 
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
@@ -334,6 +366,7 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::RunMode", UintegerValue (TLBRunMode));
         Config::SetDefault ("ns3::Ipv4TLBProbing::ProbeInterval", TimeValue (MicroSeconds (TLBProbingInterval)));
         Config::SetDefault ("ns3::Ipv4TLB::IsSmooth", BooleanValue (TLBSmooth));
+        Config::SetDefault ("ns3::Ipv4TLB::Rerouting", BooleanValue (TLBRerouting));
     }
 
     if (tcpPause)
@@ -782,6 +815,7 @@ int main (int argc, char *argv[])
     flowMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
     linkMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
     tlbBibleFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    tlbBibleFilename2 << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -823,11 +857,13 @@ int main (int argc, char *argv[])
         flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
         linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
         tlbBibleFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
+        tlbBibleFilename2 << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
     linkMonitorFilename << randomSeed << "-";
     tlbBibleFilename << randomSeed << "-";
+    tlbBibleFilename2 << randomSeed << "-";
 
     if (asym)
     {
@@ -850,16 +886,24 @@ int main (int argc, char *argv[])
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
     linkMonitorFilename << "b" << BUFFER_SIZE << "-link-utility.out";
     tlbBibleFilename << "b" << BUFFER_SIZE << "-bible.txt";
+    tlbBibleFilename2 << "b" << BUFFER_SIZE << "-piple.txt";
 
     NS_LOG_INFO ("Enabling TLB tracing");
 
     if (runMode == TLB)
     {
         remove (tlbBibleFilename.str ().c_str ());
-        Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/SelectPath",
-                MakeCallback (&TLBPathSelectTrace));
+        remove (tlbBibleFilename2.str ().c_str ());
+
+        //Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/SelectPath",
+                //MakeCallback (&TLBPathSelectTrace));
+
+        Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/ChangePath",
+                MakeCallback (&TLBPathChangeTrace));
         std::ofstream out (tlbBibleFilename.str ().c_str (), std::ios::out|std::ios::app);
         out << Ipv4TLB::GetLogo ();
+        std::ofstream out2 (tlbBibleFilename2.str ().c_str (), std::ios::out|std::ios::app);
+        out2 << Ipv4TLB::GetLogo ();
     }
 
     NS_LOG_INFO ("Start simulation");

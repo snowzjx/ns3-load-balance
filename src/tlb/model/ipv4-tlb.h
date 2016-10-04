@@ -35,6 +35,7 @@ struct PathInfo {
     uint32_t pathId;
     PathType pathType;
     Time rttMin;
+    uint32_t size;
     double ecnPortion;
     uint32_t counter;
     uint32_t quantifiedDre;
@@ -135,6 +136,8 @@ private:
     // Parameters
     uint32_t m_runMode; // Running Mode 0 for minimize counter, 1 for minimize RTT, 2 for random
 
+    bool m_rerouteEnable;
+
     uint32_t m_S;
 
     Time m_T;
@@ -156,6 +159,8 @@ private:
     uint32_t m_dreQ;
 
     Time m_minRtt;
+
+    Time m_highRtt;
 
     uint32_t m_ecnSampleMin;
 
@@ -201,8 +206,12 @@ private:
     typedef void (* TLBPathCallback) (uint32_t flowId, uint32_t fromTor,
             uint32_t toTor, uint32_t path, bool isRandom, PathInfo info, std::vector<PathInfo> parallelPaths);
 
+    typedef void (* TLBPathChangeCallback) (uint32_t flowId, uint32_t fromTor, uint32_t toTor,
+            uint32_t newPath, uint32_t oldPath, bool isRandom, std::vector<PathInfo> parallelPaths);
 
     TracedCallback <uint32_t, uint32_t, uint32_t, uint32_t, bool, PathInfo, std::vector<PathInfo> > m_pathSelectTrace;
+
+    TracedCallback <uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, bool, std::vector<PathInfo> > m_pathChangeTrace;
 
 
 };
