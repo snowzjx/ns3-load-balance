@@ -3083,15 +3083,15 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
     if (found && ipv4EcnTag.GetEcn() == Ipv4Header::ECN_ECT1)
     {
       NS_LOG_LOGIC (this << " Received ECT1, notify the congestion control algorithm of the non congestion");
-      m_congestionControl->CwndEvent(m_tcb, TcpCongestionOps::CA_EVENT_ECN_NO_CE, this);
       m_tcb->m_ecnSeen = true;
+      m_congestionControl->CwndEvent(m_tcb, TcpCongestionOps::CA_EVENT_ECN_NO_CE, this);
     }
     if (found && ipv4EcnTag.GetEcn() == Ipv4Header::ECN_CE)
     {
       NS_LOG_LOGIC (this << " Received CE, notify the congestion control algorithm of the congestion");
-      m_congestionControl->CwndEvent(m_tcb, TcpCongestionOps::CA_EVENT_ECN_IS_CE, this);
       m_tcb->m_demandCWR = true;
       m_tcb->m_ecnSeen = true;
+      m_congestionControl->CwndEvent(m_tcb, TcpCongestionOps::CA_EVENT_ECN_IS_CE, this);
     }
   }
 

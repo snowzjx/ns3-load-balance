@@ -105,6 +105,7 @@ TcpDCTCP::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBas
       NS_LOG_DEBUG ("Delayed ACK exists, sending ACK");
       SendEmptyPacket(socket, TcpHeader::ACK);
     }
+    tcb->m_demandCWR = true;
     m_isCE = true;
   }
   else if (ev == TcpCongestionOps::CA_EVENT_ECN_NO_CE && m_isCE == true) // CE -> No CE
@@ -115,6 +116,7 @@ TcpDCTCP::CwndEvent(Ptr<TcpSocketState> tcb, TcpCongEvent_t ev, Ptr<TcpSocketBas
       NS_LOG_DEBUG ("Delayed ACK exists, sending ACK | ECE");
       SendEmptyPacket(socket, TcpHeader::ACK | TcpHeader::ECE);
     }
+    tcb->m_demandCWR = false;
     m_isCE = false;
   }
   else if (ev == TcpCongestionOps::CA_EVENT_DELAY_ACK_RESERVED)
