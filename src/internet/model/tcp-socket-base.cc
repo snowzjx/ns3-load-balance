@@ -2996,7 +2996,7 @@ TcpSocketBase::SendPendingData (bool withAck)
       uint32_t sz = SendDataPacket (m_nextTxSequence, s, withAck);
       nPacketsSent++;                             // Count sent this loop
       m_nextTxSequence += sz;                     // Advance next tx sequence
-      if (nPacketsSent == 4)
+      if (nPacketsSent == 2)
       {
           break;
       }
