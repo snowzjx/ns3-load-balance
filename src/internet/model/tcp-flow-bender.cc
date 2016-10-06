@@ -32,8 +32,8 @@ TcpFlowBender::GetTypeId (void)
 
 TcpFlowBender::TcpFlowBender ()
     :Object (),
-     m_totalPackets (0),
-     m_markedPackets (0),
+     m_totalBytes (0),
+     m_markedBytes (0),
      m_numCongestionRtt (0),
      m_V (1),
      m_highTxMark (0),
@@ -46,9 +46,9 @@ TcpFlowBender::TcpFlowBender ()
 }
 
 TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
-    :Object (),
-    m_totalPackets (0),
-     m_markedPackets (0),
+     :Object (),
+     m_totalBytes (0),
+     m_markedBytes (0),
      m_numCongestionRtt (0),
      m_V (1),
      m_highTxMark (0),
@@ -72,14 +72,14 @@ TcpFlowBender::DoDispose (void)
 }
 
 void
-TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber, bool withECE)
+TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber, uint32_t ackedBytes, bool withECE)
 {
     NS_LOG_INFO (this << " High TX Mark: " << m_highTxMark << ", ACK Number: " << ackNumber);
-    m_totalPackets++;
+    m_totalBytes += ackedBytes;
     m_totalPacketsStatis++;
     if (withECE)
     {
-        m_markedPackets++;
+        m_markedBytes += ackedBytes;
         m_markedPacketsStatis++;
     }
     if (ackNumber >= m_highTxMark)
@@ -100,9 +100,9 @@ TcpFlowBender::GetV ()
 void
 TcpFlowBender::CheckCongestion ()
 {
-    double f = static_cast<double> (m_markedPackets) / m_totalPackets;
-    NS_LOG_LOGIC (this << "\tMarked packet: " << m_markedPackets
-                       << "\tTotal packet: " << m_totalPackets
+    double f = static_cast<double> (m_markedBytes) / m_totalBytes;
+    NS_LOG_LOGIC (this << "\tMarked packet: " << m_markedBytes
+                       << "\tTotal packet: " << m_totalBytes
                        << "\tf: " << f);
     if (f > m_T)
     {
@@ -119,8 +119,8 @@ TcpFlowBender::CheckCongestion ()
         m_numCongestionRtt = 0;
     }
 
-    m_markedPackets = 0;
-    m_totalPackets = 0;
+    m_markedBytes = 0;
+    m_totalBytes = 0;
 }
 
 }

@@ -1607,12 +1607,6 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
     withECE = true;
   }
 
-  // XXX FlowBender
-  if (m_flowBenderEnabled)
-  {
-    m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, withECE);
-  }
-
   // XXX TLB Support
   if (m_TLBEnabled && m_TLBSendSide)
   {
@@ -1697,6 +1691,13 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
 
       // Artificially call PktsAcked. After all, one segment has been ACKed.
       m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE, m_highTxMark, ackNumber);
+
+      // XXX FlowBender
+      if (m_flowBenderEnabled)
+      {
+        m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize, withECE);
+      }
+
     }
   else if (ackNumber == m_txBuffer->HeadSequence ()
            && ackNumber == m_nextTxSequence)
@@ -1732,6 +1733,11 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       if (m_tcb->m_congState == TcpSocketState::CA_OPEN)
         {
             m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
+            // XXX FlowBender
+            if (m_flowBenderEnabled)
+            {
+              m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+            }
         }
       // XXX After the CWR has been acked, the CA_CWR exits
       else if (m_tcb->m_congState == TcpSocketState::CA_CWR)
@@ -1744,6 +1750,12 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             m_retransOut = 0;
           }
           m_congestionControl->PktsAcked(m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
+          // XXX FlowBender
+          if (m_flowBenderEnabled)
+          {
+            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+          }
+
         }
       else if (m_tcb->m_congState == TcpSocketState::CA_DISORDER)
         {
@@ -1751,6 +1763,12 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
           // packet algorithm from FACK to NewReno. We simply go back in Open.
           m_tcb->m_congState = TcpSocketState::CA_OPEN;
           m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
+          // XXX FlowBender
+          if (m_flowBenderEnabled)
+          {
+            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+          }
+
           m_dupAckCount = 0;
           m_retransOut = 0;
 
@@ -1803,6 +1821,11 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
                * been processed when they come under the form of dupACKs
                */
               m_congestionControl->PktsAcked (m_tcb, 1, m_lastRtt, withECE, m_highTxMark, ackNumber);
+              // XXX FlowBender
+              if (m_flowBenderEnabled)
+              {
+                  m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize, withECE);
+              }
 
               NS_LOG_INFO ("Partial ACK for seq " << ackNumber <<
                            " in fast recovery: cwnd set to " << m_tcb->m_cWnd <<
@@ -1830,6 +1853,12 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
                * except the (maybe) new ACKs which come from a new window
                */
               m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
+              // XXX FlowBender
+              if (m_flowBenderEnabled)
+              {
+                m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+              }
+
               newSegsAcked = (ackNumber - m_recover) / m_tcb->m_segmentSize;
               m_tcb->m_congState = TcpSocketState::CA_OPEN;
 
@@ -1843,6 +1872,12 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
           // Go back in OPEN state
           m_isFirstPartialAck = true;
           m_congestionControl->PktsAcked (m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
+          // XXX FlowBender
+          if (m_flowBenderEnabled)
+          {
+            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+          }
+
           m_dupAckCount = 0;
           m_retransOut = 0;
           m_tcb->m_congState = TcpSocketState::CA_OPEN;
