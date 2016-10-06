@@ -2814,7 +2814,7 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
     }
 
   // XXX If this data packet is not retransmission, set ECT
-  if (m_tcb->m_ecnConn /* && !isRetransmission*/) {
+  if (m_tcb->m_ecnConn && !isRetransmission) {
     if (m_tcb->m_queueCWR) {
         // The congestion control has responeded, mark CWR in TCP header
         m_tcb->m_queueCWR = false;
