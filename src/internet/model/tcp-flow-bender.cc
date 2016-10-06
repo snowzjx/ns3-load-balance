@@ -72,7 +72,8 @@ TcpFlowBender::DoDispose (void)
 }
 
 void
-TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber, uint32_t ackedBytes, bool withECE)
+TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber,
+        uint32_t ackedBytes, bool withECE, bool isRecover)
 {
     NS_LOG_INFO (this << " High TX Mark: " << m_highTxMark << ", ACK Number: " << ackNumber);
     m_totalBytes += ackedBytes;
@@ -85,7 +86,16 @@ TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ac
     if (ackNumber >= m_highTxMark)
     {
         m_highTxMark = highTxhMark;
-        TcpFlowBender::CheckCongestion ();
+        if (!isRecover)
+        {
+            TcpFlowBender::CheckCongestion ();
+        }
+        else
+        {
+            m_totalBytes = 0;
+            m_markedBytes = 0;
+            m_numCongestionRtt = 0;
+        }
     }
 }
 

@@ -1695,7 +1695,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       // XXX FlowBender
       if (m_flowBenderEnabled)
       {
-        m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize, withECE);
+        m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize,
+                withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
       }
 
     }
@@ -1736,7 +1737,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             // XXX FlowBender
             if (m_flowBenderEnabled)
             {
-              m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+              m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked,
+                    withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
             }
         }
       // XXX After the CWR has been acked, the CA_CWR exits
@@ -1753,7 +1755,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
           // XXX FlowBender
           if (m_flowBenderEnabled)
           {
-            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+              m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked,
+                    withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
           }
 
         }
@@ -1766,7 +1769,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
           // XXX FlowBender
           if (m_flowBenderEnabled)
           {
-            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+              m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked,
+                    withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY) ;
           }
 
           m_dupAckCount = 0;
@@ -1824,7 +1828,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               // XXX FlowBender
               if (m_flowBenderEnabled)
               {
-                  m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize, withECE);
+                  m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize,
+                          withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
               }
 
               NS_LOG_INFO ("Partial ACK for seq " << ackNumber <<
@@ -1856,7 +1861,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               // XXX FlowBender
               if (m_flowBenderEnabled)
               {
-                m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+                m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked,
+                        withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
               }
 
               newSegsAcked = (ackNumber - m_recover) / m_tcb->m_segmentSize;
@@ -1875,7 +1881,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
           // XXX FlowBender
           if (m_flowBenderEnabled)
           {
-            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked, withECE);
+            m_flowBender->ReceivedPacket (m_highTxMark, ackNumber, m_tcb->m_segmentSize * segsAcked,
+                    withECE, m_tcb->m_congState == TcpSocketState::CA_RECOVERY);
           }
 
           m_dupAckCount = 0;

@@ -20,7 +20,8 @@ public:
 
     virtual void DoDispose (void);
 
-    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber, uint32_t ackedBytes, bool withECE);
+    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber,
+            uint32_t ackedBytes, bool withECE, bool isRecover);
 
     uint32_t GetV ();
 
