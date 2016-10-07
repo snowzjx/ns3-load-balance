@@ -1318,7 +1318,9 @@ TcpSocketBase::DoForwardUp (Ptr<Packet> packet, const Address &fromAddress,
       // Acknowledgement should be sent for all unacceptable packets (RFC793, p.69)
       if (m_state == ESTABLISHED && !(tcpHeader.GetFlags () & TcpHeader::RST))
         {
-          SendEmptyPacket (TcpHeader::ACK);
+          // TODO Check @ Hong
+          // We just ignore those packets
+          // SendEmptyPacket (TcpHeader::ACK);
         }
       return;
     }
@@ -3184,22 +3186,6 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
       m_onewayRtt = Simulator::Now () - tcpTLBTag.GetTime ();
       m_TLBPath = tcpTLBTag.GetPath ();
     }
-  }
-
-  // TODO To Check @ZHANG HONG
-  // We will not buffer any buffered packets
-  // First checking if its seq number has been buffered,
-  // If yes, simply ignore it
-  // If no, buffer it and follow the original TCP logic
-
-  SequenceNumber32 seq = tcpHeader.GetSequenceNumber ();
-  if (m_bufferedDataSeqs.find (seq) != m_bufferedDataSeqs.end ())
-  {
-    return;
-  }
-  else
-  {
-    m_bufferedDataSeqs.insert (seq);
   }
 
   // Put into Rx buffer

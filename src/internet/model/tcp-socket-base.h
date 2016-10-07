@@ -1032,7 +1032,6 @@ protected:
   Time                      m_pauseTime;
   uint32_t                  m_oldPath;
   Ptr<TcpPauseBuffer>       m_pauseBuffer;
-  std::set<SequenceNumber32> m_bufferedDataSeqs;
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations
