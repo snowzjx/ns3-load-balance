@@ -1590,14 +1590,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         NS_LOG_DEBUG (TcpSocketState::TcpCongStateName[m_tcb->m_congState] <<
               " -> CA_CWR");
         // The ssThresh and cWnd should be reduced because of the congestion notification
-        if (m_flowBenderEnabled)
-        {
-            m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, 0);
-        }
-        else
-        {
-            m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, BytesInFlight());
-        }
+
+        m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, BytesInFlight());
         m_tcb->m_cWnd = m_congestionControl->GetCwnd(m_tcb);
         m_tcb->m_congState = TcpSocketState::CA_CWR;
         m_tcb->m_queueCWR = true;
@@ -1660,15 +1654,9 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
               m_recover = m_highTxMark;
               m_tcb->m_congState = TcpSocketState::CA_RECOVERY;
 
-              if (m_flowBenderEnabled)
-              {
-                  m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, 0);
-              }
-              else
-              {
-                  m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
-                                                                        BytesInFlight ());
-              }
+              m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb,
+                                                                    BytesInFlight ());
+
               m_tcb->m_cWnd = m_tcb->m_ssThresh + m_dupAckCount * m_tcb->m_segmentSize;
               NS_LOG_INFO (m_dupAckCount << " dupack. Enter fast recovery mode." <<
                            "Reset cwnd to " << m_tcb->m_cWnd << ", ssthresh to " <<
@@ -1746,13 +1734,15 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
       // XXX After the CWR has been acked, the CA_CWR exits
       else if (m_tcb->m_congState == TcpSocketState::CA_CWR)
         {
-          if(m_tcb->m_sentCWR && ackNumber > m_tcb->m_CWRSentSeq) {
-            NS_LOG_DEBUG ("CA_CWR -> OPEN");
-            m_tcb->m_congState = TcpSocketState::CA_OPEN;
-            m_tcb->m_sentCWR = false;
-            m_dupAckCount = 0;
-            m_retransOut = 0;
-          }
+          if(m_tcb->m_sentCWR && ackNumber > m_tcb->m_CWRSentSeq)
+            {
+              NS_LOG_DEBUG ("CA_CWR -> OPEN");
+              m_tcb->m_congState = TcpSocketState::CA_OPEN;
+              m_tcb->m_sentCWR = false;
+            }
+          m_dupAckCount = 0;
+          m_retransOut = 0;
+
           m_congestionControl->PktsAcked(m_tcb, segsAcked, m_lastRtt, withECE, m_highTxMark, ackNumber);
           // XXX FlowBender
           if (m_flowBenderEnabled)
@@ -1841,15 +1831,8 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
             }
           else if (ackNumber >= m_recover)
             { // Full ACK (RFC2582 sec.3 bullet #5 paragraph 2, option 1)
-              if (m_flowBenderEnabled)
-              {
-                  m_tcb->m_cWnd = m_tcb->m_ssThresh.Get ();
-              }
-              else
-              {
-                 m_tcb->m_cWnd = std::min (m_tcb->m_ssThresh.Get (),
+              m_tcb->m_cWnd = std::min (m_tcb->m_ssThresh.Get (),
                                         BytesInFlight () + m_tcb->m_segmentSize);
-              }
               m_isFirstPartialAck = true;
               m_dupAckCount = 0;
               m_retransOut = 0;
@@ -3490,14 +3473,7 @@ TcpSocketBase::Retransmit ()
         ipv4TLB->FlowTimeout (flowId, m_endPoint->GetPeerAddress (), m_pathAcked);
       }
       m_tcb->m_congState = TcpSocketState::CA_LOSS;
-      if (m_flowBenderEnabled)
-      {
-        m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, 0);
-      }
-      else
-      {
-        m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, BytesInFlight ());
-      }
+      m_tcb->m_ssThresh = m_congestionControl->GetSsThresh (m_tcb, BytesInFlight ());
       m_tcb->m_cWnd = m_tcb->m_segmentSize;
     }
 
