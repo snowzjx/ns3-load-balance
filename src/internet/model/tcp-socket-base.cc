@@ -3186,6 +3186,22 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
     }
   }
 
+  // TODO To Check @ZHANG HONG
+  // We will not buffer any buffered packets
+  // First checking if its seq number has been buffered,
+  // If yes, simply ignore it
+  // If no, buffer it and follow the original TCP logic
+
+  SequenceNumber32 seq = tcpHeader.GetSequenceNumber ();
+  if (m_bufferedDataSeqs.find (seq) != m_bufferedDataSeqs.end ())
+  {
+    return;
+  }
+  else
+  {
+    m_bufferedDataSeqs.insert (seq);
+  }
+
   // Put into Rx buffer
   SequenceNumber32 expectedSeq = m_rxBuffer->NextRxSequence ();
   if (!m_rxBuffer->Add (p, tcpHeader))
