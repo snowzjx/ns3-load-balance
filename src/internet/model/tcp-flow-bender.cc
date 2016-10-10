@@ -121,7 +121,8 @@ TcpFlowBender::CheckCongestion ()
         {
             m_numCongestionRtt = 0;
             // XXX Do we need to clear the congestion state
-            m_V = m_V + 1 + (rand() % 10);
+            // m_V = m_V + 1 + (rand() % 10);
+            m_V ++;
         }
     }
     else
