@@ -88,6 +88,12 @@ Ipv4CongaRouting::SetLinkCapacity (DataRate dataRate)
 }
 
 void
+Ipv4CongaRouting::SetLinkCapacity (uint32_t interface, DataRate dataRate)
+{
+  m_Cs[interface] = dataRate;
+}
+
+void
 Ipv4CongaRouting::SetQ (uint32_t q)
 {
   m_Q = q;
@@ -376,7 +382,7 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
         std::map<uint32_t, uint32_t>::iterator localCongestionItr = m_XMap.find (port);
         if (localCongestionItr != m_XMap.end ())
         {
-          localCongestion = Ipv4CongaRouting::QuantizingX (localCongestionItr->second);
+          localCongestion = Ipv4CongaRouting::QuantizingX (port, localCongestionItr->second);
         }
 
         std::map<uint32_t, std::pair<Time, uint32_t> >::iterator remoteCongestionItr =
@@ -557,12 +563,12 @@ Ipv4CongaRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
     uint32_t X = Ipv4CongaRouting::UpdateLocalDre (header, packet, selectedPort);
 
     NS_LOG_LOGIC (this << " Forwarding Conga packet, Quantized X on port: " << selectedPort
-            << " is: " << Ipv4CongaRouting::QuantizingX (X)
+            << " is: " << Ipv4CongaRouting::QuantizingX (selectedPort, X)
             << ", LbTag in Conga header is: " << ipv4CongaTag.GetLbTag ()
             << ", CE in Conga header is: " << ipv4CongaTag.GetCe ()
             << ", packet size is: " << packet->GetSize ());
 
-    uint32_t quantizingX = Ipv4CongaRouting::QuantizingX (X);
+    uint32_t quantizingX = Ipv4CongaRouting::QuantizingX (selectedPort, X);
 
     // Compare the X with that in the Conga Header
     if (quantizingX > ipv4CongaTag.GetCe()) {
@@ -725,9 +731,15 @@ Ipv4CongaRouting::AgingEvent ()
 }
 
 uint32_t
-Ipv4CongaRouting::QuantizingX (uint32_t X)
+Ipv4CongaRouting::QuantizingX (uint32_t interface, uint32_t X)
 {
-  double ratio = static_cast<double> (X * 8) / (m_C.GetBitRate () * m_tdre.GetSeconds () / m_alpha);
+  DataRate c = m_C;
+  std::map<uint32_t, DataRate>::iterator itr = m_Cs.find (interface);
+  if (itr != m_Cs.end ())
+  {
+    c = itr->second;
+  }
+  double ratio = static_cast<double> (X * 8) / (c.GetBitRate () * m_tdre.GetSeconds () / m_alpha);
   NS_LOG_LOGIC ("ratio: " << ratio);
   return static_cast<uint32_t>(ratio * std::pow(2, m_Q));
 }

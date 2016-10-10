@@ -49,6 +49,8 @@ public:
 
   void SetLinkCapacity (DataRate dataRate);
 
+  void SetLinkCapacity (uint32_t interface, DataRate dataRate);
+
   void SetQ (uint32_t q);
 
   void SetFlowletTimeout (Time timeout);
@@ -88,7 +90,11 @@ private:
   double m_alpha;
 
   // Link capacity used to quantizing X
+
   DataRate m_C;
+
+  std::map<uint32_t, DataRate> m_Cs;
+
   // Quantizing bits
   uint32_t m_Q;
 
@@ -143,7 +149,7 @@ private:
 
   // Quantizing X to metrics degree
   // X is bytes here and we quantizing it to 0 - 2^Q
-  uint32_t QuantizingX (uint32_t X);
+  uint32_t QuantizingX (uint32_t interface, uint32_t X);
 
   std::vector<CongaRouteEntry> LookupCongaRouteEntries (Ipv4Address dest);
 

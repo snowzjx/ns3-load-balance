@@ -45,7 +45,13 @@ void Linkd0d1SendPacket (Ptr<const Packet> packet)
 double lastCwndCheckTime;
 
 std::string cwndPlot = "cwnd.plotme";
-std::string congPlot = "cong.plotme";
+
+std::string congPlot1 = "cong1.plotme";
+std::string congPlot2 = "cong2.plotme";
+std::string congPlot3 = "cong3.plotme";
+
+
+
 std::string queueDiscPlot = "queue_disc.plotme";
 std::string queuePlot = "queue.plotme";
 std::string queueDiscPlot3 = "queue_disc_3.plotme";
@@ -58,7 +64,10 @@ std::string queueDiscPlot4 = "queue_disc_4.plotme";
 
 std::string throughputPlot = "throughput.plotme";
 
-Gnuplot2dDataset cwndDataset;
+Gnuplot2dDataset cwndDataset1;
+Gnuplot2dDataset cwndDataset2;
+Gnuplot2dDataset cwndDataset3;
+
 Gnuplot2dDataset queueDiscDataset;
 Gnuplot2dDataset queueDataset;
 Gnuplot2dDataset queueDisc2Dataset;
@@ -71,13 +80,29 @@ Gnuplot2dDataset throughputDataset;
 
 void
 DoGnuPlot (std::string transportProt) {
-    Gnuplot cwndGnuPlot ("cwnd.png");
-    cwndGnuPlot.SetTitle("Cwnd");
-    cwndGnuPlot.SetTerminal("png");
-    cwndGnuPlot.AddDataset (cwndDataset);
-    std::ofstream cwndPlotFile ("cwnd.plt");
-    cwndGnuPlot.GenerateOutput (cwndPlotFile);
-    cwndPlotFile.close();
+    Gnuplot cwndGnuPlot1 ("cwnd1.png");
+    cwndGnuPlot1.SetTitle("Cwnd1");
+    cwndGnuPlot1.SetTerminal("png");
+    cwndGnuPlot1.AddDataset (cwndDataset1);
+    std::ofstream cwndPlotFile1 ("cwnd1.plt");
+    cwndGnuPlot1.GenerateOutput (cwndPlotFile1);
+    cwndPlotFile1.close();
+
+    Gnuplot cwndGnuPlot2 ("cwnd2.png");
+    cwndGnuPlot2.SetTitle("Cwnd2");
+    cwndGnuPlot2.SetTerminal("png");
+    cwndGnuPlot2.AddDataset (cwndDataset2);
+    std::ofstream cwndPlotFile2 ("cwnd2.plt");
+    cwndGnuPlot2.GenerateOutput (cwndPlotFile2);
+    cwndPlotFile2.close();
+
+    Gnuplot cwndGnuPlot3 ("cwnd3.png");
+    cwndGnuPlot3.SetTitle("Cwnd3");
+    cwndGnuPlot3.SetTerminal("png");
+    cwndGnuPlot3.AddDataset (cwndDataset3);
+    std::ofstream cwndPlotFile3 ("cwnd3.plt");
+    cwndGnuPlot3.GenerateOutput (cwndPlotFile3);
+    cwndPlotFile3.close();
 
     Gnuplot queueGnuPlot ("queue.png");
     queueGnuPlot.SetTitle("Queue");
@@ -156,38 +181,61 @@ DoGnuPlot (std::string transportProt) {
 }
 
 static void
-CwndChange (uint32_t oldCwnd, uint32_t newCwnd)
+CwndChange (std::string context, uint32_t oldCwnd, uint32_t newCwnd)
 {
-    //if (Simulator::Now().GetSeconds () - lastCwndCheckTime > 0.0001)
-    //{
-        //NS_LOG_UNCOND ("Cwnd: " << Simulator::Now ().GetSeconds () << "\t" << newCwnd);
-        lastCwndCheckTime = Simulator::Now ().GetSeconds ();
-        std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
-        fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
+    lastCwndCheckTime = Simulator::Now ().GetSeconds ();
+    //std::ofstream fCwndPlot (cwndPlot.c_str (), std::ios::out|std::ios::app);
+    //fCwndPlot << Simulator::Now ().GetSeconds () << " " << newCwnd << std::endl;
+    char socketNo = context.at (context.length () - 18);
+    if (socketNo == '0')
+    {
+        cwndDataset1.Add(Simulator::Now ().GetSeconds (), newCwnd);
+    }
+    else if (socketNo == '1')
+    {
+        cwndDataset2.Add(Simulator::Now ().GetSeconds (), newCwnd);
+    }
+    else if (socketNo == '2')
+    {
+        cwndDataset3.Add(Simulator::Now ().GetSeconds (), newCwnd);
+    }
 
-        cwndDataset.Add(Simulator::Now ().GetSeconds (), newCwnd);
-    //}
 }
 
 static void
-CongChange (TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
+CongChange (std::string context, TcpSocketState::TcpCongState_t oldCong, TcpSocketState::TcpCongState_t newCong)
 {
     //NS_LOG_UNCOND (Simulator::Now ().GetSeconds () << "\t" << TcpSocketState::TcpCongStateName[newCong]);
-    std::ofstream fCongPlot (congPlot.c_str (), std::ios::out|std::ios::app);
-    fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
+    char socketNo = context.at (context.length () - 11);
+    if (socketNo == '0')
+    {
+        std::ofstream fCongPlot (congPlot1.c_str (), std::ios::out|std::ios::app);
+        fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
+    }
+    else if (socketNo == '1')
+    {
+        std::ofstream fCongPlot (congPlot2.c_str (), std::ios::out|std::ios::app);
+        fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
+    }
+    else if (socketNo == '2')
+    {
+        std::ofstream fCongPlot (congPlot3.c_str (), std::ios::out|std::ios::app);
+        fCongPlot << Simulator::Now ().GetSeconds () << " " << TcpSocketState::TcpCongStateName[newCong] << std::endl;
+    }
+
 }
 
 static void
 TraceCwnd ()
 {
-    Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongestionWindow",
+    Config::Connect ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/CongestionWindow",
             MakeCallback (&CwndChange));
 }
 
 static void
 TraceCong ()
 {
-    Config::ConnectWithoutContext ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/0/CongState",
+    Config::Connect ("/NodeList/0/$ns3::TcpL4Protocol/SocketList/*/CongState",
             MakeCallback (&CongChange));
 }
 
@@ -280,14 +328,15 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
+    Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
 
 
-    std::string transportProt = "Tcp";
+    std::string transportProt = "DcTcp";
     uint32_t drbCount1 = 0;
     uint32_t drbCount2 = 0;
     bool enableResequenceBuffer = false;
-    bool enableFlowBender = false;
+    bool enableFlowBender = true;
     double flowBenderT = 0.05;
 
     CommandLine cmd;
@@ -344,6 +393,7 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Install Internet stack");
     InternetStackHelper internet;
+    internet.SetTLB (true);
     internet.Install (c.Get (0));
     internet.Install (c.Get (2));
     internet.Install (c.Get (3));
@@ -367,6 +417,20 @@ int main (int argc, char *argv[])
     tc.SetRootQueueDisc ("ns3::RedQueueDisc", "MinTh", DoubleValue (65 * 1400),
                                               "MaxTh", DoubleValue (65 * 1400));
 
+    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
+    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(10)));
+
+    remove (d0d1Rate.c_str ());
+
+    p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (250));
+
+    NetDeviceContainer d0d1 = p2p.Install (n0n1);
+
+    Ptr<PointToPointNetDevice> pD0 = DynamicCast<PointToPointNetDevice>(d0d1.Get(0));
+    pD0->TraceConnectWithoutContext("PhyTxBegin", MakeCallback(&Linkd0d1SendPacket));
+
+    // QueueDiscContainer qd0d1 = tc.Install (d0d1);
+
     if (transportProt.compare ("Tcp") == 0)
     {
         p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (250));
@@ -376,20 +440,8 @@ int main (int argc, char *argv[])
         p2p.SetQueue ("ns3::DropTailQueue", "MaxPackets", UintegerValue (10));
     }
 
-    p2p.SetDeviceAttribute ("DataRate", StringValue ("1Gbps"));
-    p2p.SetChannelAttribute ("Delay", TimeValue (MicroSeconds(10)));
-
-    remove (d0d1Rate.c_str ());
-
-    NetDeviceContainer d0d1 = p2p.Install (n0n1);
-
-    Ptr<PointToPointNetDevice> pD0 = DynamicCast<PointToPointNetDevice>(d0d1.Get(0));
-    pD0->TraceConnectWithoutContext("PhyTxBegin", MakeCallback(&Linkd0d1SendPacket));
-
-    QueueDiscContainer qd0d1 = tc.Install (d0d1);
-
     NetDeviceContainer d1d2 = p2p.Install (n1n2);
-    tc.Install (d1d2);
+    QueueDiscContainer qd1d2 = tc.Install (d1d2);
 
     NetDeviceContainer d2d4 = p2p.Install (n2n4);
     QueueDiscContainer qd2d4 = tc.Install (d2d4);
@@ -465,7 +517,7 @@ int main (int argc, char *argv[])
 
     uint16_t port = 8080;
 
-    for (int i = 0; i < 10; i ++)
+    for (int i = 0; i < 3; i ++)
     {
     BulkSendHelper source ("ns3::TcpSocketFactory",
             InetSocketAddress (i4i5.GetAddress(1), port + i));
@@ -516,7 +568,11 @@ int main (int argc, char *argv[])
     //throughputPlot << "throughput.plotme";
 
     remove(cwndPlot.c_str ());
-    remove(congPlot.c_str ());
+
+    remove(congPlot1.c_str ());
+    remove(congPlot2.c_str ());
+    remove(congPlot3.c_str ());
+
     remove(queueDiscPlot.c_str ());
     remove(queuePlot.c_str ());
     remove(queuePlot2.c_str ());
@@ -528,8 +584,14 @@ int main (int argc, char *argv[])
     remove(queueDiscPlot4.c_str ());
 
     // Gnuplot Settings
-    cwndDataset.SetTitle("Cwnd");
-    cwndDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+    cwndDataset1.SetTitle("Cwnd1");
+    cwndDataset1.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    cwndDataset2.SetTitle("Cwnd2");
+    cwndDataset2.SetStyle(Gnuplot2dDataset::LINES_POINTS);
+
+    cwndDataset3.SetTitle("Cwnd3");
+    cwndDataset3.SetStyle(Gnuplot2dDataset::LINES_POINTS);
 
     queueDataset.SetTitle("Queue");
     queueDataset.SetStyle(Gnuplot2dDataset::LINES_POINTS);
@@ -564,8 +626,8 @@ int main (int argc, char *argv[])
 
     if (transportProt.compare ("DcTcp") == 0)
     {
-        Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
-        Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot, &queueDiscDataset);
+        //Ptr<QueueDisc> queueDisc = qd0d1.Get (0);
+        //Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc, queueDiscPlot, &queueDiscDataset);
 
         Ptr<QueueDisc> queueDisc3 = qd3d4.Get (0);
         Simulator::ScheduleNow (&CheckQueueDiscSize, queueDisc3, queueDiscPlot3, &queueDisc3Dataset);

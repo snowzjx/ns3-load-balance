@@ -146,12 +146,6 @@ TcpDCTCP::GetSsThresh(Ptr<TcpSocketState> tcb, uint32_t bytesInFlight)
 {
   NS_LOG_FUNCTION (this << tcb << bytesInFlight);
 
-//  std::cout << Simulator::Now () << " GetSsThresh called..." << std::endl;
-
-  /*if (tcb->m_congState == TcpSocketState::CA_RECOVERY)*/
-  //{
-    //return TcpNewReno::GetSsThresh (tcb, bytesInFlight);
-  /*}*/
   return std::max (static_cast<uint32_t>((1 - m_alpha / 2) * tcb->m_cWnd), bytesInFlight / 2);
 }
 

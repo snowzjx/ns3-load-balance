@@ -212,8 +212,8 @@ int main (int argc, char *argv[])
     std::string cdfFileName = "";
     double load = 0.0;
     std::string transportProt = "Tcp";
-    bool asym = false;
-    bool asym2 = false;
+    bool asymCapacity = false;
+    bool asymTopology = false;
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -247,8 +247,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
-    cmd.AddValue ("asym", "Whether enabling the asym topology, this is used in the 2*2 topology, where one spine to one leaf only has one link", asym);
-    cmd.AddValue ("asym2", "Whether enabling the asym topology, this is used in the 4*4 topology, where one spine has 4 times the link capacity", asym2);
+    cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/2 the capacity of others");
+
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
 
@@ -313,11 +313,6 @@ int main (int argc, char *argv[])
         if (LINK_COUNT != 1)
         {
             NS_LOG_ERROR ("TLB currently not supports link count more than 1");
-            return 0;
-        }
-        if (asym || asym2)
-        {
-            NS_LOG_ERROR ("TLB currently not supports asym topology");
             return 0;
         }
         runMode = TLB;
@@ -540,7 +535,7 @@ int main (int argc, char *argv[])
 
             if (runMode == TLB)
             {
-    for (int k = 0; k < SERVER_COUNT * LEAF_COUNT; k++)
+                for (int k = 0; k < SERVER_COUNT * LEAF_COUNT; k++)
                 {
                     Ptr<Ipv4TLB> tlb = servers.Get (k)->GetObject<Ipv4TLB> ();
                     tlb->AddAddressWithTor (interfaceContainer.GetAddress (1), i);
@@ -579,25 +574,12 @@ int main (int argc, char *argv[])
 
         for (int j = 0; j < SPINE_COUNT; j++)
         {
-        if (asym2 == true)
-        {
-          if (j == SPINE_COUNT - 1)
-          {
-            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (4 * SPINE_LEAF_CAPACITY)));
-          }
-          else
-          {
-            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
-          }
-        }
+        p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
 
         for (int l = 0; l < LINK_COUNT; l++)
         {
 	        ipv4.NewNetwork ();
-            if (asym == true && l == LINK_COUNT - 1 && i == LEAF_COUNT - 1 && j == SPINE_COUNT - 1)
-            {
-              continue;
-            }
+
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
 		    if (transportProt.compare ("DcTcp") == 0)

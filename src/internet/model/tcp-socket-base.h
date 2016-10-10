@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <queue>
+#include <set>
 #include "ns3/callback.h"
 #include "ns3/traced-value.h"
 #include "ns3/tcp-socket.h"
@@ -1031,7 +1032,6 @@ protected:
   Time                      m_pauseTime;
   uint32_t                  m_oldPath;
   Ptr<TcpPauseBuffer>       m_pauseBuffer;
-
 
   // Transmission Control Block
   Ptr<TcpSocketState>    m_tcb;               //!< Congestion control informations

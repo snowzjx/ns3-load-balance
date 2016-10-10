@@ -20,7 +20,8 @@ public:
 
     virtual void DoDispose (void);
 
-    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber, bool withECE);
+    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber,
+            uint32_t ackedBytes, bool withECE, bool isRecover);
 
     uint32_t GetV ();
 
@@ -29,8 +30,8 @@ private:
     void CheckCongestion ();
 
     // Variables
-    uint32_t m_totalPackets;
-    uint32_t m_markedPackets;
+    uint32_t m_totalBytes;
+    uint32_t m_markedBytes;
 
     uint32_t m_numCongestionRtt;
     uint32_t m_V;
