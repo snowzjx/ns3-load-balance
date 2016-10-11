@@ -212,8 +212,12 @@ int main (int argc, char *argv[])
     std::string cdfFileName = "";
     double load = 0.0;
     std::string transportProt = "Tcp";
+
     bool asymCapacity = false;
-    bool asymTopology = false;
+    // bool asymTopology = false;
+
+    uint32_t asymCapacityPoss = 40;  // 40 %
+
     bool resequenceBuffer = false;
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -227,6 +231,7 @@ int main (int argc, char *argv[])
     uint64_t leafServerCapacity = 10;
 
     uint32_t TLBMinRTT = 40;
+    uint32_t TLBHighRTT = 180;
     uint32_t TLBPoss = 50;
     uint32_t TLBBetterPathRTT = 1;
     uint32_t TLBT1 = 100;
@@ -247,7 +252,9 @@ int main (int argc, char *argv[])
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
-    cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/2 the capacity of others");
+
+    cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/10 the capacity of others", asymCapacity);
+    cmd.AddValue ("asymCapacityPoss", "The possibility that a path will have only 1/10 capacity", asymCapacityPoss);
 
     cmd.AddValue ("flowBenderT", "The T in flowBender", flowBenderT);
     cmd.AddValue ("flowBenderN", "The N in flowBender", flowBenderN);
@@ -261,6 +268,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("leafServerCapacity", "Leaf <-> Server capacity in Gbps", leafServerCapacity);
 
     cmd.AddValue ("TLBMinRTT", "TLBMinRTT", TLBMinRTT);
+    cmd.AddValue ("TLBHighRTT", "TLBHighRTT", TLBHighRTT);
     cmd.AddValue ("TLBPoss", "TLBPoss", TLBPoss);
     cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
     cmd.AddValue ("TLBT1", "TLBT1", TLBT1);
@@ -354,6 +362,7 @@ int main (int argc, char *argv[])
         NS_LOG_INFO ("Enabling TLB");
         Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
         Config::SetDefault ("ns3::Ipv4TLB::MinRTT", TimeValue (MicroSeconds (TLBMinRTT)));
+        Config::SetDefault ("ns3::Ipv4TLB::HighRTT", TimeValue (MicroSeconds (TLBHighRTT)));
         Config::SetDefault ("ns3::Ipv4TLB::BetterPathRTTThresh", TimeValue (MicroSeconds (TLBBetterPathRTT)));
         Config::SetDefault ("ns3::Ipv4TLB::ChangePathPoss", UintegerValue (TLBPoss));
         Config::SetDefault ("ns3::Ipv4TLB::T1", TimeValue (MicroSeconds (TLBT1)));
@@ -574,11 +583,26 @@ int main (int argc, char *argv[])
 
         for (int j = 0; j < SPINE_COUNT; j++)
         {
-        p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
 
         for (int l = 0; l < LINK_COUNT; l++)
         {
-	        ipv4.NewNetwork ();
+            bool isAsymCapacity = false;
+
+            if (asymCapacity && static_cast<uint32_t> (rand () % 100) < asymCapacityPoss)
+            {
+                isAsymCapacity = true;
+            }
+
+            // TODO
+            uint64_t spineLeafCapacity = SPINE_LEAF_CAPACITY;
+
+            if (isAsymCapacity)
+            {
+                spineLeafCapacity = SPINE_LEAF_CAPACITY / 5;
+            }
+
+            p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (spineLeafCapacity)));
+            ipv4.NewNetwork ();
 
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), spines.Get (j));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
@@ -588,9 +612,10 @@ int main (int argc, char *argv[])
 	            tc.Install (netDeviceContainer);
             }
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
-            NS_LOG_INFO ("Leaf-" << i << " is connected to Spine-" << j << " with address "
-                    << ipv4InterfaceContainer.GetAddress(0) << "<->" << ipv4InterfaceContainer.GetAddress (1)
-                    << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << "<->" << netDeviceContainer.Get (1)->GetIfIndex ());
+            NS_LOG_INFO ("Leaf - " << i << " is connected to Spine - " << j << " with address "
+                    << ipv4InterfaceContainer.GetAddress(0) << " <-> " << ipv4InterfaceContainer.GetAddress (1)
+                    << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ()
+                    << " with data rate " << spineLeafCapacity);
 
             if (runMode == TLB)
             {
@@ -625,13 +650,24 @@ int main (int argc, char *argv[])
 		        congaSpine->SetTDre (MicroSeconds (30));
 		        congaSpine->SetAlpha (0.2);
 		        congaSpine->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
-		        if (runMode == CONGA_ECMP)
+
+                if (runMode == CONGA_ECMP)
 		        {
 	    		    congaSpine->EnableEcmpMode ();
 		        }
+
 		        congaSpine->AddRoute (leafNetworks[i],
 				                      Ipv4Mask("255.255.255.0"),
                                       netDeviceContainer.Get (1)->GetIfIndex ());
+
+                if (isAsymCapacity)
+                {
+                    Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
+                    congaLeaf->SetLinkCapacity (netDeviceContainer.Get (0)->GetIfIndex (), DataRate (spineLeafCapacity));
+                    NS_LOG_INFO ("Reducing Link Capacity of Conga Leaf: " << i << " with port: " << netDeviceContainer.Get (0)->GetIfIndex ());
+                    congaSpine->SetLinkCapacity(netDeviceContainer.Get (1)->GetIfIndex (), DataRate (spineLeafCapacity));
+                    NS_LOG_INFO ("Reducing Link Capacity of Conga Spine: " << j << " with port: " << netDeviceContainer.Get (1)->GetIfIndex ());
+                }
 	        }
 
 	        if (runMode == PRESTO)
@@ -794,10 +830,10 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    tlbBibleFilename << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    tlbBibleFilename2 << "260-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    tlbBibleFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    tlbBibleFilename2 << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -847,16 +883,12 @@ int main (int argc, char *argv[])
     tlbBibleFilename << randomSeed << "-";
     tlbBibleFilename2 << randomSeed << "-";
 
-    if (asym)
+    if (asymCapacity)
     {
-    	flowMonitorFilename << "asym-";
-	    linkMonitorFilename << "asym-";
-    }
-
-    if (asym2)
-    {
-        flowMonitorFilename << "asym2-";
-        linkMonitorFilename << "asym2-";
+        flowMonitorFilename << "capacity-asym-";
+	    linkMonitorFilename << "capacity-asym-";
+        tlbBibleFilename << "capacity-asym-";
+        tlbBibleFilename2 << "capacity-asym-";
     }
 
     if (resequenceBuffer)
@@ -877,8 +909,8 @@ int main (int argc, char *argv[])
         remove (tlbBibleFilename.str ().c_str ());
         remove (tlbBibleFilename2.str ().c_str ());
 
-        //Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/SelectPath",
-                //MakeCallback (&TLBPathSelectTrace));
+        Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/SelectPath",
+                MakeCallback (&TLBPathSelectTrace));
 
         Config::ConnectWithoutContext ("/NodeList/*/$ns3::Ipv4TLB/ChangePath",
                 MakeCallback (&TLBPathChangeTrace));

@@ -107,6 +107,10 @@ Ipv4TLB::GetTypeId (void)
                       TimeValue (MicroSeconds(50)),
                       MakeTimeAccessor (&Ipv4TLB::m_minRtt),
                       MakeTimeChecker ())
+        .AddAttribute ("HighRTT", "High RTT used to judge a bad path",
+                      TimeValue (MicroSeconds(200)),
+                      MakeTimeAccessor (&Ipv4TLB::m_highRtt),
+                      MakeTimeChecker ())
         .AddAttribute ("BetterPathRTTThresh", "RTT Threshold used to judge one path is better than another",
                       TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_betterPathRttThresh),
@@ -260,6 +264,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             return newPath.pathId;
         }
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
+                && Ipv4TLB::JudgePath (destTor, oldPath).quantifiedDre <= 5 * m_dreQ
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
