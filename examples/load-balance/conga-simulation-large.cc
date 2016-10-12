@@ -30,7 +30,6 @@ extern "C"
 
 #define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
 
-#define FLOW_LAUNCH_END_TIME 0.1
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define PORT_START 10000
@@ -145,7 +144,7 @@ T rand_range (T min, T max)
 }
 
 void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable,
-        int &flowCount, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME)
+        int &flowCount, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME, double FLOW_LAUNCH_END_TIME)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < SERVER_COUNT; i++)
@@ -215,6 +214,7 @@ int main (int argc, char *argv[])
     double START_TIME = 0.0;
     double END_TIME = 0.25;
 
+    double FLOW_LAUNCH_END_TIME = 0.1;
 
     bool asymCapacity = false;
     // bool asymTopology = false;
@@ -253,6 +253,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
     cmd.AddValue ("EndTime", "End time of the simulation", END_TIME);
+    cmd.AddValue ("FlowLaunchEndTime", "End time of the flow launch period", FLOW_LAUNCH_END_TIME);
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
@@ -802,7 +803,7 @@ int main (int argc, char *argv[])
 
     for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
     {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME);
+        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME, FLOW_LAUNCH_END_TIME);
     }
 
     NS_LOG_INFO ("Total flow: " << flowCount);
