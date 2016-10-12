@@ -33,6 +33,7 @@ Ipv4TLB::Ipv4TLB ():
     m_dreAlpha (0.2),
     m_dreDataRate (DataRate ("1Gbps")),
     m_dreQ (3),
+    m_dreMultiply (5),
     m_minRtt (MicroSeconds (60)), // 50 70 100
     m_highRtt (MicroSeconds (80)),
     m_ecnSampleMin (14000),
@@ -67,6 +68,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_dreAlpha (other.m_dreAlpha),
     m_dreDataRate (other.m_dreDataRate),
     m_dreQ (other.m_dreQ),
+    m_dreMultiply (other.m_dreMultiply),
     m_minRtt (other.m_minRtt),
     m_highRtt (other.m_highRtt),
     m_ecnSampleMin (other.m_ecnSampleMin),
@@ -111,6 +113,14 @@ Ipv4TLB::GetTypeId (void)
                       TimeValue (MicroSeconds(200)),
                       MakeTimeAccessor (&Ipv4TLB::m_highRtt),
                       MakeTimeChecker ())
+        .AddAttribute ("DREMultiply", "DRE multiply factor",
+                      UintegerValue (5),
+                      MakeUintegerAccessor (&Ipv4TLB::m_dreMultiply),
+                      MakeUintegerChecker<uint32_t> ())
+        .AddAttribute ("S", "The S used to judge a whether a flow should change path",
+                      UintegerValue (64000),
+                      MakeUintegerAccessor (&Ipv4TLB::m_S),
+                      MakeUintegerChecker<uint32_t> ())
         .AddAttribute ("BetterPathRTTThresh", "RTT Threshold used to judge one path is better than another",
                       TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_betterPathRttThresh),
@@ -264,7 +274,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             return newPath.pathId;
         }
         else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
-                && Ipv4TLB::JudgePath (destTor, oldPath).quantifiedDre <= 5 * m_dreQ
+                && Ipv4TLB::JudgePath (destTor, oldPath).quantifiedDre <= m_dreMultiply * m_dreQ
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))

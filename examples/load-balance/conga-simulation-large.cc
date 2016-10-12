@@ -30,10 +30,6 @@ extern "C"
 
 #define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
 
-// The simulation starting and ending time
-#define START_TIME 0.0
-#define END_TIME 0.25
-
 #define FLOW_LAUNCH_END_TIME 0.1
 
 // The flow port range, each flow will be assigned a random port number within this range
@@ -148,7 +144,8 @@ T rand_range (T min, T max)
     return min + ((double)max - min) * rand () / RAND_MAX;
 }
 
-void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable, int &flowCount, int SERVER_COUNT, int LEAF_COUNT)
+void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable,
+        int &flowCount, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < SERVER_COUNT; i++)
@@ -207,11 +204,17 @@ int main (int argc, char *argv[])
 #endif
 
     // Command line parameters parsing
+    std::string id = "0";
     std::string runModeStr = "Conga";
     unsigned randomSeed = 0;
     std::string cdfFileName = "";
     double load = 0.0;
     std::string transportProt = "Tcp";
+
+    // The simulation starting and ending time
+    double START_TIME = 0.0;
+    double END_TIME = 0.25;
+
 
     bool asymCapacity = false;
     // bool asymTopology = false;
@@ -236,16 +239,20 @@ int main (int argc, char *argv[])
     uint32_t TLBBetterPathRTT = 1;
     uint32_t TLBT1 = 100;
     double TLBECNPortionLow = 0.1;
-
     uint32_t TLBRunMode = 0;
     bool TLBProbingEnable = true;
     uint32_t TLBProbingInterval = 50;
     bool TLBSmooth = true;
     bool TLBRerouting = true;
+    uint32_t TLBDREMultiply = 5;
+    uint32_t TLBS = 64000;
 
     bool tcpPause = false;
 
     CommandLine cmd;
+    cmd.AddValue ("ID", "Running ID", id);
+    cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
+    cmd.AddValue ("EndTime", "End time of the simulation", END_TIME);
     cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
@@ -278,6 +285,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
     cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
     cmd.AddValue ("TLBRerouting", "TLBRerouting", TLBRerouting);
+    cmd.AddValue ("TLBDREMultiply", "TLBDREMultiply", TLBDREMultiply);
+    cmd.AddValue ("TLBS", "TLBS", TLBS);
 
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
@@ -371,6 +380,8 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLBProbing::ProbeInterval", TimeValue (MicroSeconds (TLBProbingInterval)));
         Config::SetDefault ("ns3::Ipv4TLB::IsSmooth", BooleanValue (TLBSmooth));
         Config::SetDefault ("ns3::Ipv4TLB::Rerouting", BooleanValue (TLBRerouting));
+        Config::SetDefault ("ns3::Ipv4TLB::DREMultiply", UintegerValue (TLBDREMultiply));
+        Config::SetDefault ("ns3::Ipv4TLB::S", UintegerValue(TLBS));
     }
 
     if (tcpPause)
@@ -387,6 +398,8 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
+    Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
+    Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
 
     NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
@@ -789,7 +802,7 @@ int main (int argc, char *argv[])
 
     for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
     {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT);
+        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME);
     }
 
     NS_LOG_INFO ("Total flow: " << flowCount);
@@ -830,10 +843,10 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    linkMonitorFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    tlbBibleFilename << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
-    tlbBibleFilename2 << "400-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    flowMonitorFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    linkMonitorFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    tlbBibleFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    tlbBibleFilename2 << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {

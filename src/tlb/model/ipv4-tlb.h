@@ -158,6 +158,8 @@ private:
 
     uint32_t m_dreQ;
 
+    uint32_t m_dreMultiply;
+
     Time m_minRtt;
 
     Time m_highRtt;
