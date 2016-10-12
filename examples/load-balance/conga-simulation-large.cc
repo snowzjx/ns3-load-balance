@@ -144,7 +144,7 @@ T rand_range (T min, T max)
 }
 
 void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable,
-        int &flowCount, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME, double FLOW_LAUNCH_END_TIME)
+        long &flowCount, long &totalFlowSize, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME, double FLOW_LAUNCH_END_TIME)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < SERVER_COUNT; i++)
@@ -170,6 +170,8 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
 
             BulkSendHelper source ("ns3::TcpSocketFactory", InetSocketAddress (destAddress, port));
             uint32_t flowSize = gen_random_cdf (cdfTable);
+
+            totalFlowSize += flowSize;
  	        source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
 
@@ -799,14 +801,17 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Create applications");
 
-    int flowCount = 0;
+    long flowCount = 0;
+    long totalFlowSize = 0;
 
     for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
     {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME, FLOW_LAUNCH_END_TIME);
+        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, totalFlowSize, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME, FLOW_LAUNCH_END_TIME);
     }
 
     NS_LOG_INFO ("Total flow: " << flowCount);
+
+    NS_LOG_INFO ("Actual average flow size: " << static_cast<double> (totalFlowSize) / flowCount);
 
     NS_LOG_INFO ("Enabling flow monitor");
 
