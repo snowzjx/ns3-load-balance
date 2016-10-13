@@ -20,8 +20,7 @@ public:
 
     virtual void DoDispose (void);
 
-    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber,
-            uint32_t ackedBytes, bool withECE, bool isRecover);
+    void ReceivedPacket (SequenceNumber32 higTxhMark, SequenceNumber32 ackNumber, uint32_t ackedBytes, bool withECE);
 
     uint32_t GetV ();
 
@@ -44,10 +43,6 @@ private:
     Time m_rtt;
     double m_T;
     uint32_t m_N;
-
-    // Used for statistics
-    uint32_t m_totalPacketsStatis;
-    uint32_t m_markedPacketsStatis;
 };
 
 }
