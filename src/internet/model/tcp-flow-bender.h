@@ -25,6 +25,8 @@ public:
 
     uint32_t GetV ();
 
+    Time GetPauseTime ();
+
 private:
 
     void CheckCongestion ();

@@ -242,6 +242,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     {
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
+        struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
         if (0 == 1
                 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
@@ -273,8 +274,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
             return newPath.pathId;
         }
-        else if (Ipv4TLB::JudgePath (destTor, oldPath).pathType == BadPath
-                && Ipv4TLB::JudgePath (destTor, oldPath).quantifiedDre <= m_dreMultiply * m_dreQ
+        else if (oldPathInfo.pathType == BadPath
+                && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
@@ -293,6 +294,10 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
                 }
 
                 m_pathChangeTrace (flowId, sourceTor, destTor, newPath.pathId, oldPath, false, Ipv4TLB::GatherParallelPaths (destTor));
+
+                // Calculate the pause time
+                Time pauseTime = oldPathInfo.rttMin - newPath.rttMin;
+                m_pauseTime[flowId] = pauseTime;
 
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
@@ -316,6 +321,17 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         uint32_t oldPath = (flowItr->second).path;
         return oldPath;
     }
+}
+
+Time
+Ipv4TLB::GetPauseTime (uint32_t flowId)
+{
+   std::map<uint32_t, Time>::iterator itr = m_pauseTime.find (flowId);
+   if (itr == m_pauseTime.end ())
+   {
+        return MicroSeconds (0);
+   }
+   return itr->second;
 }
 
 void

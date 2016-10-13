@@ -63,6 +63,8 @@ public:
     // These methods are used for TCP flows
     uint32_t GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr);
 
+    Time GetPauseTime (uint32_t flowId);
+
     void FlowRecv (uint32_t flowId, uint32_t path, Ipv4Address daddr, uint32_t size, bool withECN, Time rtt);
 
     void FlowSend (uint32_t flowId, Ipv4Address daddr, uint32_t path, uint32_t size, bool isRetrasmission);
@@ -204,6 +206,8 @@ private:
     EventId m_dreEvent;
 
     Ptr<Node> m_node;
+
+    std::map<uint32_t, Time> m_pauseTime; // Used in the TCP pause, not mandatory
 
     typedef void (* TLBPathCallback) (uint32_t flowId, uint32_t fromTor,
             uint32_t toTor, uint32_t path, bool isRandom, PathInfo info, std::vector<PathInfo> parallelPaths);

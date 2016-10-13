@@ -342,7 +342,6 @@ TcpSocketBase::TcpSocketBase (void)
     m_piggybackTLBInfo (false),
     m_isPauseEnabled (false),
     m_isPause (false),
-    m_pauseTime (MicroSeconds (80)),
     m_oldPath (0),
     m_congestionControl (0),
     m_isFirstPartialAck (true)
@@ -442,7 +441,6 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_piggybackTLBInfo (false),
     m_isPauseEnabled (sock.m_isPauseEnabled),
     m_isPause (false),
-    m_pauseTime (sock.m_pauseTime),
     m_oldPath (0),
     m_isFirstPartialAck (sock.m_isFirstPartialAck),
     m_txTrace (sock.m_txTrace),
@@ -2519,7 +2517,8 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
           std::cout << "Turning on pause" << std::endl;
           m_isPause = true;
           m_oldPath = path;
-          Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+          Time pauseTime = ipv4TLB->GetPauseTime (flowId);
+          Simulator::Schedule (pauseTime, &TcpSocketBase::RecoverFromPause, this);
       }
     }
 
@@ -2905,7 +2904,8 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
             std::cout << "Turning on pause ..." << std::endl;
             m_isPause = true;
             m_oldPath = path;
-            Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+            Time pauseTime = ipv4TLB->GetPauseTime (flowId);
+            Simulator::Schedule (pauseTime, &TcpSocketBase::RecoverFromPause, this);
         }
       }
 
@@ -3993,7 +3993,8 @@ TcpSocketBase::AttachFlowId (Ptr<Packet> packet,
         std::cout << "Turning on pause ..." << std::endl;
         m_isPause = true;
         m_oldPath = path;
-        Simulator::Schedule (m_pauseTime, &TcpSocketBase::RecoverFromPause, this);
+        Time pauseTime = m_flowBender->GetPauseTime ();
+        Simulator::Schedule (pauseTime, &TcpSocketBase::RecoverFromPause, this);
     }
   }
 

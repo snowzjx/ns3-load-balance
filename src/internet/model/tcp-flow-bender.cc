@@ -107,6 +107,12 @@ TcpFlowBender::GetV ()
     return m_V;
 }
 
+Time
+TcpFlowBender::GetPauseTime ()
+{
+    return MicroSeconds (80);
+}
+
 void
 TcpFlowBender::CheckCongestion ()
 {

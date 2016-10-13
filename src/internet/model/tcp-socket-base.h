@@ -1029,7 +1029,6 @@ protected:
 
   bool                      m_isPauseEnabled;
   bool                      m_isPause;
-  Time                      m_pauseTime;
   uint32_t                  m_oldPath;
   Ptr<TcpPauseBuffer>       m_pauseBuffer;
 
