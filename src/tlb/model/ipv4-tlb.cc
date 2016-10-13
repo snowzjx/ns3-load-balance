@@ -297,7 +297,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
 
                 // Calculate the pause time
                 Time pauseTime = oldPathInfo.rttMin - newPath.rttMin;
-                m_pauseTime[flowId] = pauseTime;
+                m_pauseTime[flowId] = std::max (pauseTime, MicroSeconds (1));
 
                 // Change path
                 Ipv4TLB::UpdateFlowPath (flowId, newPath.pathId, destTor);
