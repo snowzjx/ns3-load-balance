@@ -18,8 +18,8 @@ do
             do
                 for TLBMode in 12
                 do
-                       nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=TLB --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=4 --TLBRunMode=$TLBMode --TLBSmooth=true --TLBProbingEnable=true --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBProbingInterval=51 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --randomSeed=$seed > /dev/null 2>&1 &
-                       nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=ECMP --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=4 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --randomSeed=$seed > /dev/null 2>&1 &
+                    nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=TLB --StartTime=0 --EndTime=15 --FlowLaunchEndTime=6 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --TLBRunMode=$TLBMode --TLBSmooth=true --TLBProbingEnable=false --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBRerouting=false --TcpPause=false --TLBProbingInterval=500 --transportProt=DcTcp  --TLBBetterPathRTT=100 --TLBHighRTT=180 --TLBS=640000 --cdfFileName=../../../examples/load-balance/VL2_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --randomSeed=$seed > /dev/null 2>&1 &
+                    # nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=ECMP --StartTime=0 --EndTime=15 --FlowLaunchEndTime=6 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8   --asymCapacity=false --asymCapacityPoss=20 --randomSeed=$seed > /dev/null 2>&1 &
                 done
             done
         done
