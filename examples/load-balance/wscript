@@ -37,3 +37,7 @@ def build(bld):
                                  ['point-to-point', 'applications', 'internet', 'conga-routing', 'flow-monitor'])
     obj.source = 'tlb-conga-simulation.cc'
 
+    obj = bld.create_ns3_program('fattree-simulation',
+                                 ['point-to-point', 'applications', 'internet', 'xpath-routing', 'tlb', 'tlb-probing', 'flow-monitor'])
+    obj.source = ['fattree-simulation.cc', 'cdf.c']
+
