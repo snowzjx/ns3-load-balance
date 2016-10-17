@@ -21,7 +21,6 @@ do
                     nohup ./ns3-dev-fattree-simulation-optimized --ID=$1 --runMode=TLB --StartTime=0 --EndTime=1.5 --FlowLaunchEndTime=0.6 --TLBRunMode=$TLBMode --TLBSmooth=true --TLBProbingEnable=false --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBRerouting=false --TLBProbingInterval=500 --transportProt=DcTcp  --TLBBetterPathRTT=100 --TLBHighRTT=180 --TLBS=640000 --cdfFileName=../../../examples/load-balance/VL2_CDF.txt --load=0.8 --randomSeed=$seed > /dev/null 2>&1 &
                     nohup ./ns3-dev-fattree-simulation-optimized --ID=$1 --runMode=ECMP --StartTime=0 --EndTime=1.5 --FlowLaunchEndTime=0.6 --cdfFileName=../../../examples/load-balance/VL2_CDF.txt --load=0.8 --randomSeed=$seed > /dev/null 2>&1 &
                 done
-                done
             done
         done
 	done
