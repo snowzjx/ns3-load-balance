@@ -38,9 +38,7 @@ TcpFlowBender::TcpFlowBender ()
      m_V (1),
      m_highTxMark (0),
      m_T (0.05),
-     m_N (1),
-     m_totalPacketsStatis (0),
-     m_markedPacketsStatis (0)
+     m_N (1)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -53,9 +51,7 @@ TcpFlowBender::TcpFlowBender (const TcpFlowBender &other)
      m_V (1),
      m_highTxMark (0),
      m_T (other.m_T),
-     m_N (other.m_N),
-     m_totalPacketsStatis (0),
-     m_markedPacketsStatis (0)
+     m_N (other.m_N)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -68,34 +64,23 @@ TcpFlowBender::~TcpFlowBender ()
 void
 TcpFlowBender::DoDispose (void)
 {
-    NS_LOG_INFO (this << " ECN portion in flow bender: " << static_cast<double>(m_markedPacketsStatis) / m_totalPacketsStatis);
+    NS_LOG_FUNCTION (this);
 }
 
 void
 TcpFlowBender::ReceivedPacket (SequenceNumber32 highTxhMark, SequenceNumber32 ackNumber,
-        uint32_t ackedBytes, bool withECE, bool isRecover)
+        uint32_t ackedBytes, bool withECE)
 {
     NS_LOG_INFO (this << " High TX Mark: " << m_highTxMark << ", ACK Number: " << ackNumber);
     m_totalBytes += ackedBytes;
-    m_totalPacketsStatis++;
     if (withECE)
     {
         m_markedBytes += ackedBytes;
-        m_markedPacketsStatis++;
     }
     if (ackNumber >= m_highTxMark)
     {
         m_highTxMark = highTxhMark;
-        if (!isRecover)
-        {
-            TcpFlowBender::CheckCongestion ();
-        }
-        else
-        {
-            m_totalBytes = 0;
-            m_markedBytes = 0;
-            m_numCongestionRtt = 0;
-        }
+        TcpFlowBender::CheckCongestion ();
     }
 }
 
