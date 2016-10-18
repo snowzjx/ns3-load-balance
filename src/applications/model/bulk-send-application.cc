@@ -42,7 +42,7 @@ BulkSendApplication::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::BulkSendApplication")
     .SetParent<Application> ()
-    .SetGroupName("Applications") 
+    .SetGroupName("Applications")
     .AddConstructor<BulkSendApplication> ()
     .AddAttribute ("SendSize", "The amount of data to send each time.",
                    UintegerValue (512),
@@ -60,6 +60,16 @@ BulkSendApplication::GetTypeId (void)
                    UintegerValue (0),
                    MakeUintegerAccessor (&BulkSendApplication::m_maxBytes),
                    MakeUintegerChecker<uint32_t> ())
+    .AddAttribute ("DelayThresh",
+                   "How many packets can pass before we have delay, 0 for disable",
+                   UintegerValue (0),
+                   MakeUintegerAccessor (&BulkSendApplication::m_delayThresh),
+                   MakeUintegerChecker<uint32_t> ())
+    .AddAttribute ("DelayTime",
+                   "The time for a delay",
+                   TimeValue (MicroSeconds (100)),
+                   MakeTimeAccessor (&BulkSendApplication::m_delayTime),
+                   MakeTimeChecker())
     .AddAttribute ("Protocol", "The type of protocol to use.",
                    TypeIdValue (TcpSocketFactory::GetTypeId ()),
                    MakeTypeIdAccessor (&BulkSendApplication::m_tid),
@@ -75,7 +85,9 @@ BulkSendApplication::GetTypeId (void)
 BulkSendApplication::BulkSendApplication ()
   : m_socket (0),
     m_connected (false),
-    m_totBytes (0)
+    m_totBytes (0),
+    m_isDelay (false),
+    m_accumPackets (0)
 {
   NS_LOG_FUNCTION (this);
 }
@@ -174,7 +186,13 @@ void BulkSendApplication::SendData (void)
   NS_LOG_FUNCTION (this);
 
   while (m_maxBytes == 0 || m_totBytes < m_maxBytes)
-    { // Time to send more
+    {
+      if (m_isDelay)
+        {
+          break;
+        }
+
+      // Time to send more
       uint32_t toSend = m_sendSize;
       // Make sure we don't send too many
       if (m_maxBytes > 0)
@@ -188,13 +206,21 @@ void BulkSendApplication::SendData (void)
       if (actual > 0)
         {
           m_totBytes += actual;
+          m_accumPackets ++;
         }
+
       // We exit this loop when actual < toSend as the send side
       // buffer is full. The "DataSent" callback will pop when
       // some buffer space has freed ip.
       if ((unsigned)actual != toSend)
         {
           break;
+        }
+
+      if (m_delayThresh != 0 && m_accumPackets > m_delayThresh)
+        {
+          m_isDelay = true;
+          Simulator::Schedule (m_delayTime, &BulkSendApplication::ResumeSend, this);
         }
     }
   // Check if time to close (all sent)
@@ -229,6 +255,17 @@ void BulkSendApplication::DataSend (Ptr<Socket>, uint32_t)
     }
 }
 
+void BulkSendApplication::ResumeSend (void)
+{
+    NS_LOG_FUNCTION (this);
 
+    m_isDelay = false;
+    m_accumPackets = 0;
+
+    if (m_connected)
+    {
+        SendData ();
+    }
+}
 
 } // Namespace ns3

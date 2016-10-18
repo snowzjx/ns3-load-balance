@@ -42,9 +42,9 @@ class Socket;
  * zero). Once the lower layer send buffer is
  * filled, it waits until space is free to
  * send more data, essentially keeping a
- * constant flow of data. Only SOCK_STREAM 
- * and SOCK_SEQPACKET sockets are supported. 
- * For example, TCP sockets can be used, but 
+ * constant flow of data. Only SOCK_STREAM
+ * and SOCK_SEQPACKET sockets are supported.
+ * For example, TCP sockets can be used, but
  * UDP sockets can not be used.
  */
 
@@ -82,11 +82,11 @@ public:
    * \brief Set the upper bound for the total number of bytes to send.
    *
    * Once this bound is reached, no more application bytes are sent. If the
-   * application is stopped during the simulation and restarted, the 
-   * total number of bytes sent is not reset; however, the maxBytes 
-   * bound is still effective and the application will continue sending 
-   * up to maxBytes. The value zero for maxBytes means that 
-   * there is no upper bound; i.e. data is sent until the application 
+   * application is stopped during the simulation and restarted, the
+   * total number of bytes sent is not reset; however, the maxBytes
+   * bound is still effective and the application will continue sending
+   * up to maxBytes. The value zero for maxBytes means that
+   * there is no upper bound; i.e. data is sent until the application
    * or simulation is stopped.
    *
    * \param maxBytes the upper bound of bytes to send
@@ -119,6 +119,11 @@ private:
   uint32_t        m_totBytes;     //!< Total bytes sent so far
   TypeId          m_tid;          //!< The type of protocol to use.
 
+  bool            m_isDelay;
+  Time            m_delayTime;
+  uint32_t        m_accumPackets;
+  uint32_t        m_delayThresh;
+
   /// Traced Callback: sent packets
   TracedCallback<Ptr<const Packet> > m_txTrace;
 
@@ -137,6 +142,8 @@ private:
    * \brief Send more data as soon as some has been transmitted.
    */
   void DataSend (Ptr<Socket>, uint32_t); // for socket's SetSendCallback
+
+  void ResumeSend (void);
 };
 
 } // namespace ns3
