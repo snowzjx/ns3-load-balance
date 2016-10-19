@@ -8,6 +8,7 @@
 #include "ns3/ipv4-xpath-routing-helper.h"
 #include "ns3/ipv4-tlb.h"
 #include "ns3/ipv4-tlb-probing.h"
+#include "ns3/ipv4-drb-helper.h"
 
 #include <map>
 #include <utility>
@@ -27,13 +28,15 @@ extern "C"
 #define PORT_START 10000
 #define PORT_END 50000
 
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("FattreeSimulation");
 
 enum RunMode {
     TLB,
-    ECMP
+    ECMP,
+    PRESTO
 };
 
 double poission_gen_interval(double avg_rate)
@@ -143,12 +146,14 @@ int main (int argc, char *argv[])
     uint32_t TLBDREMultiply = 5;
     uint32_t TLBS = 64000;
 
+    uint32_t PRESTO_RATIO = 1400;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
     cmd.AddValue ("EndTime", "End time of the simulation", END_TIME);
     cmd.AddValue ("FlowLaunchEndTime", "End time of the flow launch period", FLOW_LAUNCH_END_TIME);
-    cmd.AddValue ("runMode", "Running mode of this simulation: ECMP and TLB", runModeStr);
+    cmd.AddValue ("runMode", "Running mode of this simulation: ECMP, Presto and TLB", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
@@ -167,6 +172,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBRerouting", "TLBRerouting", TLBRerouting);
     cmd.AddValue ("TLBDREMultiply", "TLBDREMultiply", TLBDREMultiply);
     cmd.AddValue ("TLBS", "TLBS", TLBS);
+    cmd.AddValue ("PrestoK" , "PrestoK", PRESTO_RATIO);
 
     cmd.Parse (argc, argv);
 
@@ -184,9 +190,13 @@ int main (int argc, char *argv[])
         std::cout << Ipv4TLB::GetLogo () << std::endl;
         runMode = TLB;
     }
+    else if (runModeStr.compare ("Presto") == 0)
+    {
+        runMode = PRESTO;
+    }
     else
     {
-        NS_LOG_ERROR ("The running mode should be ECMP and TLB");
+        NS_LOG_ERROR ("The running mode should be ECMP, Presto and TLB");
         return 0;
     }
 
@@ -244,6 +254,15 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue (true));
 
+    if (runMode == PRESTO)
+    {
+        NS_LOG_INFO ("Enabling Resequence Buffer");
+	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (250)));
+    }
+
     if (k % 2 != 0)
     {
         NS_LOG_ERROR ("The k should be 2^n");
@@ -287,7 +306,16 @@ int main (int argc, char *argv[])
     listRoutingHelper.Add (xpathRoutingHelper, 1);
     internet.SetRoutingHelper (listRoutingHelper);
 
+    if (runMode == PRESTO)
+    {
+        internet.SetDrb (true);
+    }
     internet.Install (edges);
+    if (runMode == PRESTO)
+    {
+        internet.SetDrb (false);
+    }
+
     internet.Install (aggregations);
     internet.Install (cores);
 
@@ -401,6 +429,8 @@ int main (int argc, char *argv[])
 
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (aggregationCoreCapacity)));
 
+    Ipv4DrbHelper drbHelper;
+
     NS_LOG_INFO ("Connecting aggregations to cores");
     for (uint32_t i = 0; i < aggregationCount; i++)
     {
@@ -430,6 +460,22 @@ int main (int argc, char *argv[])
                     << " (" << netDeviceContainer.Get (0)->GetIfIndex () << "<->"
                     << netDeviceContainer.Get (1)->GetIfIndex () << ")");
 
+            if (runMode == PRESTO)
+            {
+                //if (i % (k / 2) == 0)
+                //{
+                    uint32_t pod = i / (k / 2);
+                    uint32_t edgeStartIndex = pod * (k / 2);
+                    uint32_t edgeEndIndex = (pod + 1) * (k / 2);
+                    for (uint32_t p = edgeStartIndex; p < edgeEndIndex; ++p)
+                    {
+                        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (edges.Get (p)->GetObject<Ipv4> ());
+                        drb->AddCoreSwitchAddress (PRESTO_RATIO, interfaceContainer.GetAddress (1));
+                        NS_LOG_INFO ("For Leaf-" << p <<", bouncing the packet to core: " << interfaceContainer.GetAddress (1));
+                    }
+
+                //}
+            }
         }
     }
 
