@@ -99,9 +99,9 @@ void install_applications (uint32_t fromPodId, uint32_t serverCount, uint32_t k,
             sinkApp.Start (Seconds (startTime));
             sinkApp.Stop (Seconds (END_TIME));
 
-            NS_LOG_INFO ("\tFlow from server: " << fromServerIndex << " to server: "
-                    << destServerIndex << " on port: " << port << " with flow size: "
-                    << flowSize << " [start time: " << startTime <<"]");
+            //NS_LOG_INFO ("\tFlow from server: " << fromServerIndex << " to server: "
+                    //<< destServerIndex << " on port: " << port << " with flow size: "
+                    //<< flowSize << " [start time: " << startTime <<"]");
 
             startTime += poission_gen_interval (requestRate);
         }
@@ -176,9 +176,9 @@ int main (int argc, char *argv[])
 
     cmd.Parse (argc, argv);
 
-    uint64_t serverEdgeCapacity = 10u * LINK_CAPACITY_BASE;
-    uint64_t edgeAggregationCapacity = 10u * LINK_CAPACITY_BASE;
-    uint64_t aggregationCoreCapacity = 10u * LINK_CAPACITY_BASE;
+    uint64_t serverEdgeCapacity = 10ul * LINK_CAPACITY_BASE;
+    uint64_t edgeAggregationCapacity = 10ul * LINK_CAPACITY_BASE;
+    uint64_t aggregationCoreCapacity = 10ul * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("ECMP") == 0)
@@ -557,13 +557,16 @@ int main (int argc, char *argv[])
         }
     }
 
+    double oversubRatio = static_cast<double> (serverCount * (k / 2) * k * serverEdgeCapacity) / (aggregationCoreCapacity * (k / 2) * aggregationCount);
+    NS_LOG_INFO ("Over-subscription ratio: " << oversubRatio);
+
     NS_LOG_INFO ("Initialize CDF table");
     struct cdf_table* cdfTable = new cdf_table ();
     init_cdf (cdfTable);
     load_cdf (cdfTable, cdfFileName.c_str ());
 
     NS_LOG_INFO ("Calculating request rate");
-    double requestRate = load * aggregationCoreCapacity * (k / 2) * aggregationCount / (8 * avg_cdf (cdfTable)) / (serverCount * (k / 2) * k);
+    double requestRate = load * serverEdgeCapacity / oversubRatio / (8 * avg_cdf (cdfTable));
     NS_LOG_INFO ("Average request rate: " << requestRate << " per second");
 
     NS_LOG_INFO ("Initialize random seed: " << randomSeed);
