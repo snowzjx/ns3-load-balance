@@ -144,7 +144,7 @@ T rand_range (T min, T max)
 }
 
 void install_applications (int fromLeafId, NodeContainer servers, double requestRate, struct cdf_table *cdfTable,
-        long &flowCount, long &totalFlowSize, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME, double FLOW_LAUNCH_END_TIME)
+        long &flowCount, long &totalFlowSize, int SERVER_COUNT, int LEAF_COUNT, double START_TIME, double END_TIME, double FLOW_LAUNCH_END_TIME, uint32_t applicationPauseThresh, uint32_t applicationPauseTime)
 {
     NS_LOG_INFO ("Install applications:");
     for (int i = 0; i < SERVER_COUNT; i++)
@@ -174,6 +174,8 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
             totalFlowSize += flowSize;
  	        source.SetAttribute ("SendSize", UintegerValue (PACKET_SIZE));
             source.SetAttribute ("MaxBytes", UintegerValue(flowSize));
+            source.SetAttribute ("DelayThresh", UintegerValue (applicationPauseThresh));
+            source.SetAttribute ("DelayTime", TimeValue (MicroSeconds (applicationPauseTime)));
 
             // Install apps
             ApplicationContainer sourceApp = source.Install (servers.Get (fromServerIndex));
@@ -251,6 +253,9 @@ int main (int argc, char *argv[])
 
     bool tcpPause = false;
 
+    uint32_t applicationPauseThresh = 0;
+    uint32_t applicationPauseTime = 1000;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -292,6 +297,9 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBS", "TLBS", TLBS);
 
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
+
+    cmd.AddValue ("applicationPauseThresh", "ApplicationPauseThresh", applicationPauseThresh);
+    cmd.AddValue ("applicationPauseTime", "ApplicationPauseTime, in MicroSeconds", applicationPauseTime);
 
     cmd.Parse (argc, argv);
 
@@ -806,7 +814,7 @@ int main (int argc, char *argv[])
 
     for (int fromLeafId = 0; fromLeafId < LEAF_COUNT; fromLeafId ++)
     {
-        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, totalFlowSize, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME, FLOW_LAUNCH_END_TIME);
+        install_applications(fromLeafId, servers, requestRate, cdfTable, flowCount, totalFlowSize, SERVER_COUNT, LEAF_COUNT, START_TIME, END_TIME, FLOW_LAUNCH_END_TIME, applicationPauseThresh, applicationPauseTime);
     }
 
     NS_LOG_INFO ("Total flow: " << flowCount);
