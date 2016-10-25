@@ -54,6 +54,7 @@
 #include "ns3/flow-id-tag.h"
 #include "ns3/ipv4-xpath-tag.h"
 #include "ns3/tcp-tlb-tag.h"
+#include "ns3/hash.h"
 
 #include <math.h>
 #include <algorithm>
@@ -3998,7 +3999,11 @@ uint32_t
 TcpSocketBase::CalFlowId (const Ipv4Address &saddr, const Ipv4Address &daddr,
           uint16_t sport, uint16_t dport)
 {
-  return dport;
+  std::stringstream hash_string;
+  hash_string << daddr.Get ();
+  hash_string << dport;
+
+  return Hash32 (hash_string.str ());
 }
 
 void

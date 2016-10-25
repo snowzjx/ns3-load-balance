@@ -7,7 +7,7 @@
 #include "ns3/ipv4-conga-routing-helper.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/ipv4-static-routing-helper.h"
-#include "ns3/ipv4-drb-helper.h"
+#include "ns3/ipv4-drb-routing-helper.h"
 #include "ns3/ipv4-xpath-routing-helper.h"
 #include "ns3/ipv4-tlb.h"
 #include "ns3/ipv4-tlb-probing.h"
@@ -427,8 +427,7 @@ int main (int argc, char *argv[])
     Ipv4GlobalRoutingHelper globalRoutingHelper;
     Ipv4ListRoutingHelper listRoutingHelper;
     Ipv4XPathRoutingHelper xpathRoutingHelper;
-
-    Ipv4DrbHelper drbHelper;
+    Ipv4DrbRoutingHelper drbRoutingHelper;
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
@@ -442,14 +441,25 @@ int main (int argc, char *argv[])
     }
     else if (runMode == PRESTO || runMode == DRB)
     {
+        listRoutingHelper.Add (drbRoutingHelper, 1);
         listRoutingHelper.Add (globalRoutingHelper, 0);
         internet.SetRoutingHelper (listRoutingHelper);
-
         internet.Install (servers);
-        internet.Install (spines);
 
-        internet.SetDrb (true);
+        listRoutingHelper.Clear ();
+        listRoutingHelper.Add (xpathRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+        internet.Install (spines);
         internet.Install (leaves);
+        if (runMode == DRB)
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (0)); // Per dest
+        }
+        else
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (1)); // Per flow
+        }
     }
     else if (runMode == TLB)
     {
@@ -641,7 +651,7 @@ int main (int argc, char *argv[])
                     << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ()
                     << " with data rate " << spineLeafCapacity);
 
-            if (runMode == TLB)
+            if (runMode == TLB || runMode == DRB || runMode == PRESTO)
             {
                 std::pair<int, int> leafToSpine = std::make_pair<int, int> (i, j);
                 leafToSpinePath[leafToSpine] = netDeviceContainer.Get (0)->GetIfIndex ();
@@ -693,18 +703,6 @@ int main (int argc, char *argv[])
                     NS_LOG_INFO ("Reducing Link Capacity of Conga Spine: " << j << " with port: " << netDeviceContainer.Get (1)->GetIfIndex ());
                 }
 	        }
-
-	        if (runMode == PRESTO)
-            {
-		        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
-		        drb->AddCoreSwitchAddress (PRESTO_RATIO, ipv4InterfaceContainer.GetAddress (1));
-            }
- 	        if (runMode == DRB)
-	        {
-		        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (leaves.Get (i)->GetObject<Ipv4> ());
-		        drb->AddCoreSwitchAddress (1, ipv4InterfaceContainer.GetAddress (1));
-                NS_LOG_INFO ("For Leaf " << i << ", bouncing the packet to Core Switch: " << ipv4InterfaceContainer.GetAddress (1));
-            }
         }
         }
     }
@@ -713,6 +711,30 @@ int main (int argc, char *argv[])
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+    }
+
+    if (runMode == DRB || runMode == PRESTO)
+    {
+        NS_LOG_INFO ("Configuring DRB/PRESTO paths");
+        for (int i = 0; i < LEAF_COUNT; i++)
+        {
+            for (int j = 0; j < SERVER_COUNT; j++)
+            {
+                for (int k = 0; k < SPINE_COUNT; k++)
+                {
+                    int serverIndex = i * SERVER_COUNT + j;
+                    Ptr<Ipv4DrbRouting> drbRouting = drbRoutingHelper.GetDrbRouting (servers.Get (serverIndex)->GetObject<Ipv4> ());
+                    if (runMode == DRB)
+                    {
+                        drbRouting->AddPath (leafToSpinePath[std::make_pair (i, k)]);
+                    }
+                    else
+                    {
+                        drbRouting->AddPath (PRESTO_RATIO, leafToSpinePath[std::make_pair (i, k)]);
+                    }
+                }
+            }
+        }
     }
 
     if (runMode == TLB)
