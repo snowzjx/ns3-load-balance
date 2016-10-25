@@ -1,12 +1,12 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 #include "ns3/core-module.h"
-#include "ns3/drb-routing-helper.h"
+#include "ns3/ipv4-drb-routing-helper.h"
 
 using namespace ns3;
 
 
-int 
+int
 main (int argc, char *argv[])
 {
   bool verbose = true;
