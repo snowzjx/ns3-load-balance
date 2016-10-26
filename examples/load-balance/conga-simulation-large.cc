@@ -303,8 +303,7 @@ int main (int argc, char *argv[])
 
     cmd.Parse (argc, argv);
 
-    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
-    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
+    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -944,6 +943,14 @@ int main (int argc, char *argv[])
     {
 	    flowMonitorFilename << "rb-";
         linkMonitorFilename << "rb-";
+    }
+
+    if (applicationPauseThresh > 0)
+    {
+        flowMonitorFilename << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
+        linkMonitorFilename << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
+        tlbBibleFilename << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
+        tlbBibleFilename2 << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
     }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
