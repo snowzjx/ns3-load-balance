@@ -440,6 +440,15 @@ int main (int argc, char *argv[])
     }
     else if (runMode == PRESTO || runMode == DRB)
     {
+        if (runMode == DRB)
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (0)); // Per dest
+        }
+        else
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (1)); // Per flow
+        }
+
         listRoutingHelper.Add (drbRoutingHelper, 1);
         listRoutingHelper.Add (globalRoutingHelper, 0);
         internet.SetRoutingHelper (listRoutingHelper);
@@ -451,14 +460,6 @@ int main (int argc, char *argv[])
         internet.SetRoutingHelper (listRoutingHelper);
         internet.Install (spines);
         internet.Install (leaves);
-        if (runMode == DRB)
-        {
-            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (0)); // Per dest
-        }
-        else
-        {
-            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (1)); // Per flow
-        }
     }
     else if (runMode == TLB)
     {
