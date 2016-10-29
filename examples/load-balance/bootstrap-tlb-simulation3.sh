@@ -18,15 +18,15 @@ do
             do
                 for TLBMode in 12
                 do
-                    for a1 in 50 100 1000
+                    for a1 in 200
                         do					
-					   for a2 in 500 
+			   for a2 in 1200 1400 1600 
 					       do
-                         #            nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=TLB --StartTime=0 --EndTime=2 --FlowLaunchEndTime=1 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --TLBRunMode=$TLBMode --TLBSmooth=true --TLBProbingEnable=true --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBRerouting=false --TcpPause=false --TLBProbingInterval=500 --transportProt=DcTcp  --TLBBetterPathRTT=100 --TLBHighRTT=180 --TLBS=640000 --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 & 
+                         #             nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=TLB --StartTime=0 --EndTime=2 --FlowLaunchEndTime=1 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --TLBRunMode=$TLBMode --TLBSmooth=true --TLBProbingEnable=true --TLBMinRTT=$minRTT --TLBT1=$T1 --TLBRerouting=false --TcpPause=false --TLBProbingInterval=500 --transportProt=DcTcp  --TLBBetterPathRTT=100 --TLBHighRTT=180 --TLBS=640000 --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 & 
 
-                                      nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=Conga-flow --StartTime=0 --EndTime=2 --FlowLaunchEndTime=1 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 &
+                                      nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=Conga-flow --StartTime=0 --EndTime=5 --FlowLaunchEndTime=2 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 &
 
-                                      nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=Conga --StartTime=0 --EndTime=2 --FlowLaunchEndTime=1 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 &
+                                      nohup ./ns3-dev-conga-simulation-large-optimized --ID=$1 --runMode=Conga --StartTime=0 --EndTime=5 --FlowLaunchEndTime=2 --leafCount=4 --spineCount=4 --leafServerCapacity=10  --serverCount=8 --transportProt=DcTcp --cdfFileName=../../../examples/load-balance/DCTCP_CDF.txt --load=0.8 --asymCapacity=false --asymCapacityPoss=20 --applicationPauseThresh=$a1 --applicationPauseTime=$a2 --randomSeed=$seed > /dev/null 2>&1 &
 
                       done 
 				   done
