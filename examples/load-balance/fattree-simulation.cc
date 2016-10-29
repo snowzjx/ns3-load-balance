@@ -8,7 +8,7 @@
 #include "ns3/ipv4-xpath-routing-helper.h"
 #include "ns3/ipv4-tlb.h"
 #include "ns3/ipv4-tlb-probing.h"
-#include "ns3/ipv4-drb-helper.h"
+#include "ns3/ipv4-drb-routing-helper.h"
 
 #include <map>
 #include <utility>
@@ -36,6 +36,7 @@ NS_LOG_COMPONENT_DEFINE ("FattreeSimulation");
 enum RunMode {
     TLB,
     ECMP,
+    DRB,
     PRESTO
 };
 
@@ -146,7 +147,7 @@ int main (int argc, char *argv[])
     uint32_t TLBDREMultiply = 5;
     uint32_t TLBS = 64000;
 
-    uint32_t PRESTO_RATIO = 1400;
+    uint32_t PRESTO_RATIO = 64;
 
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
@@ -190,13 +191,17 @@ int main (int argc, char *argv[])
         std::cout << Ipv4TLB::GetLogo () << std::endl;
         runMode = TLB;
     }
+    else if (runModeStr.compare ("DRB") == 0)
+    {
+        runMode = DRB;
+    }
     else if (runModeStr.compare ("Presto") == 0)
     {
         runMode = PRESTO;
     }
     else
     {
-        NS_LOG_ERROR ("The running mode should be ECMP, Presto and TLB");
+        NS_LOG_ERROR ("The running mode should be ECMP, Presto, DRB and TLB");
         return 0;
     }
 
@@ -254,7 +259,7 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue (true));
 
-    if (runMode == PRESTO)
+    if (runMode == DRB || runMode == PRESTO)
     {
         NS_LOG_INFO ("Enabling Resequence Buffer");
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
@@ -284,40 +289,58 @@ int main (int argc, char *argv[])
     cores.Create (coreCount);
 
     InternetStackHelper internet;
-    //internet.SetDrb (false);
+    Ipv4GlobalRoutingHelper globalRoutingHelper;
+    Ipv4ListRoutingHelper listRoutingHelper;
+    Ipv4XPathRoutingHelper xpathRoutingHelper;
+    Ipv4DrbRoutingHelper drbRoutingHelper;
 
-    if (runMode == TLB)
+    if (runMode == PRESTO || runMode == DRB)
+    {
+        if (runMode == DRB)
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (0)); // Per dest
+        }
+        else
+        {
+            Config::SetDefault ("ns3::Ipv4DrbRouting::Mode", UintegerValue (1)); // Per flow
+        }
+
+        listRoutingHelper.Add (drbRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+        internet.Install (servers);
+
+        listRoutingHelper.Clear ();
+        listRoutingHelper.Add (xpathRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+        internet.Install (edges);
+        internet.Install (aggregations);
+        internet.Install (cores);
+    }
+    else if (runMode == TLB)
     {
         internet.SetTLB (true);
-    }
+        internet.Install (servers);
 
-    internet.Install (servers);
-
-    if (runMode == TLB)
-    {
         internet.SetTLB (false);
+        listRoutingHelper.Add (xpathRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+
+        internet.Install (edges);
+        internet.Install (aggregations);
+        internet.Install (cores);
     }
-
-    Ipv4ListRoutingHelper listRoutingHelper;
-    Ipv4GlobalRoutingHelper globalRoutingHelper;
-    Ipv4XPathRoutingHelper xpathRoutingHelper;
-
-    listRoutingHelper.Add (globalRoutingHelper, 0);
-    listRoutingHelper.Add (xpathRoutingHelper, 1);
-    internet.SetRoutingHelper (listRoutingHelper);
-
-    if (runMode == PRESTO)
+    else if (runMode == ECMP)
     {
-        internet.SetDrb (true);
-    }
-    internet.Install (edges);
-    if (runMode == PRESTO)
-    {
-        internet.SetDrb (false);
-    }
+	    internet.SetRoutingHelper (globalRoutingHelper);
 
-    internet.Install (aggregations);
-    internet.Install (cores);
+	    internet.Install (servers);
+	    internet.Install (edges);
+        internet.Install (aggregations);
+        internet.Install (cores);
+    }
 
     PointToPointHelper p2p;
 
@@ -429,8 +452,6 @@ int main (int argc, char *argv[])
 
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (aggregationCoreCapacity)));
 
-    Ipv4DrbHelper drbHelper;
-
     NS_LOG_INFO ("Connecting aggregations to cores");
     for (uint32_t i = 0; i < aggregationCount; i++)
     {
@@ -459,28 +480,47 @@ int main (int argc, char *argv[])
             NS_LOG_INFO ("Aggregation-" << i << " is connected to Core-" << uCoreIndex
                     << " (" << netDeviceContainer.Get (0)->GetIfIndex () << "<->"
                     << netDeviceContainer.Get (1)->GetIfIndex () << ")");
-
-            if (runMode == PRESTO)
-            {
-                //if (i % (k / 2) == 0)
-                //{
-                    uint32_t pod = i / (k / 2);
-                    uint32_t edgeStartIndex = pod * (k / 2);
-                    uint32_t edgeEndIndex = (pod + 1) * (k / 2);
-                    for (uint32_t p = edgeStartIndex; p < edgeEndIndex; ++p)
-                    {
-                        Ptr<Ipv4Drb> drb = drbHelper.GetIpv4Drb (edges.Get (p)->GetObject<Ipv4> ());
-                        drb->AddCoreSwitchAddress (PRESTO_RATIO, interfaceContainer.GetAddress (1));
-                        NS_LOG_INFO ("For Leaf-" << p <<", bouncing the packet to core: " << interfaceContainer.GetAddress (1));
-                    }
-
-                //}
-            }
         }
     }
 
     NS_LOG_INFO ("Populate global routing tables");
     Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+
+    if (runMode == DRB || runMode == PRESTO)
+    {
+        NS_LOG_INFO ("Configuring DRB/PRESTO paths");
+        for (uint32_t i = 0; i < edgeCount; i++)
+        {
+            for (uint32_t j = 0; j < serverCount; j++)
+            {
+                uint32_t uServerIndex = i * serverCount + j;
+                for (uint32_t m = 0; m < k /2; m++)
+                {
+                    uint32_t uAggregationIndex = (i / (k / 2)) * (k / 2) + m;
+                    int path = 0;
+                    int pathBase = 1;
+                    path += edgeToAggregationPath[std::make_pair (i, uAggregationIndex)] * pathBase;
+                    pathBase *= 100;
+                    for (uint32_t n = 0; n < k / 2; n++)
+                    {
+                        uint32_t uCoreIndex = m * (k / 2) + n;
+                        int newPath = aggregationToCorePath[std::make_pair (uAggregationIndex, uCoreIndex)] * pathBase + path;
+                        Ptr<Ipv4DrbRouting> drbRouting = drbRoutingHelper.GetDrbRouting (servers.Get (uServerIndex)->GetObject<Ipv4> ());
+                        if (runMode == DRB)
+                        {
+                            drbRouting->AddPath (newPath);
+                        }
+                        else
+                        {
+                            drbRouting->AddPath (PRESTO_RATIO, newPath);
+                        }
+                        NS_LOG_INFO ("For server: " << uServerIndex << " under edge: " << i << ", configured with DRB/PRESTO path: " << newPath);
+                    }
+                }
+            }
+
+        }
+    }
 
     if (runMode == TLB)
     {

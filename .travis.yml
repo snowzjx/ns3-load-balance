@@ -1,0 +1,7 @@
+language: cpp
+install: true
+script:
+- ./waf clean
+- ./waf configure --build-profile=optimized --enable-examples
+- ./waf -j 2
+- exit 0
