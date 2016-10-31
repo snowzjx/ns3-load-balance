@@ -54,6 +54,8 @@
 #include "ns3/flow-id-tag.h"
 #include "ns3/ipv4-xpath-tag.h"
 #include "ns3/tcp-tlb-tag.h"
+#include "ns3/ipv4-clove.h"
+#include "ns3/tcp-clove-tag.h"
 #include "ns3/hash.h"
 
 #include <math.h>
@@ -148,6 +150,10 @@ TcpSocketBase::GetTypeId (void)
     .AddAttribute ("TLB", "Enable the TLB",
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_TLBEnabled),
+                   MakeBooleanChecker ())
+    .AddAttribute ("Clove", "Enable the Clove",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_CloveEnabled),
                    MakeBooleanChecker ())
     .AddAttribute ("Pause", "Whether TCP should pause in FlowBender & TLB",
                    BooleanValue (false),
@@ -338,9 +344,15 @@ TcpSocketBase::TcpSocketBase (void)
     m_ecn (true),
     m_resequenceBufferEnabled (false),
     m_flowBenderEnabled (false),
+    // TLB
     m_TLBEnabled (false),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    // Clove
+    m_CloveEnabled (false),
+    m_CloveSendSide (false),
+    m_piggybackCloveInfo (false),
+    // Pause
     m_isPauseEnabled (false),
     m_isPause (false),
     m_oldPath (0),
@@ -437,9 +449,15 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_ecn (sock.m_ecn),
     m_resequenceBufferEnabled (sock.m_resequenceBufferEnabled),
     m_flowBenderEnabled (sock.m_flowBenderEnabled),
+    // TLB
     m_TLBEnabled (sock.m_TLBEnabled),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    // Clove
+    m_CloveEnabled (sock.m_CloveEnabled),
+    m_CloveSendSide (false),
+    m_piggybackCloveInfo (false),
+    // Pause
     m_isPauseEnabled (sock.m_isPauseEnabled),
     m_isPause (false),
     m_oldPath (0),
@@ -1119,6 +1137,10 @@ TcpSocketBase::DoConnect (void)
       {
           m_TLBSendSide = true;
       }
+      if (m_CloveEnabled)
+      {
+          m_CloveSendSide = true;
+      }
       SendEmptyPacket (sendflags);
       // XXX Resequence Buffer Support, disable resequence buffer on sender side
       m_resequenceBufferEnabled = false;
@@ -1614,6 +1636,19 @@ TcpSocketBase::ReceivedAck (Ptr<Packet> packet, const TcpHeader& tcpHeader)
         m_pathAcked = tcpTLBTag.GetPath ();
         // std::cout << this << " Path acked: " << m_pathAcked << std::endl;
         ipv4TLB->FlowRecv (flowId, m_pathAcked, m_endPoint->GetPeerAddress (), bytesAcked, withECE, tcpTLBTag.GetTime ());
+    }
+  }
+
+  // XXX Clove Support
+  if (m_CloveEnabled && m_CloveSendSide)
+  {
+    TcpCloveTag tcpCloveTag;
+    bool found = packet->RemovePacketTag(tcpCloveTag);
+    if (found)
+    {
+        Ptr<Ipv4Clove> ipv4Clove = m_node->GetObject<Ipv4Clove> ();
+        m_pathAcked = tcpCloveTag.GetPath ();
+        ipv4Clove->FlowRecv (m_pathAcked, m_endPoint->GetPeerAddress (), withECE);
     }
   }
 
@@ -2525,6 +2560,36 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
     }
   }
 
+  // XXX Clove Support
+  if (m_CloveEnabled)
+  {
+    if (m_CloveSendSide)
+    {
+      uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+
+      Ptr<Ipv4Clove> ipv4Clove = m_node->GetObject<Ipv4Clove> ();
+      uint32_t path = ipv4Clove->GetPath (flowId, m_endPoint->GetLocalAddress (), m_endPoint->GetPeerAddress ());
+
+      // XPath Support
+      Ipv4XPathTag ipv4XPathTag;
+      ipv4XPathTag.SetPathId (path);
+      p->AddPacketTag (ipv4XPathTag);
+
+      // Clove Support
+      TcpCloveTag tcpCloveTag;
+      tcpCloveTag.SetPath (path);
+      p->AddPacketTag (tcpCloveTag);
+    }
+
+    if (m_piggybackCloveInfo)
+    {
+      TcpCloveTag tcpCloveTag;
+      tcpCloveTag.SetPath (m_ClovePath);
+      p->AddPacketTag (tcpCloveTag);
+    }
+  }
+
   m_txTrace (p, header, this);
 
   if (m_endPoint != 0)
@@ -2903,6 +2968,30 @@ TcpSocketBase::SendDataPacket (SequenceNumber32 seq, uint32_t maxSize, bool with
         }
       }
 
+      // XXX Clove Support
+      if (m_CloveEnabled)
+      {
+        if (m_CloveSendSide)
+        {
+          uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                                 m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+
+          Ptr<Ipv4Clove> ipv4Clove = m_node->GetObject<Ipv4Clove> ();
+          uint32_t path = ipv4Clove->GetPath (flowId, m_endPoint->GetLocalAddress (), m_endPoint->GetPeerAddress ());
+
+          // XPath Support
+          Ipv4XPathTag ipv4XPathTag;
+          ipv4XPathTag.SetPathId (path);
+          p->AddPacketTag (ipv4XPathTag);
+
+          // Clove Support
+          TcpCloveTag tcpCloveTag;
+          tcpCloveTag.SetPath (path);
+          p->AddPacketTag (tcpCloveTag);
+        }
+      }
+
+
       if (m_isPause)
       {
           std::cout << "Pause enabled, buffering packet ..." <<std::endl;
@@ -3161,6 +3250,19 @@ TcpSocketBase::ReceivedData (Ptr<Packet> p, const TcpHeader& tcpHeader)
       m_onewayRtt = Simulator::Now () - tcpTLBTag.GetTime ();
       m_TLBPath = tcpTLBTag.GetPath ();
     }
+  }
+
+  // XXX Clove Support
+  if (m_CloveEnabled && !m_CloveSendSide)
+  {
+    TcpCloveTag tcpCloveTag;
+    bool found = p->RemovePacketTag(tcpCloveTag);
+    if (found)
+    {
+      m_piggybackCloveInfo = true;
+      m_ClovePath = tcpCloveTag.GetPath ();
+    }
+
   }
 
   // Put into Rx buffer

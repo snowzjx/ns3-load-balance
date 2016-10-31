@@ -13,7 +13,8 @@ NS_OBJECT_ENSURE_REGISTERED (Ipv4Clove);
 Ipv4Clove::Ipv4Clove () :
     m_flowletTimeout (MicroSeconds (200)),
     m_runMode (CLOVE_RUNMODE_EDGE_FLOWLET),
-    m_halfRTT (MicroSeconds (40))
+    m_halfRTT (MicroSeconds (40)),
+    m_disToUncongestedPath (false)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -21,7 +22,8 @@ Ipv4Clove::Ipv4Clove () :
 Ipv4Clove::Ipv4Clove (const Ipv4Clove &other) :
     m_flowletTimeout (other.m_flowletTimeout),
     m_runMode (other.m_runMode),
-    m_halfRTT (other.m_halfRTT)
+    m_halfRTT (other.m_halfRTT),
+    m_disToUncongestedPath (other.m_disToUncongestedPath)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -173,8 +175,8 @@ Ipv4Clove::FlowRecv (uint32_t path, Ipv4Address daddr, bool withECN)
     {
         return;
     }
-    std::vector<uint32_t> paths = itr->second;
 
+    std::vector<uint32_t> paths = itr->second;
     std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
 
     std::map<std::pair<uint32_t, uint32_t>, Time>::iterator ecnItr = m_pathECNSeen.find (key);
@@ -195,18 +197,47 @@ Ipv4Clove::FlowRecv (uint32_t path, Ipv4Address daddr, bool withECN)
         m_pathWeight[key] = 0.67 * originalPathWeight;
 
         std::vector<uint32_t>::iterator pathItr = paths.begin ();
+
+        uint32_t uncongestedPathCount = 0;
+
         for ( ; pathItr != paths.end (); ++pathItr)
         {
             if (*pathItr != path)
             {
                 std::pair<uint32_t, uint32_t> uKey = std::make_pair (destTor, *pathItr);
-                double uPathWeight = 1.0;
-                std::map<std::pair<uint32_t, uint32_t>, double>::iterator uPathWeightItr = m_pathWeight.find (uKey);
-                if (uPathWeightItr != m_pathWeight.end ())
+                std::map<std::pair<uint32_t, uint32_t>, Time>::iterator uEcnItr = m_pathECNSeen.find (uKey);
+                if (!m_disToUncongestedPath ||
+                        (m_disToUncongestedPath && Simulator::Now () - uEcnItr->second < m_halfRTT))
                 {
-                    uPathWeight = uPathWeightItr->second;
+                    uncongestedPathCount ++;
                 }
-                m_pathWeight[key] = uPathWeight + (0.33 * originalPathWeight) / (paths.size () - 1);
+            }
+        }
+
+        if (uncongestedPathCount == 0)
+        {
+            m_pathWeight[key] = originalPathWeight;
+            return;
+        }
+
+        pathItr = paths.begin ();
+        for ( ; pathItr != paths.end (); ++pathItr)
+        {
+            if (*pathItr != path)
+            {
+                std::pair<uint32_t, uint32_t> uKey = std::make_pair (destTor, *pathItr);
+                std::map<std::pair<uint32_t, uint32_t>, Time>::iterator uEcnItr = m_pathECNSeen.find (uKey);
+                if (!m_disToUncongestedPath ||
+                        (m_disToUncongestedPath && Simulator::Now () - uEcnItr->second < m_halfRTT))
+                {
+                    double uPathWeight = 1.0;
+                    std::map<std::pair<uint32_t, uint32_t>, double>::iterator uPathWeightItr = m_pathWeight.find (uKey);
+                    if (uPathWeightItr != m_pathWeight.end ())
+                    {
+                        uPathWeight = uPathWeightItr->second;
+                    }
+                    m_pathWeight[uKey] = uPathWeight + (0.33 * originalPathWeight) / uncongestedPathCount;
+                }
             }
         }
     }

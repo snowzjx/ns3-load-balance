@@ -50,6 +50,7 @@ private:
 
     // Clove ECN
     Time m_halfRTT;
+    bool m_disToUncongestedPath;
     std::map<std::pair<uint32_t, uint32_t>, double> m_pathWeight;
     std::map<std::pair<uint32_t, uint32_t>, Time> m_pathECNSeen;
 };

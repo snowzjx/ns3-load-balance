@@ -1027,9 +1027,18 @@ protected:
 
   uint32_t                  m_pathAcked;
 
+  // Clove Support
+  bool                      m_CloveEnabled;
+  bool                      m_CloveSendSide;
+  bool                      m_piggybackCloveInfo;
+  uint32_t                  m_ClovePath;
+
+  // Pause Support
   bool                      m_isPauseEnabled;
   bool                      m_isPause;
   uint32_t                  m_oldPath;
+
+  // Resequence buffer
   Ptr<TcpPauseBuffer>       m_pauseBuffer;
 
   // Transmission Control Block
