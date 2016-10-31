@@ -12,14 +12,16 @@ NS_OBJECT_ENSURE_REGISTERED (Ipv4Clove);
 
 Ipv4Clove::Ipv4Clove () :
     m_flowletTimeout (MicroSeconds (200)),
-    m_runMode (CLOVE_RUNMODE_EDGE_FLOWLET)
+    m_runMode (CLOVE_RUNMODE_EDGE_FLOWLET),
+    m_halfRTT (MicroSeconds (40))
 {
     NS_LOG_FUNCTION (this);
 }
 
 Ipv4Clove::Ipv4Clove (const Ipv4Clove &other) :
     m_flowletTimeout (other.m_flowletTimeout),
-    m_runMode (other.m_runMode)
+    m_runMode (other.m_runMode),
+    m_halfRTT (other.m_halfRTT)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -53,6 +55,9 @@ Ipv4Clove::AddAvailPath (uint32_t destTor, uint32_t path)
         itr = m_availablePath.find (destTor);
     }
     (itr->second).push_back (path);
+
+    std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
+    m_pathWeight[key] = 1;
 }
 
 uint32_t
@@ -120,10 +125,90 @@ Ipv4Clove::CalPath (uint32_t destTor)
     {
         return paths[rand() % paths.size ()];
     }
-    else
+    else if (m_runMode == CLOVE_RUNMODE_ECN)
     {
-        // TODO CLOVE ECN and CLOVE INT
+        double r = ((double) rand () / RAND_MAX);
+        std::vector<uint32_t>::iterator itr = paths.begin ();
+        for ( ; itr != paths.end (); ++itr)
+        {
+            uint32_t path = *itr;
+            double weightSum = 0.0;
+            std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
+            std::map<std::pair<uint32_t, uint32_t>, double>::iterator pathWeightItr = m_pathWeight.find (key);
+            if (pathWeightItr != m_pathWeight.end ())
+            {
+                weightSum += pathWeightItr->second;
+            }
+            if (r <= (weightSum / (double) paths.size ()))
+            {
+                return path;
+            }
+        }
         return 0;
+    }
+    else if (m_runMode == CLOVE_RUNMODE_INT)
+    {
+        return 0;
+    }
+    return 0;
+}
+
+void
+Ipv4Clove::FlowRecv (uint32_t path, Ipv4Address daddr, bool withECN)
+{
+    if (!withECN)
+    {
+        return;
+    }
+
+    uint32_t destTor = 0;
+    if (!Ipv4Clove::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return;
+    }
+
+    std::map<uint32_t, std::vector<uint32_t> >::iterator itr = m_availablePath.find (destTor);
+    if (itr == m_availablePath.end ())
+    {
+        return;
+    }
+    std::vector<uint32_t> paths = itr->second;
+
+    std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
+
+    std::map<std::pair<uint32_t, uint32_t>, Time>::iterator ecnItr = m_pathECNSeen.find (key);
+
+    if (ecnItr == m_pathECNSeen.end ()
+            || Simulator::Now () - ecnItr->second >= m_halfRTT)
+    {
+        // Update the weight
+        m_pathECNSeen[key] = Simulator::Now ();
+
+        double originalPathWeight = 1.0;
+        std::map<std::pair<uint32_t, uint32_t>, double>::iterator weightItr = m_pathWeight.find (key);
+        if (weightItr != m_pathWeight.end ())
+        {
+            originalPathWeight = weightItr->second;
+        }
+
+        m_pathWeight[key] = 0.67 * originalPathWeight;
+
+        std::vector<uint32_t>::iterator pathItr = paths.begin ();
+        for ( ; pathItr != paths.end (); ++pathItr)
+        {
+            if (*pathItr != path)
+            {
+                std::pair<uint32_t, uint32_t> uKey = std::make_pair (destTor, *pathItr);
+                double uPathWeight = 1.0;
+                std::map<std::pair<uint32_t, uint32_t>, double>::iterator uPathWeightItr = m_pathWeight.find (uKey);
+                if (uPathWeightItr != m_pathWeight.end ())
+                {
+                    uPathWeight = uPathWeightItr->second;
+                }
+                m_pathWeight[key] = uPathWeight + (0.33 * originalPathWeight) / (paths.size () - 1);
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <map>
+#include <utility>
 
 #define CLOVE_RUNMODE_EDGE_FLOWLET 0
 #define CLOVE_RUNMODE_ECN 1
@@ -33,10 +34,11 @@ public:
 
     uint32_t GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr);
 
+    void FlowRecv (uint32_t path, Ipv4Address daddr, bool withECN);
+
     bool FindTorId (Ipv4Address daddr, uint32_t &torId);
 
 private:
-
     uint32_t CalPath (uint32_t destTor);
 
     Time m_flowletTimeout;
@@ -45,6 +47,11 @@ private:
     std::map<uint32_t, std::vector<uint32_t> > m_availablePath;
     std::map<Ipv4Address, uint32_t> m_ipTorMap;
     std::map<uint32_t, Flowlet> m_flowletMap;
+
+    // Clove ECN
+    Time m_halfRTT;
+    std::map<std::pair<uint32_t, uint32_t>, double> m_pathWeight;
+    std::map<std::pair<uint32_t, uint32_t>, Time> m_pathECNSeen;
 };
 
 }
