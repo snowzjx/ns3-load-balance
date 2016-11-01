@@ -118,6 +118,9 @@ public:
   void SetDrb (bool enable);
 
   void SetTLB (bool enable);
+
+  void SetClove (bool enable);
+
   /**
    * Aggregate implementations of the ns3::Ipv4, ns3::Ipv6, ns3::Udp, and ns3::Tcp classes
    * onto the provided node.  This method will assert if called on a node that
@@ -336,7 +339,7 @@ private:
   bool m_ipv4Enabled;
 
   /**
-   * \brief IPv6 install state (enabled/disabled) ?
+   * \brief IPv6 InetSocketAddressll state (enabled/disabled) ?
    */
   bool m_ipv6Enabled;
 
@@ -353,6 +356,8 @@ private:
   bool m_drb;
 
   bool m_TLBEnabled;
+
+  bool m_cloveEnabled;
 };
 
 } // namespace ns3

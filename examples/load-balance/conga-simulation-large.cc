@@ -10,6 +10,7 @@
 #include "ns3/ipv4-drb-routing-helper.h"
 #include "ns3/ipv4-xpath-routing-helper.h"
 #include "ns3/ipv4-tlb.h"
+#include "ns3/ipv4-clove.h"
 #include "ns3/ipv4-tlb-probing.h"
 #include "ns3/link-monitor-module.h"
 #include "ns3/traffic-control-module.h"
@@ -53,7 +54,8 @@ enum RunMode {
     PRESTO,
     DRB,
     FlowBender,
-    ECMP
+    ECMP,
+    Clove
 };
 
 std::stringstream tlbBibleFilename;
@@ -256,6 +258,11 @@ int main (int argc, char *argv[])
     uint32_t applicationPauseThresh = 0;
     uint32_t applicationPauseTime = 1000;
 
+    uint32_t cloveFlowletTimeout = 40;
+    uint32_t cloveRunMode = 0;
+    uint32_t cloveHalfRTT = 40;
+    bool cloveDisToUncongestedPath = false;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -301,6 +308,11 @@ int main (int argc, char *argv[])
     cmd.AddValue ("applicationPauseThresh", "ApplicationPauseThresh", applicationPauseThresh);
     cmd.AddValue ("applicationPauseTime", "ApplicationPauseTime, in MicroSeconds", applicationPauseTime);
 
+    cmd.AddValue ("cloveFlowletTimeout", "CloveFlowletTimeout", cloveFlowletTimeout);
+    cmd.AddValue ("cloveRunMode", "CloveRunMode", cloveRunMode);
+    cmd.AddValue ("cloveHalfRTT", "CloveHalfRTT", cloveHalfRTT);
+    cmd.AddValue ("cloveDisToUncongestedPath", "CloveDisToUncongestedPath", cloveDisToUncongestedPath);
+
     cmd.Parse (argc, argv);
 
     uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
@@ -344,9 +356,13 @@ int main (int argc, char *argv[])
         }
         runMode = TLB;
     }
+    else if (runModeStr.compare ("Clove") == 0)
+    {
+        runMode = Clove;
+    }
     else
     {
-        NS_LOG_ERROR ("The running mode should be pLB, Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
+        NS_LOG_ERROR ("The running mode should be TLB, Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
         return 0;
     }
 
@@ -392,6 +408,15 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::Rerouting", BooleanValue (TLBRerouting));
         Config::SetDefault ("ns3::Ipv4TLB::DREMultiply", UintegerValue (TLBDREMultiply));
         Config::SetDefault ("ns3::Ipv4TLB::S", UintegerValue(TLBS));
+    }
+
+    if (runMode == Clove)
+    {
+        NS_LOG_INFO ("Enabling Clove");
+        Config::SetDefault ("ns3::Ipv4Clove::FlowletTimeout", TimeValue (MicroSeconds (cloveFlowletTimeout)));
+        Config::SetDefault ("ns3::Ipv4Clove::RunMode", UintegerValue (cloveRunMode));
+        Config::SetDefault ("ns3::Ipv4Clove::HalfRTT", TimeValue (MicroSeconds (cloveHalfRTT)));
+        Config::SetDefault ("ns3::Ipv4Clove::DisToUncongestedPath", BooleanValue (cloveDisToUncongestedPath));
     }
 
     if (tcpPause)
@@ -467,6 +492,20 @@ int main (int argc, char *argv[])
         internet.Install (servers);
 
         internet.SetTLB (false);
+        listRoutingHelper.Add (xpathRoutingHelper, 1);
+        listRoutingHelper.Add (globalRoutingHelper, 0);
+        internet.SetRoutingHelper (listRoutingHelper);
+        Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue(true));
+
+        internet.Install (spines);
+        internet.Install (leaves);
+    }
+    else if (runMode == Clove)
+    {
+        internet.SetClove (true);
+        internet.Install (servers);
+
+        internet.SetClove (false);
         listRoutingHelper.Add (xpathRoutingHelper, 1);
         listRoutingHelper.Add (globalRoutingHelper, 0);
         internet.SetRoutingHelper (listRoutingHelper);
@@ -585,6 +624,16 @@ int main (int argc, char *argv[])
                     // NS_LOG_INFO ("Configuring TLB with " << k << "'s server, inserting server: " << j << " under leaf: " << i);
                 }
             }
+
+            if (runMode == Clove)
+            {
+                for (int k = 0; k < SERVER_COUNT * LEAF_COUNT; k++)
+                {
+                    Ptr<Ipv4Clove> clove = servers.Get (k)->GetObject<Ipv4Clove> ();
+                    clove->AddAddressWithTor (interfaceContainer.GetAddress (1), i);
+                }
+
+            }
         }
     }
 
@@ -651,7 +700,7 @@ int main (int argc, char *argv[])
                     << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ()
                     << " with data rate " << spineLeafCapacity);
 
-            if (runMode == TLB || runMode == DRB || runMode == PRESTO)
+            if (runMode == TLB || runMode == DRB || runMode == PRESTO || runMode == Clove)
             {
                 std::pair<int, int> leafToSpine = std::make_pair<int, int> (i, j);
                 leafToSpinePath[leafToSpine] = netDeviceContainer.Get (0)->GetIfIndex ();
@@ -707,7 +756,7 @@ int main (int argc, char *argv[])
         }
     }
 
-    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender || runMode == TLB)
+    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender || runMode == TLB || runMode == Clove)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
@@ -731,6 +780,35 @@ int main (int argc, char *argv[])
                     else
                     {
                         drbRouting->AddPath (PRESTO_RATIO, leafToSpinePath[std::make_pair (i, k)]);
+                    }
+                }
+            }
+        }
+    }
+
+    if (runMode == Clove)
+    {
+        NS_LOG_INFO ("Configuring Clove available paths");
+        for (int i = 0; i < LEAF_COUNT; i++)
+        {
+            for (int j = 0; j < SERVER_COUNT; j++)
+            {
+                int serverIndex = i * SERVER_COUNT + j;
+                for (int k = 0; k < SPINE_COUNT; k++)
+                {
+                    int path = 0;
+                    int pathBase = 1;
+                    path += leafToSpinePath[std::make_pair (i, k)] * pathBase;
+                    pathBase *= 100;
+                    for (int l = 0; l < LEAF_COUNT; l++)
+                    {
+                        if (i == l)
+                        {
+                            continue;
+                        }
+                        int newPath = spineToLeafPath[std::make_pair (k, l)] * pathBase + path;
+                        Ptr<Ipv4Clove> clove = servers.Get (serverIndex)->GetObject<Ipv4Clove> ();
+                        clove->AddAvailPath (l, newPath);
                     }
                 }
             }

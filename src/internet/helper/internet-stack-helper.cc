@@ -332,6 +332,12 @@ InternetStackHelper::SetTLB (bool enable)
 }
 
 void
+InternetStackHelper::SetClove (bool enable)
+{
+  m_cloveEnabled = enable;
+}
+
+void
 InternetStackHelper::SetIpv4StackInstall (bool enable)
 {
   m_ipv4Enabled = enable;
@@ -448,6 +454,10 @@ InternetStackHelper::Install (Ptr<Node> node) const
        if (m_TLBEnabled)
         {
           CreateAndAggregateObjectFromTypeId (node, "ns3::Ipv4TLB");
+        }
+       if (m_cloveEnabled)
+        {
+          CreateAndAggregateObjectFromTypeId (node, "ns3::Ipv4Clove");
         }
 
       CreateAndAggregateObjectFromTypeId (node, "ns3::ArpL3Protocol");

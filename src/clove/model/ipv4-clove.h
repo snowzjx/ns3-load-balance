@@ -16,7 +16,7 @@
 
 namespace ns3 {
 
-struct Flowlet {
+struct CloveFlowlet {
     Time lastSeen;
     uint32_t path;
 };
@@ -46,7 +46,7 @@ private:
 
     std::map<uint32_t, std::vector<uint32_t> > m_availablePath;
     std::map<Ipv4Address, uint32_t> m_ipTorMap;
-    std::map<uint32_t, Flowlet> m_flowletMap;
+    std::map<uint32_t, CloveFlowlet> m_flowletMap;
 
     // Clove ECN
     Time m_halfRTT;

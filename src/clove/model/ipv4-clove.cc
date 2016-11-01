@@ -3,6 +3,8 @@
 
 #include "ns3/log.h"
 #include "ns3/simulator.h"
+#include "ns3/uinteger.h"
+#include "ns3/boolean.h"
 
 namespace ns3 {
 
@@ -35,6 +37,22 @@ Ipv4Clove::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("Clove")
         .AddConstructor<Ipv4Clove> ()
+        .AddAttribute ("FlowletTimeout", "FlowletTimeout",
+                       TimeValue (MicroSeconds (40)),
+                       MakeTimeAccessor (&Ipv4Clove::m_flowletTimeout),
+                       MakeTimeChecker ())
+        .AddAttribute ("RunMode", "RunMode",
+                       UintegerValue (0),
+                       MakeUintegerAccessor (&Ipv4Clove::m_runMode),
+                       MakeUintegerChecker<uint32_t> ())
+        .AddAttribute ("HalfRTT", "HalfRTT",
+                       TimeValue (MicroSeconds (40)),
+                       MakeTimeAccessor (&Ipv4Clove::m_halfRTT),
+                       MakeTimeChecker ())
+        .AddAttribute ("DisToUncongestedPath", "DisToUncongestedPath",
+                       BooleanValue (false),
+                       MakeBooleanAccessor (&Ipv4Clove::m_disToUncongestedPath),
+                       MakeBooleanChecker ())
     ;
 
     return tid;
@@ -78,8 +96,8 @@ Ipv4Clove::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         NS_LOG_ERROR ("Cannot find source tor id based on the given source address");
     }
 
-    struct Flowlet flowlet;
-    std::map<uint32_t, Flowlet>::iterator flowletItr = m_flowletMap.find (flowId);
+    struct CloveFlowlet flowlet;
+    std::map<uint32_t, CloveFlowlet>::iterator flowletItr = m_flowletMap.find (flowId);
     if (flowletItr != m_flowletMap.end ())
     {
         flowlet = flowletItr->second;
