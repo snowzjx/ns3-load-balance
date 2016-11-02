@@ -258,7 +258,7 @@ int main (int argc, char *argv[])
     uint32_t applicationPauseThresh = 0;
     uint32_t applicationPauseTime = 1000;
 
-    uint32_t cloveFlowletTimeout = 40;
+    uint32_t cloveFlowletTimeout = 500;
     uint32_t cloveRunMode = 0;
     uint32_t cloveHalfRTT = 40;
     bool cloveDisToUncongestedPath = false;
@@ -1003,6 +1003,11 @@ int main (int argc, char *argv[])
         linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
         tlbBibleFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
         tlbBibleFilename2 << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
+    }
+    else if (runMode == Clove)
+    {
+        flowMonitorFilename << "clove-" << cloveRunMode << "-" << cloveFlowletTimeout << "-" << cloveHalfRTT << "-" << cloveDisToUncongestedPath << "-";
+        linkMonitorFilename << "clove-" << cloveRunMode << "-" << cloveFlowletTimeout << "-" << cloveHalfRTT << "-" << cloveDisToUncongestedPath << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
