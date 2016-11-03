@@ -413,6 +413,7 @@ int main (int argc, char *argv[])
     if (runMode == Clove)
     {
         NS_LOG_INFO ("Enabling Clove");
+        Config::SetDefault ("ns3::TcpSocketBase::Clove", BooleanValue (true));
         Config::SetDefault ("ns3::Ipv4Clove::FlowletTimeout", TimeValue (MicroSeconds (cloveFlowletTimeout)));
         Config::SetDefault ("ns3::Ipv4Clove::RunMode", UintegerValue (cloveRunMode));
         Config::SetDefault ("ns3::Ipv4Clove::HalfRTT", TimeValue (MicroSeconds (cloveHalfRTT)));
