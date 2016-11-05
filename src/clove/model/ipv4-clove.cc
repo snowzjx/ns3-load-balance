@@ -149,10 +149,10 @@ Ipv4Clove::CalPath (uint32_t destTor)
     {
         double r = ((double) rand () / RAND_MAX);
         std::vector<uint32_t>::iterator itr = paths.begin ();
+        double weightSum = 0.0;
         for ( ; itr != paths.end (); ++itr)
         {
             uint32_t path = *itr;
-            double weightSum = 0.0;
             std::pair<uint32_t, uint32_t> key = std::make_pair (destTor, path);
             std::map<std::pair<uint32_t, uint32_t>, double>::iterator pathWeightItr = m_pathWeight.find (key);
             if (pathWeightItr != m_pathWeight.end ())
