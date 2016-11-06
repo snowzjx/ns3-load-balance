@@ -98,7 +98,7 @@ Ipv4DrbRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDev
     return 0;
   }
 
-  uint32_t index = 0;
+  uint32_t index = rand () % m_paths.size ();
   std::map<uint32_t, uint32_t>::iterator itr = m_indexMap.find (flowIndentify);
   if (itr != m_indexMap.end ())
   {
