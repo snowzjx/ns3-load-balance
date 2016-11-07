@@ -147,6 +147,8 @@ int main (int argc, char *argv[])
     uint32_t TLBDREMultiply = 5;
     uint32_t TLBS = 64000;
 
+    bool resequenceBuffer = false;
+
     uint32_t PRESTO_RATIO = 64;
 
     CommandLine cmd;
@@ -174,6 +176,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBDREMultiply", "TLBDREMultiply", TLBDREMultiply);
     cmd.AddValue ("TLBS", "TLBS", TLBS);
     cmd.AddValue ("PrestoK" , "PrestoK", PRESTO_RATIO);
+    cmd.AddValue ("resequenceBuffer", "ResequenceBuffer", resequenceBuffer);
 
     cmd.Parse (argc, argv);
 
@@ -259,7 +262,7 @@ int main (int argc, char *argv[])
 
     Config::SetDefault ("ns3::Ipv4GlobalRouting::PerflowEcmpRouting", BooleanValue (true));
 
-    if (runMode == DRB || runMode == PRESTO)
+    if (resequenceBuffer)
     {
         NS_LOG_INFO ("Enabling Resequence Buffer");
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
