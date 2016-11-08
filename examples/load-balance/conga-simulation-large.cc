@@ -387,9 +387,9 @@ int main (int argc, char *argv[])
     {
 	    NS_LOG_INFO ("Enabling Resequence Buffer");
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (15)));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (100));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (250)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (5)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (500));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (500)));
     }
 
     if (runMode == TLB)
@@ -436,8 +436,8 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
+    Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
 
-    NS_LOG_INFO ("Create nodes");
     NodeContainer spines;
     spines.Create (SPINE_COUNT);
     NodeContainer leaves;
