@@ -31,6 +31,7 @@
 #include "ipv4-global-routing.h"
 #include "global-route-manager.h"
 #include "ns3/flow-id-tag.h"
+#include "ns3/hash.h"
 
 namespace ns3 {
 
@@ -233,7 +234,11 @@ Ipv4GlobalRouting::LookupGlobal (Ipv4Address dest, Ptr<Packet> packet, const Ipv
         }
       else if (m_perFlowEcmpRouting && flowId != 0) // If the flow id is 0, it may be the socket setup endpoint request, we simply return the first
         {                                           // available route to indicate the address is not local
-          selectIndex = flowId % allRoutes.size();
+          std::stringstream hash_string;
+          hash_string << flowId;
+          hash_string << header.GetTtl ();
+          uint32_t hashPerturbe = Hash32 (hash_string.str ()); // Hash Perturbe
+          selectIndex = hashPerturbe % allRoutes.size();
           NS_LOG_LOGIC ("Per flow ECMP is enabled, select index: " << selectIndex << " for flow: " << flowId);
         }
       else
