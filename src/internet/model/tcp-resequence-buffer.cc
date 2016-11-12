@@ -5,6 +5,7 @@
 #include "ns3/tcp-header.h"
 #include "ns3/uinteger.h"
 #include "ns3/tcp-socket-base.h"
+#include "ns3/flow-id-tag.h"
 
 namespace ns3
 {
@@ -50,6 +51,7 @@ TcpResequenceBuffer::TcpResequenceBuffer ():
     m_inOrderQueueTimerLimit (MicroSeconds (20)),
     m_outOrderQueueTimerLimit (MicroSeconds (50)),
     m_periodicalCheckTime (MicroSeconds (10)),
+    m_traceFlowId (0),
  	// Variables
     m_size (0),
     m_inOrderQueueTimer (Simulator::Now ()),
@@ -101,6 +103,13 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
     m_outOrderQueueTimer = Simulator::Now ();
   }
 
+  if (m_traceFlowId == 0)
+  {
+    FlowIdTag flowIdTag;
+    packet->PeekPacketTag (flowIdTag);
+    m_traceFlowId = flowIdTag.GetFlowId ();
+  }
+
   // Extract the Tcp header
   TcpHeader tcpHeader;
   uint32_t bytesPeeked = packet->PeekHeader (tcpHeader);
@@ -125,12 +134,14 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   NS_LOG_INFO ("\tThe packet seq is: " << element.m_seq
     << " and the expected next seq is: " << TcpResequenceBuffer::CalculateNextSeq (element));
 
+  m_tcpRBBuffer (m_traceFlowId, Simulator::Now (), tcpHeader.GetSequenceNumber (), TcpResequenceBuffer::CalculateNextSeq (element));
+
   // If the seq < first seq, retransmission may occur
   if (element.m_seq < m_firstSeq)
   {
     NS_LOG_LOGIC ("Receive retransmission packet with seq:" << element.m_seq
 				<< ", while the firstSeq is: " << m_firstSeq);
-    TcpResequenceBuffer::FlushInOrderQueue ();
+    TcpResequenceBuffer::FlushInOrderQueue (RE_TRANS);
     // Two situation
     // Case 1. The packet is exactly the previous one
     // We just continue to expect packets
@@ -140,7 +151,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
     {
       m_nextSeq = TcpResequenceBuffer::CalculateNextSeq (element);
     }
-    TcpResequenceBuffer::FlushOneElement (element);
+    TcpResequenceBuffer::FlushOneElement (element, RE_TRANS);
 
     // After flush, the first and next seq would be the same
     m_firstSeq = m_nextSeq;
@@ -173,7 +184,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
     if (m_size >= m_sizeLimit)
     {
 		NS_LOG_LOGIC ("In order queue size exceeds the size limit");
-        TcpResequenceBuffer::FlushInOrderQueue ();
+        TcpResequenceBuffer::FlushInOrderQueue (IN_ORDER_FULL);
         m_firstSeq = m_nextSeq;
     }
   }
@@ -247,14 +258,14 @@ TcpResequenceBuffer::PeriodicalCheck ()
 
   if (Simulator::Now () - m_inOrderQueueTimer > m_inOrderQueueTimerLimit)
   {
-    FlushInOrderQueue ();
+    FlushInOrderQueue (IN_ORDER_TIMEOUT);
     m_firstSeq = m_nextSeq;
   }
 
   if (Simulator::Now () - m_outOrderQueueTimer > m_outOrderQueueTimerLimit)
   {
-    FlushInOrderQueue ();
-    FlushOutOrderQueue ();
+    FlushInOrderQueue (OUT_ORDER_TIMEOUT);
+    FlushOutOrderQueue (OUT_ORDER_TIMEOUT);
     m_firstSeq = m_nextSeq;
   }
 
@@ -269,18 +280,20 @@ TcpResequenceBuffer::PeriodicalCheck ()
 }
 
 void
-TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element)
+TcpResequenceBuffer::FlushOneElement (const TcpResequenceBufferElement &element, TcpRBPopReason reason)
 {
   if (m_hasStopped)
   {
     return;
   }
   NS_LOG_INFO ("Flush packet: " << element.m_packet);
+  m_tcpRBFlush (m_traceFlowId, Simulator::Now (), element.m_seq, m_inOrderQueue.size (),
+          m_outOrderQueue.size (), reason);
   m_tcp->DoForwardUp (element.m_packet, element.m_fromAddress, element.m_toAddress);
 }
 
 void
-TcpResequenceBuffer::FlushInOrderQueue ()
+TcpResequenceBuffer::FlushInOrderQueue (TcpRBPopReason reason)
 {
   NS_LOG_FUNCTION (this);
   // Flush the data
@@ -292,7 +305,7 @@ TcpResequenceBuffer::FlushInOrderQueue ()
     {
       break;
     }
-    TcpResequenceBuffer::FlushOneElement (*itr);
+    TcpResequenceBuffer::FlushOneElement (*itr, reason);
   }
 
   m_inOrderQueue.clear ();
@@ -302,11 +315,10 @@ TcpResequenceBuffer::FlushInOrderQueue ()
 
   // Reset timer
   m_inOrderQueueTimer = Simulator::Now ();
-
 }
 
 void
-TcpResequenceBuffer::FlushOutOrderQueue ()
+TcpResequenceBuffer::FlushOutOrderQueue (TcpRBPopReason reason)
 {
   NS_LOG_FUNCTION (this);
   // Flush the data
@@ -316,7 +328,7 @@ TcpResequenceBuffer::FlushOutOrderQueue ()
     {
       break;
     }
-    TcpResequenceBuffer::FlushOneElement (m_outOrderQueue.top ());
+    TcpResequenceBuffer::FlushOneElement (m_outOrderQueue.top (), reason);
     m_outOrderQueue.pop ();
   }
   m_outOrderSeqSet.clear ();

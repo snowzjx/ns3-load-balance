@@ -6,6 +6,8 @@
 #include "ns3/sequence-number.h"
 #include "ns3/nstime.h"
 #include "ns3/event-id.h"
+#include "ns3/callback.h"
+#include "ns3/traced-value.h"
 
 #include <vector>
 #include <queue>
@@ -13,6 +15,14 @@
 
 namespace ns3
 {
+
+enum TcpRBPopReason
+{
+  IN_ORDER_FULL = 0,
+  IN_ORDER_TIMEOUT,
+  OUT_ORDER_TIMEOUT,
+  RE_TRANS
+};
 
 class TcpSocketBase;
 
@@ -65,9 +75,9 @@ private:
 
   void PeriodicalCheck ();
 
-  void FlushOneElement (const TcpResequenceBufferElement &element);
-  void FlushInOrderQueue ();
-  void FlushOutOrderQueue ();
+  void FlushOneElement (const TcpResequenceBufferElement &element, TcpRBPopReason reason);
+  void FlushInOrderQueue (TcpRBPopReason reason);
+  void FlushOutOrderQueue (TcpRBPopReason reason);
 
   // Parameters
   uint32_t m_sizeLimit;
@@ -76,6 +86,8 @@ private:
   Time m_outOrderQueueTimerLimit;
 
   Time m_periodicalCheckTime;
+
+  uint32_t m_traceFlowId;
 
   // Variables
   uint32_t m_size;
@@ -97,6 +109,14 @@ private:
   std::set<SequenceNumber32> m_outOrderSeqSet;
 
   TcpSocketBase *m_tcp;
+
+  TracedCallback <uint32_t, Time, SequenceNumber32, SequenceNumber32> m_tcpRBBuffer;
+  TracedCallback <uint32_t, Time, SequenceNumber32, uint32_t, uint32_t, TcpRBPopReason> m_tcpRBFlush;
+
+  typedef void (* TcpRBBuffer) (uint32_t flowId, Time time, SequenceNumber32 recSeq,
+          SequenceNumber32 nextSeq);
+  typedef void (* TcpRBFlush) (uint32_t flowId, Time time, SequenceNumber32 popSeq,
+          uint32_t inOrderLength, uint32_t outOrderLength, TcpRBPopReason reason);
 };
 
 }
