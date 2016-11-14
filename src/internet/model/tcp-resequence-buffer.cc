@@ -40,7 +40,16 @@ TcpResequenceBuffer::GetTypeId (void)
                    "Periodical check time",
                    TimeValue (MicroSeconds (10)),
                    MakeTimeAccessor (&TcpResequenceBuffer::m_periodicalCheckTime),
-                   MakeTimeChecker  ());
+                   MakeTimeChecker  ())
+    .AddTraceSource ("Buffer",
+                     "When one packet is buffered",
+                     MakeTraceSourceAccessor (&TcpResequenceBuffer::m_tcpRBBuffer),
+                     "ns3::TcpResequenceBuffer::TcpRBBuffer")
+    .AddTraceSource ("Flush",
+                     "When one packet is flushed",
+                     MakeTraceSourceAccessor (&TcpResequenceBuffer::m_tcpRBFlush),
+                     "ns3::TcpResequenceBuffer::TcpRBFlush")
+    ;
 
   return tid;
 }
@@ -79,7 +88,6 @@ TcpResequenceBuffer::DoDispose (void)
     m_outOrderQueue.pop ();
   }
   m_outOrderSeqSet.clear ();
-
 }
 
 void
@@ -134,7 +142,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
   NS_LOG_INFO ("\tThe packet seq is: " << element.m_seq
     << " and the expected next seq is: " << TcpResequenceBuffer::CalculateNextSeq (element));
 
-  m_tcpRBBuffer (m_traceFlowId, Simulator::Now (), tcpHeader.GetSequenceNumber (), TcpResequenceBuffer::CalculateNextSeq (element));
+  m_tcpRBBuffer (m_traceFlowId, Simulator::Now (), element.m_seq, TcpResequenceBuffer::CalculateNextSeq (element));
 
   // If the seq < first seq, retransmission may occur
   if (element.m_seq < m_firstSeq)

@@ -343,6 +343,8 @@ public:
    */
   Ptr<TcpRxBuffer> GetRxBuffer (void) const;
 
+  Ptr<TcpResequenceBuffer> GetResequenceBuffer (void) const;
+
   /**
    * \brief Callback pointer for cWnd trace chaining
    */

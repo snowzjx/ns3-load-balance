@@ -58,6 +58,7 @@ public:
   static TypeId GetTypeId (void);
 
   TcpResequenceBuffer ();
+  //TcpResequenceBuffer (const TcpResequenceBuffer &);
   ~TcpResequenceBuffer ();
 
   virtual void DoDispose (void);
@@ -67,6 +68,9 @@ public:
   void SetTcp (TcpSocketBase *tcp);
 
   void Stop (void);
+
+  TracedCallback <uint32_t, Time, SequenceNumber32, SequenceNumber32> m_tcpRBBuffer;
+  TracedCallback <uint32_t, Time, SequenceNumber32, uint32_t, uint32_t, TcpRBPopReason> m_tcpRBFlush;
 
 private:
 
@@ -109,9 +113,6 @@ private:
   std::set<SequenceNumber32> m_outOrderSeqSet;
 
   TcpSocketBase *m_tcp;
-
-  TracedCallback <uint32_t, Time, SequenceNumber32, SequenceNumber32> m_tcpRBBuffer;
-  TracedCallback <uint32_t, Time, SequenceNumber32, uint32_t, uint32_t, TcpRBPopReason> m_tcpRBFlush;
 
   typedef void (* TcpRBBuffer) (uint32_t flowId, Time time, SequenceNumber32 recSeq,
           SequenceNumber32 nextSeq);

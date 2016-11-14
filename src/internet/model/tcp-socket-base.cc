@@ -159,6 +159,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_isPauseEnabled),
                    MakeBooleanChecker ())
+    .AddAttribute ("ResequenceBufferPointer", "Resequence Buffer Pointer",
+                   PointerValue (),
+                   MakePointerAccessor (&TcpSocketBase::GetResequenceBuffer),
+                   MakePointerChecker<TcpResequenceBuffer> ())
     .AddTraceSource ("RTO",
                      "Retransmission timeout",
                      MakeTraceSourceAccessor (&TcpSocketBase::m_rto),
@@ -495,6 +499,8 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
 
   // Resequence Buffer support
   m_resequenceBuffer = CreateObject<TcpResequenceBuffer> ();
+  m_resequenceBuffer->m_tcpRBFlush = sock.m_resequenceBuffer->m_tcpRBFlush;
+  m_resequenceBuffer->m_tcpRBBuffer = sock.m_resequenceBuffer->m_tcpRBBuffer;
   m_resequenceBuffer->SetTcp (this);
 
   // Flow Bender support
@@ -1142,8 +1148,10 @@ TcpSocketBase::DoConnect (void)
           m_CloveSendSide = true;
       }
       SendEmptyPacket (sendflags);
+
       // XXX Resequence Buffer Support, disable resequence buffer on sender side
       m_resequenceBufferEnabled = false;
+
       NS_LOG_DEBUG (TcpStateName[m_state] << " -> SYN_SENT");
       m_state = SYN_SENT;
     }
@@ -1961,6 +1969,7 @@ TcpSocketBase::ProcessListen (Ptr<Packet> packet, const TcpHeader& tcpHeader,
     }
   // Clone the socket, simulate fork
   Ptr<TcpSocketBase> newSock = Fork ();
+  m_resequenceBuffer->Stop ();
   NS_LOG_LOGIC ("Cloned a TcpSocketBase " << newSock);
   Simulator::ScheduleNow (&TcpSocketBase::CompleteFork, newSock,
                           packet, tcpHeader, fromAddress, toAddress);
@@ -4005,6 +4014,12 @@ Ptr<TcpRxBuffer>
 TcpSocketBase::GetRxBuffer (void) const
 {
   return m_rxBuffer;
+}
+
+Ptr<TcpResequenceBuffer>
+TcpSocketBase::GetResequenceBuffer (void) const
+{
+  return m_resequenceBuffer;
 }
 
 void
