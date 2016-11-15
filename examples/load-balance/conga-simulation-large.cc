@@ -14,6 +14,7 @@
 #include "ns3/ipv4-tlb-probing.h"
 #include "ns3/link-monitor-module.h"
 #include "ns3/traffic-control-module.h"
+#include "ns3/tcp-resequence-buffer.h"
 
 #include <vector>
 #include <map>
@@ -60,6 +61,7 @@ enum RunMode {
 
 std::stringstream tlbBibleFilename;
 std::stringstream tlbBibleFilename2;
+std::stringstream rbTraceFilename;
 
 void TLBPathSelectTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, uint32_t path, bool isRandom, PathInfo pathInfo, std::vector<PathInfo> parallelPaths)
 {
@@ -129,6 +131,28 @@ void TLBPathChangeTrace (uint32_t flowId, uint32_t fromTor, uint32_t destTor, ui
     out << std::endl;
 }
 
+void RBTraceBuffer (uint32_t flowId, Time time, SequenceNumber32 revSeq, SequenceNumber32 expectSeq)
+{
+    NS_LOG_UNCOND ("Flow: " << flowId << " (at time: " << time << "), receives: " << revSeq << ", while expecting: " << expectSeq);
+    std::ofstream out (rbTraceFilename.str ().c_str (), std::ios::out|std::ios::app);
+    out << "Flow: " << flowId << " (at time: " << time << "), receives: " << revSeq << ", while expecting: " << expectSeq << std::endl;
+}
+
+void RBTraceFlush (uint32_t flowId, Time time, SequenceNumber32 popSeq, uint32_t inOrderQueueLength, uint32_t outOrderQueueLength, TcpRBPopReason reason)
+{
+    NS_LOG_UNCOND ("Flow: " << flowId << " (at time: " << time << "), pops: " << popSeq << ", with in order queue: " << inOrderQueueLength
+            << ", out order queue: " << outOrderQueueLength << ", reason: " << reason);
+    std::ofstream out (rbTraceFilename.str ().c_str (), std::ios::out|std::ios::app);
+    out << "Flow: " << flowId << " (at time: " << time << "), pops: " << popSeq << ", with in order queue: " << inOrderQueueLength
+            << ", out order queue: " << outOrderQueueLength << ", reason: " << reason << std::endl;
+}
+
+void RBTrace (void)
+{
+    Config::ConnectWithoutContext ("/NodeList/*/$ns3::TcpL4Protocol/SocketList/*/ResequenceBufferPointer/Buffer", MakeCallback (&RBTraceBuffer));
+    Config::ConnectWithoutContext ("/NodeList/*/$ns3::TcpL4Protocol/SocketList/*/ResequenceBufferPointer/Flush", MakeCallback (&RBTraceFlush));
+}
+
 // Port from Traffic Generator
 // Acknowledged to https://github.com/HKUST-SING/TrafficGenerator/blob/master/src/common/common.c
 double poission_gen_interval(double avg_rate)
@@ -188,7 +212,7 @@ void install_applications (int fromLeafId, NodeContainer servers, double request
             PacketSinkHelper sink ("ns3::TcpSocketFactory",
                     InetSocketAddress (Ipv4Address::GetAny (), port));
             ApplicationContainer sinkApp = sink.Install (servers. Get (destServerIndex));
-            sinkApp.Start (Seconds (startTime));
+            sinkApp.Start (Seconds (START_TIME));
             sinkApp.Stop (Seconds (END_TIME));
 
             /*
@@ -962,6 +986,7 @@ int main (int argc, char *argv[])
     linkMonitorFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
     tlbBibleFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
     tlbBibleFilename2 << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
+    rbTraceFilename << id << "-1-large-load-" << LEAF_COUNT << "X" << SPINE_COUNT << "-" << load << "-"  << transportProt <<"-";
 
     if (runMode == CONGA)
     {
@@ -982,11 +1007,13 @@ int main (int argc, char *argv[])
     {
 	    flowMonitorFilename << "presto-simulation-";
         linkMonitorFilename << "presto-simulation-";
+        rbTraceFilename << "presto-simulation-";
     }
     else if (runMode == DRB)
     {
         flowMonitorFilename << "drb-simulation-";
         linkMonitorFilename << "drb-simulation-";
+        rbTraceFilename << "drb-simulation-";
     }
     else if (runMode == ECMP)
     {
@@ -1015,6 +1042,7 @@ int main (int argc, char *argv[])
     linkMonitorFilename << randomSeed << "-";
     tlbBibleFilename << randomSeed << "-";
     tlbBibleFilename2 << randomSeed << "-";
+    rbTraceFilename << randomSeed << "-";
 
     if (asymCapacity)
     {
@@ -1028,6 +1056,7 @@ int main (int argc, char *argv[])
     {
 	    flowMonitorFilename << "rb-";
         linkMonitorFilename << "rb-";
+        rbTraceFilename << "rb-";
     }
 
     if (applicationPauseThresh > 0)
@@ -1042,11 +1071,11 @@ int main (int argc, char *argv[])
     linkMonitorFilename << "b" << BUFFER_SIZE << "-link-utility.out";
     tlbBibleFilename << "b" << BUFFER_SIZE << "-bible.txt";
     tlbBibleFilename2 << "b" << BUFFER_SIZE << "-piple.txt";
-
-    NS_LOG_INFO ("Enabling TLB tracing");
+    rbTraceFilename << "b" << BUFFER_SIZE << "-RBTrace.txt";
 
     if (runMode == TLB)
     {
+        NS_LOG_INFO ("Enabling TLB tracing");
         remove (tlbBibleFilename.str ().c_str ());
         remove (tlbBibleFilename2.str ().c_str ());
 
@@ -1059,6 +1088,12 @@ int main (int argc, char *argv[])
         out << Ipv4TLB::GetLogo ();
         std::ofstream out2 (tlbBibleFilename2.str ().c_str (), std::ios::out|std::ios::app);
         out2 << Ipv4TLB::GetLogo ();
+    }
+
+    if (resequenceBuffer)
+    {
+        remove (rbTraceFilename.str ().c_str ());
+        Simulator::Schedule (Seconds (START_TIME) + MicroSeconds (1), &RBTrace);
     }
 
     NS_LOG_INFO ("Start simulation");
