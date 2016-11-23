@@ -22,14 +22,14 @@ private:
 };
 
 // Add some help text to this case to describe what it is intended to test
-Ipv4CongaRoutingTestCase1::CongaRoutingTestCase1 ()
+Ipv4CongaRoutingTestCase1::Ipv4CongaRoutingTestCase1 ()
   : TestCase ("CongaRouting test case (does nothing)")
 {
 }
 
 // This destructor does nothing but we include it as a reminder that
 // the test case should clean up after itself
-Ipv4CongaRoutingTestCase1::~CongaRoutingTestCase1 ()
+Ipv4CongaRoutingTestCase1::~Ipv4CongaRoutingTestCase1 ()
 {
 }
 
@@ -60,7 +60,7 @@ CongaRoutingTestSuite::CongaRoutingTestSuite ()
   : TestSuite ("conga-routing", UNIT)
 {
   // TestDuration for TestCase can be QUICK, EXTENSIVE or TAKES_FOREVER
-  AddTestCase (new CongaRoutingTestCase1, TestCase::QUICK);
+  AddTestCase (new Ipv4CongaRoutingTestCase1, TestCase::QUICK);
 }
 
 // Do not forget to allocate an instance of this TestSuite
