@@ -191,6 +191,8 @@ private:
     uint32_t m_smoothBeta1;
     uint32_t m_smoothBeta2;
 
+    Time m_quantifyRttBase;
+
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo> m_pathInfo; /* <DestTorId, PathId>, TLBPathInfo> */

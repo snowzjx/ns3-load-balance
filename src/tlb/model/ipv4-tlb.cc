@@ -50,7 +50,8 @@ Ipv4TLB::Ipv4TLB ():
     m_smoothAlpha (50),
     m_smoothDesired (150),
     m_smoothBeta1 (101),
-    m_smoothBeta2 (99)
+    m_smoothBeta2 (99),
+    m_quantifyRttBase (MicroSeconds (10))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -85,7 +86,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_smoothAlpha (other.m_smoothAlpha),
     m_smoothDesired (other.m_smoothDesired),
     m_smoothBeta1 (other.m_smoothBeta1),
-    m_smoothBeta2 (other.m_smoothBeta2)
+    m_smoothBeta2 (other.m_smoothBeta2),
+    m_quantifyRttBase (MicroSeconds (10))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -141,6 +143,10 @@ Ipv4TLB::GetTypeId (void)
                       BooleanValue (false),
                       MakeBooleanAccessor (&Ipv4TLB::m_isSmooth),
                       MakeBooleanChecker ())
+        .AddAttribute ("QuantifyRttBase", "The quantify RTT base",
+                      TimeValue (MicroSeconds (10)),
+                      MakeTimeAccessor (&Ipv4TLB::m_quantifyRttBase),
+                      MakeTimeChecker ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
@@ -1246,19 +1252,19 @@ Ipv4TLB::DreAging (void)
 uint32_t
 Ipv4TLB::QuantifyRtt (Time rtt)
 {
-    if (rtt <= m_minRtt + MicroSeconds (10))
+    if (rtt <= m_minRtt + m_quantifyRttBase)
     {
         return 0;
     }
-    else if (rtt <= m_minRtt + MicroSeconds (20))
+    else if (rtt <= m_minRtt + 2 * m_quantifyRttBase)
     {
         return 1;
     }
-    else if (rtt <= m_minRtt + MicroSeconds (30))
+    else if (rtt <= m_minRtt + 3 * m_quantifyRttBase)
     {
         return 2;
     }
-    else if (rtt <= m_minRtt + MicroSeconds (40))
+    else if (rtt <= m_minRtt + 4 * m_quantifyRttBase)
     {
         return 3;
     }

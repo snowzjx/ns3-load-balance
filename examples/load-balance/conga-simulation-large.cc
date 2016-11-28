@@ -287,6 +287,8 @@ int main (int argc, char *argv[])
     uint32_t cloveHalfRTT = 40;
     bool cloveDisToUncongestedPath = false;
 
+    uint32_t quantifyRTTBase = 10;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -336,6 +338,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("cloveRunMode", "CloveRunMode", cloveRunMode);
     cmd.AddValue ("cloveHalfRTT", "CloveHalfRTT", cloveHalfRTT);
     cmd.AddValue ("cloveDisToUncongestedPath", "CloveDisToUncongestedPath", cloveDisToUncongestedPath);
+
+    cmd.AddValue ("quantifyRTTBase", "quantifyRTTBase", quantifyRTTBase);
 
     cmd.Parse (argc, argv);
 
@@ -432,6 +436,7 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::Rerouting", BooleanValue (TLBRerouting));
         Config::SetDefault ("ns3::Ipv4TLB::DREMultiply", UintegerValue (TLBDREMultiply));
         Config::SetDefault ("ns3::Ipv4TLB::S", UintegerValue(TLBS));
+        Config::SetDefault ("ns3::Ipv4TLB::QuantifyRttBase", TimeValue (MicroSeconds (quantifyRTTBase)));
     }
 
     if (runMode == Clove)
@@ -1027,10 +1032,10 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
-        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
-        tlbBibleFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
-        tlbBibleFilename2 << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-";
+        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        tlbBibleFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        tlbBibleFilename2 << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
     }
     else if (runMode == Clove)
     {
