@@ -35,8 +35,7 @@ Ipv4DrillRouting::GetTypeId (void)
 }
 
 Ipv4DrillRouting::Ipv4DrillRouting ()
-    : m_d (2),
-      m_previousBestQueue (0)
+    : m_d (2)
 {
   NS_LOG_FUNCTION (this);
 }
@@ -177,33 +176,32 @@ Ipv4DrillRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
   uint32_t leastLoadInterface = 0;
   uint32_t leastLoad = std::numeric_limits<uint32_t>::max ();
 
-  std::vector<uint32_t> allPorts;
-  for (uint32_t port = 1; port < m_ipv4->GetNInterfaces (); port ++) // Ports should start from 1 because 0 is loopback
-  {
-    allPorts.push_back (port);
-  }
-
+  std::vector<DrillRouteEntry> allPorts = LookupDrillRouteEntries (destAddress);
   std::random_shuffle (allPorts.begin (), allPorts.end ());
 
-  if (m_previousBestQueue != 0)
+  std::map<Ipv4Address, uint32_t>::iterator itr = m_previousBestQueueMap.find (destAddress);
+
+  if (itr != m_previousBestQueueMap.end ())
   {
-    leastLoadInterface = m_previousBestQueue;
-    leastLoad = CalculateQueueLength (m_previousBestQueue);
+    leastLoadInterface = itr->second;
+    leastLoad = CalculateQueueLength (itr->second);
   }
 
   uint32_t sampleNum = m_d < allPorts.size () ? m_d : allPorts.size ();
 
   for (uint32_t samplePort = 0; samplePort < sampleNum; samplePort ++)
   {
-      uint32_t sampleLoad = Ipv4DrillRouting::CalculateQueueLength (allPorts[samplePort]);
+    uint32_t sampleLoad = Ipv4DrillRouting::CalculateQueueLength (allPorts[samplePort].port);
     if (sampleLoad < leastLoad)
     {
       leastLoad = sampleLoad;
-      leastLoadInterface = samplePort;
+      leastLoadInterface = allPorts[samplePort].port;
     }
   }
 
-  m_previousBestQueue = leastLoadInterface;
+  NS_LOG_INFO (this << " Drill routing chooses interface: " << leastLoadInterface << ", since its load is: " << leastLoad);
+
+  m_previousBestQueueMap[destAddress] = leastLoadInterface;
 
   Ptr<Ipv4Route> route = Ipv4DrillRouting::ConstructIpv4Route (leastLoadInterface, destAddress);
   ucb (route, packet, header);

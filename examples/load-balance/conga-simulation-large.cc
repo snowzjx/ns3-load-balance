@@ -15,6 +15,7 @@
 #include "ns3/link-monitor-module.h"
 #include "ns3/traffic-control-module.h"
 #include "ns3/tcp-resequence-buffer.h"
+#include "ns3/ipv4-drill-routing-helper.h"
 
 #include <vector>
 #include <map>
@@ -56,7 +57,8 @@ enum RunMode {
     DRB,
     FlowBender,
     ECMP,
-    Clove
+    Clove,
+    DRILL
 };
 
 std::stringstream tlbBibleFilename;
@@ -388,6 +390,10 @@ int main (int argc, char *argv[])
     {
         runMode = Clove;
     }
+    else if (runModeStr.compare ("DRILL") == 0)
+    {
+        runMode = DRILL;
+    }
     else
     {
         NS_LOG_ERROR ("The running mode should be TLB, Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
@@ -482,6 +488,7 @@ int main (int argc, char *argv[])
     Ipv4ListRoutingHelper listRoutingHelper;
     Ipv4XPathRoutingHelper xpathRoutingHelper;
     Ipv4DrbRoutingHelper drbRoutingHelper;
+    Ipv4DrillRoutingHelper drillRoutingHelper;
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
@@ -491,7 +498,6 @@ int main (int argc, char *argv[])
         internet.SetRoutingHelper (congaRoutingHelper);
         internet.Install (spines);
     	internet.Install (leaves);
-
     }
     else if (runMode == PRESTO || runMode == DRB)
     {
@@ -543,6 +549,15 @@ int main (int argc, char *argv[])
 
         internet.Install (spines);
         internet.Install (leaves);
+    }
+    else if (runMode == DRILL)
+    {
+	    internet.SetRoutingHelper (staticRoutingHelper);
+        internet.Install (servers);
+
+        internet.SetRoutingHelper (drillRoutingHelper);
+        internet.Install (spines);
+    	internet.Install (leaves);
     }
     else if (runMode == ECMP || runMode == FlowBender)
     {
@@ -643,6 +658,21 @@ int main (int argc, char *argv[])
                     congaRoutingHelper.GetCongaRouting (leaves.Get (k)->GetObject<Ipv4> ())->
 			                 AddAddressToLeafIdMap (interfaceContainer.GetAddress (1), i);
 	            }
+            }
+
+            if (runMode == DRILL)
+            {
+                // All servers just forward the packet to leaf switch
+		        staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
+			                AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					                           Ipv4Mask ("0.0.0.0"),
+                                               netDeviceContainer.Get (1)->GetIfIndex ());
+
+                // DRILL leaf switches forward the packet to the correct servers
+                drillRoutingHelper.GetDrillRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+			                AddRoute (interfaceContainer.GetAddress (1),
+				                      Ipv4Mask("255.255.255.255"),
+                                      netDeviceContainer.Get (0)->GetIfIndex ());
             }
 
             if (runMode == TLB)
@@ -782,6 +812,28 @@ int main (int argc, char *argv[])
                     NS_LOG_INFO ("Reducing Link Capacity of Conga Spine: " << j << " with port: " << netDeviceContainer.Get (1)->GetIfIndex ());
                 }
 	        }
+
+            if (runMode == DRILL)
+            {
+                // For each drill leaf switch, routing entry to route the packet to OTHER leaves should be added
+                for (int k = 0; k < LEAF_COUNT; k++)
+		        {
+		            if (k != i)
+		            {
+                        drillRoutingHelper.GetDrillRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+				                                            AddRoute (leafNetworks[k],
+				  	                                        Ipv4Mask("255.255.255.0"),
+                                  	                         netDeviceContainer.Get (0)->GetIfIndex ());
+                    }
+                }
+
+                // For each drill spine switch, routing entry to THIS leaf switch should be added
+                Ptr<Ipv4DrillRouting> drillSpine = drillRoutingHelper.GetDrillRouting (spines.Get (j)->GetObject<Ipv4> ());
+                drillSpine->AddRoute (leafNetworks[i],
+				                      Ipv4Mask("255.255.255.0"),
+                                      netDeviceContainer.Get (1)->GetIfIndex ());
+	        }
+
         }
         }
     }
@@ -1041,6 +1093,11 @@ int main (int argc, char *argv[])
     {
         flowMonitorFilename << "clove-" << cloveRunMode << "-" << cloveFlowletTimeout << "-" << cloveHalfRTT << "-" << cloveDisToUncongestedPath << "-";
         linkMonitorFilename << "clove-" << cloveRunMode << "-" << cloveFlowletTimeout << "-" << cloveHalfRTT << "-" << cloveDisToUncongestedPath << "-";
+    }
+    else if (runMode == DRILL)
+    {
+        flowMonitorFilename << "drill-simulation-";
+        linkMonitorFilename << "drill-simulation-";
     }
 
     flowMonitorFilename << randomSeed << "-";

@@ -10,6 +10,7 @@
 #include "ns3/ipv4-address.h"
 
 #include <vector>
+#include <map>
 
 namespace ns3 {
 
@@ -51,7 +52,7 @@ public:
 
 private:
   uint32_t m_d;
-  uint32_t m_previousBestQueue;
+  std::map<Ipv4Address, uint32_t> m_previousBestQueueMap;
 
   Ptr<Ipv4> m_ipv4;
   std::vector<DrillRouteEntry> m_routeEntryList;
