@@ -227,6 +227,12 @@ Ipv4L3Protocol::SetNode (Ptr<Node> node)
   SetupLoopback ();
 }
 
+Ptr<Node>
+Ipv4L3Protocol::GetNode (void)
+{
+  return m_node;
+}
+
 Ptr<Socket>
 Ipv4L3Protocol::CreateRawSocket (void)
 {

@@ -109,6 +109,8 @@ public:
    */
   void SetNode (Ptr<Node> node);
 
+  Ptr<Node> GetNode (void);
+
   // functions defined in base class Ipv4
 
   void SetRoutingProtocol (Ptr<Ipv4RoutingProtocol> routingProtocol);
