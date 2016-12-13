@@ -164,9 +164,9 @@ Ipv4DrillRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
     return false;
   }
 
-  std::vector<DrillRouteEntry> routeEntries = Ipv4DrillRouting::LookupDrillRouteEntries (destAddress);
+  std::vector<DrillRouteEntry> allPorts = Ipv4DrillRouting::LookupDrillRouteEntries (destAddress);
 
-  if (routeEntries.empty ())
+  if (allPorts.empty ())
   {
     NS_LOG_ERROR (this << " Drill routing cannot find routing entry");
     ecb (packet, header, Socket::ERROR_NOROUTETOHOST);
@@ -176,7 +176,6 @@ Ipv4DrillRouting::RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr
   uint32_t leastLoadInterface = 0;
   uint32_t leastLoad = std::numeric_limits<uint32_t>::max ();
 
-  std::vector<DrillRouteEntry> allPorts = LookupDrillRouteEntries (destAddress);
   std::random_shuffle (allPorts.begin (), allPorts.end ());
 
   std::map<Ipv4Address, uint32_t>::iterator itr = m_previousBestQueueMap.find (destAddress);
