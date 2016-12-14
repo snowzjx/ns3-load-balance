@@ -216,7 +216,7 @@ def parse (fileName):
     small_index_99 = int(len(small_flow_list) * 0.99)
     small_flow_fct_99 = small_flow_list[small_index_99].fct
 
-    print "The FCT of 99% small flow is: %i" % small_low_fct_99
+    print "The FCT of 99% small flow is: %i" % small_flow_fct_99
 
     flow_list.sort (key=lambda x: x.fct)
     index_99 = int(len(flow_list) * 0.99)
