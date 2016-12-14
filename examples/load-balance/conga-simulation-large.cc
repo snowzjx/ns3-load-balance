@@ -291,6 +291,8 @@ int main (int argc, char *argv[])
 
     uint32_t quantifyRTTBase = 10;
 
+    bool enableLargeDupAck = false;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -343,9 +345,12 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("quantifyRTTBase", "quantifyRTTBase", quantifyRTTBase);
 
+    cmd.AddValue ("enableLargeDupAck", "enableLargeDupAck", enableLargeDupAck);
+
     cmd.Parse (argc, argv);
 
-    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
+    uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
+    uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -471,7 +476,11 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
-    Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
+
+    if (enableLargeDupAck)
+    {
+        Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
+    }
 
     NodeContainer spines;
     spines.Create (SPINE_COUNT);
