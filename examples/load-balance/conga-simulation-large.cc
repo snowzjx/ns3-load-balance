@@ -254,6 +254,10 @@ int main (int argc, char *argv[])
     uint32_t asymCapacityPoss = 40;  // 40 %
 
     bool resequenceBuffer = false;
+    uint32_t resequenceInOrderTimer = 5; // MicroSeconds
+    uint32_t resequenceInOrderSize = 100; // 100 Packets
+    uint32_t resequenceOutOrderTimer = 500; // MicroSeconds
+
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
 
@@ -303,7 +307,13 @@ int main (int argc, char *argv[])
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
+    cmd.AddValue ("resequenceInOrderTimer", "resequenceInOrderTimer", resequenceInOrderTimer);
+
+    cmd.AddValue ("resequenceInOrderTimer", "resequenceInOrderTimer", resequenceInOrderTimer);
+    cmd.AddValue ("resequenceOutOrderTimer", "resequenceOutOrderTimer", resequenceOutOrderTimer);
+    cmd.AddValue ("resequenceInOrderSize", "resequenceInOrderSize", resequenceInOrderSize);
 
     cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/10 the capacity of others", asymCapacity);
     cmd.AddValue ("asymCapacityPoss", "The possibility that a path will have only 1/10 capacity", asymCapacityPoss);
@@ -426,9 +436,9 @@ int main (int argc, char *argv[])
     {
 	    NS_LOG_INFO ("Enabling Resequence Buffer");
 	    Config::SetDefault ("ns3::TcpSocketBase::ResequenceBuffer", BooleanValue (true));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (5)));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (500));
-        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (500)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::InOrderQueueTimerLimit", TimeValue (MicroSeconds (resequenceInOrderTimer)));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::SizeLimit", UintegerValue (resequenceInOrderSize));
+        Config::SetDefault ("ns3::TcpResequenceBuffer::OutOrderQueueTimerLimit", TimeValue (MicroSeconds (resequenceOutOrderTimer)));
     }
 
     if (runMode == TLB)
