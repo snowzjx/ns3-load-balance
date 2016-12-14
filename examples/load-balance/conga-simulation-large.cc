@@ -310,8 +310,6 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
     cmd.AddValue ("resequenceInOrderTimer", "resequenceInOrderTimer", resequenceInOrderTimer);
-
-    cmd.AddValue ("resequenceInOrderTimer", "resequenceInOrderTimer", resequenceInOrderTimer);
     cmd.AddValue ("resequenceOutOrderTimer", "resequenceOutOrderTimer", resequenceOutOrderTimer);
     cmd.AddValue ("resequenceInOrderSize", "resequenceInOrderSize", resequenceInOrderSize);
 
@@ -1135,8 +1133,8 @@ int main (int argc, char *argv[])
 
     if (resequenceBuffer)
     {
-	    flowMonitorFilename << "rb-";
-        linkMonitorFilename << "rb-";
+        flowMonitorFilename << "rb-" << resequenceInOrderSize << "-" <<resequenceInOrderTimer << "-" << resequenceOutOrderTimer;
+        linkMonitorFilename << "rb-" << resequenceInOrderSize << "-" <<resequenceInOrderTimer << "-" << resequenceOutOrderTimer;
         rbTraceFilename << "rb-";
     }
 
