@@ -471,7 +471,7 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
-    Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
+    //Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
 
     NodeContainer spines;
     spines.Create (SPINE_COUNT);
