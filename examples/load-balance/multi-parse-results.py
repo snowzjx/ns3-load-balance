@@ -151,6 +151,9 @@ def parse (fileName):
     max_small_flow_id = 0
     max_small_flow_fct = 0
 
+    flow_list = []
+    small_flow_list = []
+
     avg_fct = 10000000.0
     avg_small_fct = 10000000.0
     avg_large_fct = 10000000.0
@@ -166,6 +169,7 @@ def parse (fileName):
 	    total_packets += flow.txPackets
             total_rx_packets += flow.rxPackets
 	    total_lost_packets += flow.lostPackets
+            flow_list.append(flow)
             if flow.txBytes > 10000000:
                 large_flow_count += 1
                 large_flow_total_fct += flow.fct
@@ -175,6 +179,7 @@ def parse (fileName):
                 if flow.fct > max_small_flow_fct:
                     max_small_flow_id = flow.flowId
                     max_small_flow_fct = flow.fct
+                small_flow_list.append(flow)
             t = flow.fiveTuple
             proto = {6: 'TCP', 17: 'UDP'} [t.protocol]
             # print "FlowID: %i (%s %s/%s --> %s/%i)" % (flow.flowId, proto, t.sourceAddress, t.sourcePort, t.destinationAddress, t.destinationPort)
@@ -206,13 +211,26 @@ def parse (fileName):
     print "Total RX Packets: %i" % total_rx_packets
     print "Total Lost Packets: %i" % total_lost_packets
     print "Max Small flow Id: %i" % max_small_flow_id
-    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct}
+
+    small_flow_list.sort (key=lambda x: x.fct)
+    small_index_99 = int(len(small_flow_list) * 0.99)
+    small_flow_fct_99 = small_flow_list[small_index_99].fct
+
+    print "The FCT of 99% small flow is: %i" % small_low_fct_99
+
+    flow_list.sort (key=lambda x: x.fct)
+    index_99 = int(len(flow_list) * 0.99)
+    flow_fct_99 = flow_list[index_99].fct
+
+    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct, 'small_flow_99': small_flow_fct_99, 'flow_99' : flow_fct_99}
 
 def main (argv):
     files = glob.glob (argv[1])
     total_fct = 0
     total_large_fct = 0
     total_small_fct = 0
+    total_small_flow_99 = 0
+    total_flow_99 = 0
     print files
     for fileName in files:
 	print (fileName)
@@ -220,11 +238,15 @@ def main (argv):
         total_fct += result['avg_fct']
         total_large_fct += result['avg_large_fct']
         total_small_fct += result['avg_small_fct']
-	print ('')
+        total_small_flow_99 += result['small_flow_99']
+        total_flow_99 += result['flow_99']
 
+	print ('')
     print "AVG FCT: %6f" % (total_fct / len(files))
     print "AVG Large flow FCT: %6f" % (total_large_fct / len(files))
     print "AVG Small flow FCT: %6f" % (total_small_fct / len(files))
+    print "AVG Small flow 99 FCT: %6f" % (total_small_flow_99 / len(files))
+    print "AVG Flow 99 FCT: %6f" % (total_flow_99 / len(files))
 
 if __name__ == '__main__':
     main(sys.argv)
