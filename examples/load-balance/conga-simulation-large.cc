@@ -297,7 +297,7 @@ int main (int argc, char *argv[])
 
     bool enableLargeDupAck = false;
 
-    uint32_t congaFlowTimeout = 50;
+    uint32_t congaFlowletTimeout = 50;
 
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
@@ -357,7 +357,7 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("enableLargeDupAck", "enableLargeDupAck", enableLargeDupAck);
 
-    cmd.AddValue ("congaFlowTimeout", "congaFlowTimeout", congaFlowTimeout);
+    cmd.AddValue ("congaFlowletTimeout", "congaFlowletTimeout", congaFlowletTimeout);
 
     cmd.Parse (argc, argv);
 
@@ -733,7 +733,7 @@ int main (int argc, char *argv[])
 	        congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	        if (runMode == CONGA)
 	        {
-	            congaLeaf->SetFlowletTimeout (MicroSeconds (congaFlowTimeout));
+	            congaLeaf->SetFlowletTimeout (MicroSeconds (congaFlowletTimeout));
 	        }
 	        if (runMode == CONGA_FLOW)
 	        {
@@ -1068,8 +1068,8 @@ int main (int argc, char *argv[])
 
     if (runMode == CONGA)
     {
-        flowMonitorFilename << "conga-simulation-";
-        linkMonitorFilename << "conga-simulation-";
+        flowMonitorFilename << "conga-simulation-" << congaFlowletTimeout << "-";
+        linkMonitorFilename << "conga-simulation-" << congaFlowletTimeout << "-";
     }
     else if (runMode == CONGA_FLOW)
     {
@@ -1078,8 +1078,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == CONGA_ECMP)
     {
-        flowMonitorFilename << "conga-ecmp-simulation-";
-        linkMonitorFilename << "conga-ecmp-simulation-";
+        flowMonitorFilename << "conga-ecmp-simulation-" << congaFlowletTimeout << "-";
+        linkMonitorFilename << "conga-ecmp-simulation-" << congaFlowletTimeout << "-";
     }
     else if (runMode == PRESTO)
     {
