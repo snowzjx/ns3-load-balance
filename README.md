@@ -22,7 +22,7 @@ Load Balance Scheme
 
 Routing 
 ---
-1. XPath (http://www.cse.ust.hk/~kaichen/papers/xpath-nsdi15.pdf)
+1. [XPath](http://www.cse.ust.hk/~kaichen/papers/xpath-nsdi15.pdf)
 
 Monitor
 ---
