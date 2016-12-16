@@ -300,6 +300,7 @@ int main (int argc, char *argv[])
     bool enableLargeDupAck = false;
 
     uint32_t congaFlowletTimeout = 50;
+    uint32_t letFlowFlowletTimeout = 50;
 
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
@@ -360,6 +361,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("enableLargeDupAck", "enableLargeDupAck", enableLargeDupAck);
 
     cmd.AddValue ("congaFlowletTimeout", "congaFlowletTimeout", congaFlowletTimeout);
+    cmd.AddValue ("letFlowFlowletTimeout", "letFlowFlowletTimeout", letFlowFlowletTimeout);
 
     cmd.Parse (argc, argv);
 
@@ -720,11 +722,13 @@ int main (int argc, char *argv[])
 					                           Ipv4Mask ("0.0.0.0"),
                                                netDeviceContainer.Get (1)->GetIfIndex ());
 
+                Ptr<Ipv4LetFlowRouting> letFlowLeaf = letFlowRoutingHelper.GetLetFlowRouting (leaves.Get (i)->GetObject<Ipv4> ());
+
                 // LetFlow leaf switches forward the packet to the correct servers
-                letFlowRoutingHelper.GetLetFlowRouting (leaves.Get (i)->GetObject<Ipv4> ())->
-			                AddRoute (interfaceContainer.GetAddress (1),
-				                      Ipv4Mask("255.255.255.255"),
-                                      netDeviceContainer.Get (0)->GetIfIndex ());
+                letFlowLeaf->AddRoute (interfaceContainer.GetAddress (1),
+				                       Ipv4Mask("255.255.255.255"),
+                                       netDeviceContainer.Get (0)->GetIfIndex ());
+                letFlowLeaf->SetFlowletTimeout (MicroSeconds (letFlowFlowletTimeout));
             }
 
             if (runMode == TLB)
@@ -905,6 +909,7 @@ int main (int argc, char *argv[])
                 letFlowSpine->AddRoute (leafNetworks[i],
 				                        Ipv4Mask("255.255.255.0"),
                                         netDeviceContainer.Get (1)->GetIfIndex ());
+                letFlowSpine->SetFlowletTimeout (MicroSeconds (letFlowFlowletTimeout));
 	        }
 
         }
