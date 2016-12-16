@@ -20,7 +20,6 @@ public:
     Ptr<Ipv4DrillRouting> GetDrillRouting (Ptr<Ipv4> ipv4) const;
 };
 
-
 }
 
 #endif /* DRILL_ROUTING_HELPER_H */

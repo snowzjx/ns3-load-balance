@@ -16,6 +16,7 @@
 #include "ns3/traffic-control-module.h"
 #include "ns3/tcp-resequence-buffer.h"
 #include "ns3/ipv4-drill-routing-helper.h"
+#include "ns3/ipv4-letflow-routing-helper.h"
 
 #include <vector>
 #include <map>
@@ -58,7 +59,8 @@ enum RunMode {
     FlowBender,
     ECMP,
     Clove,
-    DRILL
+    DRILL,
+    LetFlow
 };
 
 std::stringstream tlbBibleFilename;
@@ -411,6 +413,10 @@ int main (int argc, char *argv[])
     {
         runMode = DRILL;
     }
+    else if (runModeStr.compare ("LetFlow") == 0)
+    {
+        runMode = LetFlow;
+    }
     else
     {
         NS_LOG_ERROR ("The running mode should be TLB, Conga, Conga-flow, Conga-ECMP, Presto, FlowBender, DRB and ECMP");
@@ -510,6 +516,7 @@ int main (int argc, char *argv[])
     Ipv4XPathRoutingHelper xpathRoutingHelper;
     Ipv4DrbRoutingHelper drbRoutingHelper;
     Ipv4DrillRoutingHelper drillRoutingHelper;
+    Ipv4LetFlowRoutingHelper letFlowRoutingHelper;
 
     if (runMode == CONGA || runMode == CONGA_FLOW || runMode == CONGA_ECMP)
     {
@@ -579,6 +586,15 @@ int main (int argc, char *argv[])
         internet.SetRoutingHelper (drillRoutingHelper);
         internet.Install (spines);
     	internet.Install (leaves);
+    }
+    else if (runMode == LetFlow)
+    {
+        internet.SetRoutingHelper (staticRoutingHelper);
+        internet.Install (servers);
+
+        internet.SetRoutingHelper (letFlowRoutingHelper);
+        internet.Install (spines);
+        internet.Install (leaves);
     }
     else if (runMode == ECMP || runMode == FlowBender)
     {
@@ -691,6 +707,21 @@ int main (int argc, char *argv[])
 
                 // DRILL leaf switches forward the packet to the correct servers
                 drillRoutingHelper.GetDrillRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+			                AddRoute (interfaceContainer.GetAddress (1),
+				                      Ipv4Mask("255.255.255.255"),
+                                      netDeviceContainer.Get (0)->GetIfIndex ());
+            }
+
+            if (runMode == LetFlow)
+            {
+                // All servers just forward the packet to leaf switch
+		        staticRoutingHelper.GetStaticRouting (servers.Get (serverIndex)->GetObject<Ipv4> ())->
+			                AddNetworkRouteTo (Ipv4Address ("0.0.0.0"),
+					                           Ipv4Mask ("0.0.0.0"),
+                                               netDeviceContainer.Get (1)->GetIfIndex ());
+
+                // LetFlow leaf switches forward the packet to the correct servers
+                letFlowRoutingHelper.GetLetFlowRouting (leaves.Get (i)->GetObject<Ipv4> ())->
 			                AddRoute (interfaceContainer.GetAddress (1),
 				                      Ipv4Mask("255.255.255.255"),
                                       netDeviceContainer.Get (0)->GetIfIndex ());
@@ -853,6 +884,27 @@ int main (int argc, char *argv[])
                 drillSpine->AddRoute (leafNetworks[i],
 				                      Ipv4Mask("255.255.255.0"),
                                       netDeviceContainer.Get (1)->GetIfIndex ());
+	        }
+
+            if (runMode == LetFlow)
+            {
+                // For each LetFlow leaf switch, routing entry to route the packet to OTHER leaves should be added
+                for (int k = 0; k < LEAF_COUNT; k++)
+		        {
+		            if (k != i)
+		            {
+                        letFlowRoutingHelper.GetLetFlowRouting (leaves.Get (i)->GetObject<Ipv4> ())->
+				                                                AddRoute (leafNetworks[k],
+				  	                                            Ipv4Mask("255.255.255.0"),
+                                  	                            netDeviceContainer.Get (0)->GetIfIndex ());
+                    }
+                }
+
+                // For each LetFlow spine switch, routing entry to THIS leaf switch should be added
+                Ptr<Ipv4LetFlowRouting> letFlowSpine = letFlowRoutingHelper.GetLetFlowRouting (spines.Get (j)->GetObject<Ipv4> ());
+                letFlowSpine->AddRoute (leafNetworks[i],
+				                        Ipv4Mask("255.255.255.0"),
+                                        netDeviceContainer.Get (1)->GetIfIndex ());
 	        }
 
         }
@@ -1119,6 +1171,11 @@ int main (int argc, char *argv[])
     {
         flowMonitorFilename << "drill-simulation-";
         linkMonitorFilename << "drill-simulation-";
+    }
+    else if (runMode == LetFlow)
+    {
+        flowMonitorFilename << "letflow-simulation-";
+        linkMonitorFilename << "letflow-simulation-";
     }
 
     flowMonitorFilename << randomSeed << "-";

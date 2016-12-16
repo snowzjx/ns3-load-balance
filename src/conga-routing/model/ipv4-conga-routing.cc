@@ -603,7 +603,8 @@ Ipv4CongaRouting::NotifyRemoveAddress (uint32_t interface, Ipv4InterfaceAddress 
 {
 }
 
-void Ipv4CongaRouting::SetIpv4 (Ptr<Ipv4> ipv4)
+void
+Ipv4CongaRouting::SetIpv4 (Ptr<Ipv4> ipv4)
 {
   NS_LOG_LOGIC (this << "Setting up Ipv4: " << ipv4);
   NS_ASSERT (m_ipv4 == 0 && ipv4 != 0);
