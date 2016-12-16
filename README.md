@@ -31,9 +31,9 @@ Monitor
 
 Program
 --
-You can use './waf --run conga-simulation-large' to run most of the test cases.
+You can use `./waf --run conga-simulation-large` to run most of the test cases.
 
-'''bash
+```
 
 Program Arguments:
     --ID:                         Running ID [0]
@@ -83,5 +83,4 @@ Program Arguments:
     --enableLargeDupAck:          Whether to set the ReTxThreshold to a very large value to mask reordering [false]
     --congaFlowletTimeout:        Flowlet timeout in Conga [50]
     --letFlowFlowletTimeout:      Flowlet timeout in LetFlow [50]
-
-'''
+```
