@@ -307,16 +307,16 @@ int main (int argc, char *argv[])
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
     cmd.AddValue ("EndTime", "End time of the simulation", END_TIME);
     cmd.AddValue ("FlowLaunchEndTime", "End time of the flow launch period", FLOW_LAUNCH_END_TIME);
-    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Conga-ECMP (dev use), Presto, DRB, FlowBender, ECMP", runModeStr);
+    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Presto, DRB, FlowBender, ECMP, Clove, DRILL, LetFlow", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
 
-    cmd.AddValue ("resequenceBuffer", "Whether enabling the resequenceBuffer", resequenceBuffer);
-    cmd.AddValue ("resequenceInOrderTimer", "resequenceInOrderTimer", resequenceInOrderTimer);
-    cmd.AddValue ("resequenceOutOrderTimer", "resequenceOutOrderTimer", resequenceOutOrderTimer);
-    cmd.AddValue ("resequenceInOrderSize", "resequenceInOrderSize", resequenceInOrderSize);
+    cmd.AddValue ("resequenceBuffer", "Whether enabling the resequence buffer", resequenceBuffer);
+    cmd.AddValue ("resequenceInOrderTimer", "In order queue timeout in resequence buffer", resequenceInOrderTimer);
+    cmd.AddValue ("resequenceOutOrderTimer", "Out order queue timeout in resequence buffer", resequenceOutOrderTimer);
+    cmd.AddValue ("resequenceInOrderSize", "In order queue size in resequence buffer", resequenceInOrderSize);
 
     cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/10 the capacity of others", asymCapacity);
     cmd.AddValue ("asymCapacityPoss", "The possibility that a path will have only 1/10 capacity", asymCapacityPoss);
@@ -332,36 +332,35 @@ int main (int argc, char *argv[])
     cmd.AddValue ("spineLeafCapacity", "Spine <-> Leaf capacity in Gbps", spineLeafCapacity);
     cmd.AddValue ("leafServerCapacity", "Leaf <-> Server capacity in Gbps", leafServerCapacity);
 
-    cmd.AddValue ("TLBMinRTT", "TLBMinRTT", TLBMinRTT);
-    cmd.AddValue ("TLBHighRTT", "TLBHighRTT", TLBHighRTT);
-    cmd.AddValue ("TLBPoss", "TLBPoss", TLBPoss);
-    cmd.AddValue ("TLBBetterPathRTT", "TLBBetterPathRTT", TLBBetterPathRTT);
-    cmd.AddValue ("TLBT1", "TLBT1", TLBT1);
-    cmd.AddValue ("TLBECNPortionLow", "TLBECNPortionLow", TLBECNPortionLow);
-    cmd.AddValue ("TLBRunMode", "TLBRunMode", TLBRunMode);
-    cmd.AddValue ("TLBProbingEnable", "TLBProbingEnable", TLBProbingEnable);
-    cmd.AddValue ("TLBProbingInterval", "TLBProbingInterval", TLBProbingInterval);
-    cmd.AddValue ("TLBSmooth", "TLBSmooth", TLBSmooth);
-    cmd.AddValue ("TLBRerouting", "TLBRerouting", TLBRerouting);
-    cmd.AddValue ("TLBDREMultiply", "TLBDREMultiply", TLBDREMultiply);
-    cmd.AddValue ("TLBS", "TLBS", TLBS);
+    cmd.AddValue ("TLBMinRTT", "Min RTT used to judge a good path in TLB", TLBMinRTT);
+    cmd.AddValue ("TLBHighRTT", "High RTT used to judge a bad path in TLB", TLBHighRTT);
+    cmd.AddValue ("TLBPoss", "Possibility to change the path in TLB", TLBPoss);
+    cmd.AddValue ("TLBBetterPathRTT", "RTT Threshold used to judge one path is better than another in TLB", TLBBetterPathRTT);
+    cmd.AddValue ("TLBT1", "The path aging time interval in TLB", TLBT1);
+    cmd.AddValue ("TLBECNPortionLow", "The ECN portion used in judging a good path in TLB", TLBECNPortionLow);
+    cmd.AddValue ("TLBRunMode", "The running mode of TLB, 0 for minimize counter, 1 for minimize RTT, 2 for random, 11 for RTT counter, 12 for RTT DRE", TLBRunMode);
+    cmd.AddValue ("TLBProbingEnable", "Whether the TLB probing is enable", TLBProbingEnable);
+    cmd.AddValue ("TLBProbingInterval", "Probing interval for TLB probing", TLBProbingInterval);
+    cmd.AddValue ("TLBSmooth", "Whether the RTT calculation is smooth", TLBSmooth);
+    cmd.AddValue ("TLBRerouting", "Whether the rerouting is enabled in TLB", TLBRerouting);
+    cmd.AddValue ("TLBDREMultiply", "DRE multiply factor in TLB", TLBDREMultiply);
+    cmd.AddValue ("TLBS", "The S used to judge a whether a flow should change path in TLB", TLBS);
+    cmd.AddValue ("quantifyRTTBase", "The quantify RTT base in TLB", quantifyRTTBase);
 
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
-    cmd.AddValue ("applicationPauseThresh", "ApplicationPauseThresh", applicationPauseThresh);
-    cmd.AddValue ("applicationPauseTime", "ApplicationPauseTime, in MicroSeconds", applicationPauseTime);
+    cmd.AddValue ("applicationPauseThresh", "How many packets can pass before we have delay, 0 for disable", applicationPauseThresh);
+    cmd.AddValue ("applicationPauseTime", "The time for a delay, in MicroSeconds", applicationPauseTime);
 
-    cmd.AddValue ("cloveFlowletTimeout", "CloveFlowletTimeout", cloveFlowletTimeout);
-    cmd.AddValue ("cloveRunMode", "CloveRunMode", cloveRunMode);
-    cmd.AddValue ("cloveHalfRTT", "CloveHalfRTT", cloveHalfRTT);
-    cmd.AddValue ("cloveDisToUncongestedPath", "CloveDisToUncongestedPath", cloveDisToUncongestedPath);
+    cmd.AddValue ("cloveFlowletTimeout", "Flowlet timeout for Clove", cloveFlowletTimeout);
+    cmd.AddValue ("cloveRunMode", "Clove run mode, 1 for edge flowlet, 2 for ECN, 3 for INT (not yet implemented)", cloveRunMode);
+    cmd.AddValue ("cloveHalfRTT", "Half RTT used in Clove ECN", cloveHalfRTT);
+    cmd.AddValue ("cloveDisToUncongestedPath", "Whether Clove will distribute the weight to uncongested path (no ECN) or all paths", cloveDisToUncongestedPath);
 
-    cmd.AddValue ("quantifyRTTBase", "quantifyRTTBase", quantifyRTTBase);
+    cmd.AddValue ("enableLargeDupAck", "Whether to set the ReTxThreshold to a very large value to mask reordering", enableLargeDupAck);
 
-    cmd.AddValue ("enableLargeDupAck", "enableLargeDupAck", enableLargeDupAck);
-
-    cmd.AddValue ("congaFlowletTimeout", "congaFlowletTimeout", congaFlowletTimeout);
-    cmd.AddValue ("letFlowFlowletTimeout", "letFlowFlowletTimeout", letFlowFlowletTimeout);
+    cmd.AddValue ("congaFlowletTimeout", "Flowlet timeout in Conga", congaFlowletTimeout);
+    cmd.AddValue ("letFlowFlowletTimeout", "Flowlet timeout in LetFlow", letFlowFlowletTimeout);
 
     cmd.Parse (argc, argv);
 
@@ -1179,8 +1178,8 @@ int main (int argc, char *argv[])
     }
     else if (runMode == LetFlow)
     {
-        flowMonitorFilename << "letflow-simulation-";
-        linkMonitorFilename << "letflow-simulation-";
+        flowMonitorFilename << "letflow-simulation-" << letFlowFlowletTimeout << "-";
+        linkMonitorFilename << "letflow-simulation-" << letFlowFlowletTimeout << "-";
     }
 
     flowMonitorFilename << randomSeed << "-";
