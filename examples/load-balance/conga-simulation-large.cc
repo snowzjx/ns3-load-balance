@@ -297,6 +297,8 @@ int main (int argc, char *argv[])
 
     bool enableLargeDupAck = false;
 
+    uint32_t congaFlowTimeout = 50;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -354,6 +356,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("quantifyRTTBase", "quantifyRTTBase", quantifyRTTBase);
 
     cmd.AddValue ("enableLargeDupAck", "enableLargeDupAck", enableLargeDupAck);
+
+    cmd.AddValue ("congaFlowTimeout", "congaFlowTimeout", congaFlowTimeout);
 
     cmd.Parse (argc, argv);
 
@@ -729,7 +733,7 @@ int main (int argc, char *argv[])
 	        congaLeaf->SetLinkCapacity(DataRate(SPINE_LEAF_CAPACITY));
 	        if (runMode == CONGA)
 	        {
-	            congaLeaf->SetFlowletTimeout (MicroSeconds (500));
+	            congaLeaf->SetFlowletTimeout (MicroSeconds (congaFlowTimeout));
 	        }
 	        if (runMode == CONGA_FLOW)
 	        {
