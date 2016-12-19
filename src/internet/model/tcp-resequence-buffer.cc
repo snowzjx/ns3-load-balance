@@ -187,6 +187,7 @@ TcpResequenceBuffer::BufferPacket (Ptr<Packet> packet,
       {
         break;
       }
+      m_outOrderQueueTimer = Simulator::Now ();
     }
     // If the size exceeds the limit
     if (m_size >= m_sizeLimit)
