@@ -49,6 +49,7 @@ Program Arguments:
     --resequenceInOrderTimer:     In order queue timeout in resequence buffer [5]
     --resequenceOutOrderTimer:    Out order queue timeout in resequence buffer [500]
     --resequenceInOrderSize:      In order queue size in resequence buffer [100]
+    --resequenceBufferLog:        Whether enabling the resequence buffer logging system [false]
     --asymCapacity:               Whether the capacity is asym, which means some link will have only 1/10 the capacity of others [false]
     --asymCapacityPoss:           The possibility that a path will have only 1/10 capacity [40]
     --flowBenderT:                The T in flowBender [0.05]

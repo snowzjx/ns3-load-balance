@@ -259,6 +259,7 @@ int main (int argc, char *argv[])
     uint32_t resequenceInOrderTimer = 5; // MicroSeconds
     uint32_t resequenceInOrderSize = 100; // 100 Packets
     uint32_t resequenceOutOrderTimer = 500; // MicroSeconds
+    bool resequenceBufferLog = false;
 
     double flowBenderT = 0.05;
     uint32_t flowBenderN = 1;
@@ -317,6 +318,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("resequenceInOrderTimer", "In order queue timeout in resequence buffer", resequenceInOrderTimer);
     cmd.AddValue ("resequenceOutOrderTimer", "Out order queue timeout in resequence buffer", resequenceOutOrderTimer);
     cmd.AddValue ("resequenceInOrderSize", "In order queue size in resequence buffer", resequenceInOrderSize);
+    cmd.AddValue ("resequenceBufferLog", "Whether enabling the resequence buffer logging system", resequenceBufferLog);
 
     cmd.AddValue ("asymCapacity", "Whether the capacity is asym, which means some link will have only 1/10 the capacity of others", asymCapacity);
     cmd.AddValue ("asymCapacityPoss", "The possibility that a path will have only 1/10 capacity", asymCapacityPoss);
@@ -1234,7 +1236,7 @@ int main (int argc, char *argv[])
         out2 << Ipv4TLB::GetLogo ();
     }
 
-    if (resequenceBuffer)
+    if (resequenceBuffer && resequenceBufferLog)
     {
         remove (rbTraceFilename.str ().c_str ());
         Simulator::Schedule (Seconds (START_TIME) + MicroSeconds (1), &RBTrace);
