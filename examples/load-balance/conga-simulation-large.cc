@@ -29,7 +29,6 @@ extern "C"
 }
 
 #define LINK_CAPACITY_BASE    1000000000          // 1Gbps
-#define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
 #define BUFFER_SIZE 600                           // 250 packets
 
 #define RED_QUEUE_MARKING 65 		        	  // 65 Packets (available only in DcTcp)
@@ -250,6 +249,8 @@ int main (int argc, char *argv[])
 
     double FLOW_LAUNCH_END_TIME = 0.1;
 
+    uint32_t linkLatency = 10;
+
     bool asymCapacity = false;
     // bool asymTopology = false;
 
@@ -313,6 +314,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
     cmd.AddValue ("transportProt", "Transport protocol to use: Tcp, DcTcp", transportProt);
+    cmd.AddValue ("linkLatency", "Link latency, should be in MicroSeconds", linkLatency);
 
     cmd.AddValue ("resequenceBuffer", "Whether enabling the resequence buffer", resequenceBuffer);
     cmd.AddValue ("resequenceInOrderTimer", "In order queue timeout in resequence buffer", resequenceInOrderTimer);
@@ -368,6 +370,7 @@ int main (int argc, char *argv[])
 
     uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
     uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
+    Time LINK_LATENCY = MicroSeconds (linkLatency);
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
