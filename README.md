@@ -45,6 +45,7 @@ Program Arguments:
     --cdfFileName:                File name for flow distribution []
     --load:                       Load of the network, 0.0 - 1.0 [0]
     --transportProt:              Transport protocol to use: Tcp, DcTcp [Tcp]
+    --linkLatency:                Link latency, should be in MicroSeconds [10]
     --resequenceBuffer:           Whether enabling the resequence buffer [false]
     --resequenceInOrderTimer:     In order queue timeout in resequence buffer [5]
     --resequenceOutOrderTimer:    Out order queue timeout in resequence buffer [500]
