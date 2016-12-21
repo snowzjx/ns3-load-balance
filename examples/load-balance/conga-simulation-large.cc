@@ -554,7 +554,7 @@ int main (int argc, char *argv[])
         internet.Install (spines);
     	internet.Install (leaves);
     }
-    else if (runMode == PRESTO || runMode == DRB)
+    else if (runMode == PRESTO || runMode == DRB || runMode == WEIGHTED_PRESTO)
     {
         if (runMode == DRB)
         {
@@ -844,7 +844,7 @@ int main (int argc, char *argv[])
                     << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ()
                     << " with data rate " << spineLeafCapacity);
 
-            if (runMode == TLB || runMode == DRB || runMode == PRESTO || runMode == Clove)
+            if (runMode == TLB || runMode == DRB || runMode == PRESTO || runMode == WEIGHTED_PRESTO || runMode == Clove)
             {
                 std::pair<int, int> leafToSpine = std::make_pair<int, int> (i, j);
                 leafToSpinePath[leafToSpine] = netDeviceContainer.Get (0)->GetIfIndex ();
@@ -943,13 +943,13 @@ int main (int argc, char *argv[])
         }
     }
 
-    if (runMode == ECMP || runMode == PRESTO || runMode == DRB || runMode == FlowBender || runMode == TLB || runMode == Clove)
+    if (runMode == ECMP || runMode == PRESTO || runMode == WEIGHTED_PRESTO || runMode == DRB || runMode == FlowBender || runMode == TLB || runMode == Clove)
     {
         NS_LOG_INFO ("Populate global routing tables");
         Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
     }
 
-    if (runMode == DRB || runMode == PRESTO)
+    if (runMode == DRB || runMode == PRESTO || runMode == WEIGHTED_PRESTO)
     {
         NS_LOG_INFO ("Configuring DRB / PRESTO paths");
         for (int i = 0; i < LEAF_COUNT; i++)
@@ -1206,7 +1206,6 @@ int main (int argc, char *argv[])
         linkMonitorFilename << "weighted-presto-simulation-";
         rbTraceFilename << "weighted-presto-simulation-";
     }
- 
     else if (runMode == DRB)
     {
         flowMonitorFilename << "drb-simulation-";
