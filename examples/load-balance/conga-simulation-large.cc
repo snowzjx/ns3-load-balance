@@ -1200,6 +1200,13 @@ int main (int argc, char *argv[])
         linkMonitorFilename << "presto-simulation-";
         rbTraceFilename << "presto-simulation-";
     }
+    else if (runMode == WEIGHTED_PRESTO)
+    {
+	    flowMonitorFilename << "weighted-presto-simulation-";
+        linkMonitorFilename << "weighted-presto-simulation-";
+        rbTraceFilename << "weighted-presto-simulation-";
+    }
+ 
     else if (runMode == DRB)
     {
         flowMonitorFilename << "drb-simulation-";
