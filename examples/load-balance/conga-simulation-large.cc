@@ -21,6 +21,7 @@
 #include <vector>
 #include <map>
 #include <utility>
+#include <set>
 
 // The CDF in TrafficGenerator
 extern "C"
@@ -55,6 +56,7 @@ enum RunMode {
     CONGA_FLOW,
     CONGA_ECMP,
     PRESTO,
+    WEIGHTED_PRESTO, // Distribute the packet according to the topology
     DRB,
     FlowBender,
     ECMP,
@@ -308,7 +310,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
     cmd.AddValue ("EndTime", "End time of the simulation", END_TIME);
     cmd.AddValue ("FlowLaunchEndTime", "End time of the flow launch period", FLOW_LAUNCH_END_TIME);
-    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Presto, DRB, FlowBender, ECMP, Clove, DRILL, LetFlow", runModeStr);
+    cmd.AddValue ("runMode", "Running mode of this simulation: Conga, Conga-flow, Presto, Weighted-Presto, DRB, FlowBender, ECMP, Clove, DRILL, LetFlow", runModeStr);
     cmd.AddValue ("randomSeed", "Random seed, 0 for random generated", randomSeed);
     cmd.AddValue ("cdfFileName", "File name for flow distribution", cdfFileName);
     cmd.AddValue ("load", "Load of the network, 0.0 - 1.0", load);
@@ -384,10 +386,29 @@ int main (int argc, char *argv[])
     }
     else if (runModeStr.compare ("Presto") == 0)
     {
+        if (LINK_COUNT != 1)
+        {
+            NS_LOG_ERROR ("Presto currently does not support link count more than 1");
+            return 0;
+        }
         runMode = PRESTO;
+    }
+    else if (runModeStr.compare ("Weighted-Presto") == 0)
+    {
+        if (asymCapacity == false)
+        {
+            NS_LOG_ERROR ("The Weighted-Presto has to work with asymmetric topology. For a symmetric topology, please use Presto instead");
+            return 0;
+        }
+        runMode = WEIGHTED_PRESTO;
     }
     else if (runModeStr.compare ("DRB") == 0)
     {
+        if (asymCapacity == false)
+        {
+            NS_LOG_ERROR ("DRB currently does not support link count more than 1");
+            return 0;
+        }
         runMode = DRB;
     }
     else if (runModeStr.compare ("FlowBender") == 0)
@@ -403,7 +424,7 @@ int main (int argc, char *argv[])
         std::cout << Ipv4TLB::GetLogo () << std::endl;
         if (LINK_COUNT != 1)
         {
-            NS_LOG_ERROR ("TLB currently not supports link count more than 1");
+            NS_LOG_ERROR ("TLB currently does not support link count more than 1");
             return 0;
         }
         runMode = TLB;
@@ -755,8 +776,9 @@ int main (int argc, char *argv[])
     }
 
     NS_LOG_INFO ("Configuring switches");
-    // Setting switches
+    // Setting up switches
     p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (SPINE_LEAF_CAPACITY)));
+    std::set<std::pair<uint32_t, uint32_t> > asymLink; // set< (A, B) > Leaf A -> Spine B is asymmetric
 
     for (int i = 0; i < LEAF_COUNT; i++)
     {
@@ -799,6 +821,8 @@ int main (int argc, char *argv[])
             if (isAsymCapacity)
             {
                 spineLeafCapacity = SPINE_LEAF_CAPACITY / 5;
+                asymLink.insert (std::make_pair (i, j));
+                asymLink.insert (std::make_pair (j, i));
             }
 
             p2p.SetDeviceAttribute ("DataRate", DataRateValue (DataRate (spineLeafCapacity)));
@@ -841,7 +865,7 @@ int main (int argc, char *argv[])
 			            congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ())->
 				                                            AddRoute (leafNetworks[k],
 				  	                                        Ipv4Mask("255.255.255.0"),
-                                  	                         netDeviceContainer.Get (0)->GetIfIndex ());
+                                                            netDeviceContainer.Get (0)->GetIfIndex ());
                     }
                 }
 
@@ -912,7 +936,6 @@ int main (int argc, char *argv[])
                                         netDeviceContainer.Get (1)->GetIfIndex ());
                 letFlowSpine->SetFlowletTimeout (MicroSeconds (letFlowFlowletTimeout));
 	        }
-
         }
         }
     }
@@ -925,7 +948,7 @@ int main (int argc, char *argv[])
 
     if (runMode == DRB || runMode == PRESTO)
     {
-        NS_LOG_INFO ("Configuring DRB/PRESTO paths");
+        NS_LOG_INFO ("Configuring DRB / PRESTO paths");
         for (int i = 0; i < LEAF_COUNT; i++)
         {
             for (int j = 0; j < SERVER_COUNT; j++)
@@ -937,6 +960,35 @@ int main (int argc, char *argv[])
                     if (runMode == DRB)
                     {
                         drbRouting->AddPath (leafToSpinePath[std::make_pair (i, k)]);
+                    }
+                    else if (runMode == WEIGHTED_PRESTO)
+                    {
+                        // If the capacity of a uplink is reduced, the weight should be reduced either
+                        if (asymLink.find (std::make_pair(i, k)) != asymLink.end ())
+                        {
+                            drbRouting->AddWeightedPath (PRESTO_RATIO * 0.1, leafToSpinePath[std::make_pair (i, k)]);
+                        }
+                        else
+                        {
+                            // Check whether the spine down to the leaf is reduced and add the exception
+                            std::set<Ipv4Address> exclusiveIPs;
+                            for (int l = 0; l < LEAF_COUNT; l++)
+                            {
+                                if (asymLink.find (std::make_pair(k, l)) != asymLink.end ())
+                                {
+                                    for (int m = l * SERVER_COUNT; m < l * SERVER_COUNT + SERVER_COUNT; m++)
+                                    {
+                                        Ptr<Node> destServer = servers.Get (m);
+                                        Ptr<Ipv4> ipv4 = destServer->GetObject<Ipv4> ();
+                                        Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
+                                        Ipv4Address destAddress = destInterface.GetLocal ();
+                                        drbRouting->AddWeightedPath (destAddress, PRESTO_RATIO * 0.1, leafToSpinePath[std::make_pair (i, k)]);
+                                        exclusiveIPs.insert (destAddress);
+                                    }
+                                }
+                            }
+                            drbRouting->AddWeightedPath (PRESTO_RATIO, leafToSpinePath[std::make_pair (i, k)], exclusiveIPs);
+                        }
                     }
                     else
                     {

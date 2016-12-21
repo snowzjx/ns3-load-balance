@@ -9,6 +9,8 @@
 #include "ns3/ipv4-header.h"
 #include "ns3/ipv4-address.h"
 
+#include <set>
+
 namespace ns3 {
 
 enum DrbRoutingMode
@@ -28,6 +30,12 @@ public:
   bool AddPath (uint32_t path);
   bool AddPath (uint32_t weight, uint32_t path);
 
+  // TODO ugly code
+  // Patch for Weighted Presto
+  bool AddWeightedPath (uint32_t weight, uint32_t path,
+          const std::set<Ipv4Address>& exclusiveIPs = std::set<Ipv4Address> ());
+  bool AddWeightedPath (Ipv4Address destAddr, uint32_t weight, uint32_t path);
+
   /* Inherit From Ipv4RoutingProtocol */
   virtual Ptr<Ipv4Route> RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDevice> oif, Socket::SocketErrno &sockerr);
   virtual bool RouteInput (Ptr<const Packet> p, const Ipv4Header &header, Ptr<const NetDevice> idev,
@@ -44,6 +52,7 @@ public:
 
 private:
   std::vector<uint32_t> m_paths;
+  std::map<Ipv4Address, std::vector<uint32_t> > m_extraPaths;
   std::map<uint32_t, uint32_t> m_indexMap;
   enum DrbRoutingMode m_mode;
 

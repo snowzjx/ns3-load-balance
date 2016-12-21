@@ -63,6 +63,56 @@ Ipv4DrbRouting::AddPath (uint32_t weight, uint32_t path)
   return true;
 }
 
+/* Sorry for those very ugly code */
+bool
+Ipv4DrbRouting::AddWeightedPath (uint32_t weight, uint32_t path,
+        const std::set<Ipv4Address>& exclusiveIPs)
+{
+  // First we should add rules to the default paths table
+  Ipv4DrbRouting::AddPath (weight, path);
+
+  // Add rules to all other tables
+  std::map<Ipv4Address, std::vector<uint32_t> >::iterator itr = m_extraPaths.begin ();
+  for (; itr != m_extraPaths.end (); ++itr)
+  {
+    Ipv4Address key = itr->first;
+    if (exclusiveIPs.find (key) != exclusiveIPs.end ())
+    {
+      continue;
+    }
+    std::vector<uint32_t> paths = itr->second;
+    for (uint32_t i = 0; i < weight; i++)
+    {
+      paths.push_back (path);
+    }
+    m_extraPaths[key] = paths;
+  }
+  return true;
+}
+
+bool
+Ipv4DrbRouting::AddWeightedPath (Ipv4Address destAddr, uint32_t weight, uint32_t path)
+{
+  std::vector<uint32_t> paths;
+  std::map<Ipv4Address, std::vector<uint32_t> >::iterator itr = m_extraPaths.find (destAddr);
+  if (itr != m_extraPaths.end ())
+  {
+    paths = itr->second;
+  }
+  else
+  {
+    paths = m_paths;
+  }
+
+  for (uint32_t i = 0; i < weight; i++)
+  {
+    paths.push_back (path);
+  }
+
+  m_extraPaths[destAddr] = paths;
+  return true;
+}
+
 /* Inherit From Ipv4RoutingProtocol */
 /* NOTE In DRB, the RouteOutput will not actually route the packets out but assign the path ID on it */
 /* DRB relies the list routing & static routing to do the real routing */
@@ -98,15 +148,28 @@ Ipv4DrbRouting::RouteOutput (Ptr<Packet> p, const Ipv4Header &header, Ptr<NetDev
     return 0;
   }
 
-  uint32_t index = rand () % m_paths.size ();
+  /* Ugly code, patch to support Weighted Presto */
+  std::vector<uint32_t> paths;
+  std::map<Ipv4Address, std::vector<uint32_t> >::iterator extraItr = m_extraPaths.find (header.GetDestination ());
+  if (extraItr == m_extraPaths.end ())
+  {
+    paths = m_paths;
+  }
+  else
+  {
+    paths = extraItr->second;
+  }
+  /* Breathe a fresh air to celebrate the end of ugly code */
+
+  uint32_t index = rand () % paths.size ();
   std::map<uint32_t, uint32_t>::iterator itr = m_indexMap.find (flowIndentify);
   if (itr != m_indexMap.end ())
   {
     index = itr->second;
   }
 
-  uint32_t path = m_paths[index];
-  m_indexMap[flowIndentify] = (index + 1) % m_paths.size ();
+  uint32_t path = paths[index];
+  m_indexMap[flowIndentify] = (index + 1) % paths.size ();
 
   Ipv4XPathTag ipv4XPathTag;
   ipv4XPathTag.SetPathId (path);
