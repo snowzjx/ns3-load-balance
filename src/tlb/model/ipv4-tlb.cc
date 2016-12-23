@@ -280,8 +280,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
             return newPath.pathId;
         }
-        else if (oldPathInfo.pathType == BadPath
-                && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ
+        else if ((flowItr->second).rtt >= m_highRtt
+                && oldPathInfo.quantifiedDre <= m_dreMultiply * std::pow (2, m_dreQ)
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
@@ -490,7 +490,7 @@ Ipv4TLB::PacketReceive (uint32_t flowId, uint32_t path, uint32_t destTorId,
     // If not or the packet is a probing, update the path table
     if (!isProbing)
     {
-        bool notChangePath = Ipv4TLB::UpdateFlowInfo (flowId, path, size, withECN);
+        bool notChangePath = Ipv4TLB::UpdateFlowInfo (flowId, path, size, withECN, rtt);
         if (!notChangePath)
         {
             NS_LOG_LOGIC ("The flow has changed the path");
@@ -500,7 +500,7 @@ Ipv4TLB::PacketReceive (uint32_t flowId, uint32_t path, uint32_t destTorId,
 }
 
 bool
-Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN)
+Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN, Time rtt)
 {
     std::map<uint32_t, TLBFlowInfo>::iterator itr = m_flowInfo.find (flowId);
     if (itr == m_flowInfo.end ())
@@ -518,6 +518,21 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
         (itr->second).ecnSize += size;
     }
     (itr->second).liveTime = Simulator::Now ();
+
+    // Added Dec 23rd
+    if (m_isSmooth)
+    {
+        (itr->second).rtt = (SMOOTH_BASE - m_smoothAlpha) * (itr->second).rtt / SMOOTH_BASE + m_smoothAlpha * rtt / SMOOTH_BASE;
+    }
+    else
+    {
+        if (rtt < (itr->second).rtt)
+        {
+            (itr->second).rtt = rtt;
+        }
+    }
+    // ---
+
     return true;
 }
 
@@ -698,6 +713,11 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
     flowInfo.timeStamp = Simulator::Now ();
     flowInfo.tryChangePath = Simulator::Now ();
     flowInfo.liveTime = Simulator::Now ();
+
+    // Added Dec 23rd
+    // Flow RTT default value
+    flowInfo.rtt = m_minRtt;
+
     m_flowInfo[flowId] = flowInfo;
 }
 

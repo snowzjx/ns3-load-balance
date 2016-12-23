@@ -92,7 +92,7 @@ private:
     void PacketReceive (uint32_t flowId, uint32_t path, uint32_t destTorId,
                         uint32_t size, bool withECN, Time rtt, bool isProbing);
 
-    bool UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN);
+    bool UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool withECN, Time rtt);
 
     TLBPathInfo GetInitPathInfo (uint32_t path);
 

@@ -19,6 +19,10 @@ public:
   Time timeStamp;
   Time tryChangePath;
   Time liveTime;
+
+  // Added at Dec 23rd
+  Time rtt;
+  // --
 };
 
 }
