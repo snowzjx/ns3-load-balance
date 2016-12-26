@@ -407,7 +407,7 @@ int main (int argc, char *argv[])
     }
     else if (runModeStr.compare ("DRB") == 0)
     {
-        if (asymCapacity == false)
+        if (LINK_COUNT != 1)
         {
             NS_LOG_ERROR ("DRB currently does not support link count more than 1");
             return 0;
