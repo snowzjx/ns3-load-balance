@@ -43,7 +43,7 @@ extern "C"
 // Acknowledged to https://williamcityu@bitbucket.org/williamcityu/2016-socc-simulation.git
 #define PACKET_SIZE 1400
 
-#define PRESTO_RATIO 64
+#define PRESTO_RATIO 10
 
 using namespace ns3;
 
@@ -261,7 +261,7 @@ int main (int argc, char *argv[])
     bool resequenceBuffer = false;
     uint32_t resequenceInOrderTimer = 5; // MicroSeconds
     uint32_t resequenceInOrderSize = 100; // 100 Packets
-    uint32_t resequenceOutOrderTimer = 500; // MicroSeconds
+    uint32_t resequenceOutOrderTimer = 100; // MicroSeconds
     bool resequenceBufferLog = false;
 
     double flowBenderT = 0.05;
