@@ -306,6 +306,9 @@ int main (int argc, char *argv[])
     uint32_t congaFlowletTimeout = 50;
     uint32_t letFlowFlowletTimeout = 50;
 
+    bool enableRandomDrop = false;
+    double randomDropRate = 0.005; // 0.5%
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -367,6 +370,9 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("congaFlowletTimeout", "Flowlet timeout in Conga", congaFlowletTimeout);
     cmd.AddValue ("letFlowFlowletTimeout", "Flowlet timeout in LetFlow", letFlowFlowletTimeout);
+
+    cmd.AddValue ("enableRandomDrop", "Whether the Spine-0 to other leaves has the random drop problem", enableRandomDrop);
+    cmd.AddValue ("randomDropRate", "The random drop rate when the random drop is enabled", randomDropRate);
 
     cmd.Parse (argc, argv);
 
@@ -836,7 +842,26 @@ int main (int argc, char *argv[])
 		    if (transportProt.compare ("DcTcp") == 0)
 		    {
 		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
-	            tc.Install (netDeviceContainer);
+                if (!enableRandomDrop)
+                {
+                    Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
+	                tc.Install (netDeviceContainer);
+                }
+                else
+                {
+                    if (j == 0)
+                    {
+                        Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
+                        tc.Install (netDeviceContainer.Get (0)); // Leaf to Spine Queue
+                        Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (randomDropRate));
+                        tc.Install (netDeviceContainer.Get (1)); // Spine to Leaf Queue
+                    }
+                    else
+                    {
+                        Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
+	                    tc.Install (netDeviceContainer);
+                    }
+                }
             }
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
             NS_LOG_INFO ("Leaf - " << i << " is connected to Spine - " << j << " with address "
