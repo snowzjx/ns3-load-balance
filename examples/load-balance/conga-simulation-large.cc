@@ -844,7 +844,6 @@ int main (int argc, char *argv[])
 		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
                 if (!enableRandomDrop)
                 {
-                    Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
 	                tc.Install (netDeviceContainer);
                 }
                 else
@@ -1297,6 +1296,15 @@ int main (int argc, char *argv[])
         linkMonitorFilename << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
         tlbBibleFilename << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
         tlbBibleFilename2 << "p" << applicationPauseThresh << "-" << applicationPauseTime << "-";
+    }
+
+    if (enableRandomDrop)
+    {
+        flowMonitorFilename << "random-drop-" << randomDropRate << "-";
+        linkMonitorFilename << "random-drop-" << randomDropRate << "-";
+        tlbBibleFilename << "random-drop-" << randomDropRate << "-";
+        tlbBibleFilename2 << "random-drop-" << randomDropRate << "-";
+        rbTraceFilename << "random-drop-" << randomDropRate << "-";
     }
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
