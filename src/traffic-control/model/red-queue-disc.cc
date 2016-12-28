@@ -196,10 +196,15 @@ TypeId RedQueueDisc::GetTypeId (void)
                    MakeTimeAccessor (&RedQueueDisc::m_linkDelay),
                    MakeTimeChecker ())
     .AddAttribute ("DropRate",
-                   "The packet black hole drop rate",
+                   "The random packet drop rate",
                    DoubleValue (0.0),
                    MakeDoubleAccessor (&RedQueueDisc::m_dropRate),
                    MakeDoubleChecker<double> ())
+    .AddAttribute ("BlackHole",
+                   "The packet black hole mode",
+                   IntegerValue (false),
+                   MakeIntegerAccessor (&RedQueueDisc::m_blackHoleMode),
+                   MakeIntegerChecker<uint32_t> ())
   ;
 
   return tid;
@@ -308,6 +313,20 @@ RedQueueDisc::AssignStreams (int64_t stream)
   return 1;
 }
 
+void
+RedQueueDisc::SetBlackHoleSrc (Ipv4Address addr, Ipv4Mask mask)
+{
+  m_blackHoleSrcMask = mask;
+  m_blackHoleSrcAddr = addr;
+}
+
+void
+RedQueueDisc::SetBlackHoleDest (Ipv4Address addr, Ipv4Mask mask)
+{
+  m_blackHoleDestMask = mask;
+  m_blackHoleDestAddr = addr;
+}
+
 bool
 RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
 {
@@ -317,11 +336,41 @@ RedQueueDisc::DoEnqueue (Ptr<QueueDiscItem> item)
   {
     if (m_uv->GetValue () <= m_dropRate)
     {
-      std::cout << "Oh, what the fuck, packet black hole" << std::endl;
       m_stats.forcedDrop++;
       Drop (item);
       return false;
     }
+  }
+
+  if (m_blackHoleMode > 0)
+  {
+    Ptr<Ipv4QueueDiscItem> ipv4Item = DynamicCast<Ipv4QueueDiscItem> (item);
+    if (ipv4Item != 0)
+    {
+      Ipv4Header header = ipv4Item->GetHeader ();
+      bool blackHoleHit = false; // Twisting Nether !!!
+      if (m_blackHoleMode == 1)
+      {
+        blackHoleHit = m_blackHoleSrcMask.IsMatch (header.GetSource (), m_blackHoleSrcAddr);
+      }
+      else if (m_blackHoleMode == 2)
+      {
+        blackHoleHit = m_blackHoleDestMask.IsMatch (header.GetDestination (), m_blackHoleDestAddr);
+      }
+      else if (m_blackHoleMode == 3)
+      {
+        blackHoleHit = m_blackHoleSrcMask.IsMatch (header.GetSource (), m_blackHoleSrcAddr) &&
+                       m_blackHoleDestMask.IsMatch (header.GetDestination (), m_blackHoleDestAddr);
+      }
+
+      if (blackHoleHit)
+      {
+        m_stats.forcedDrop++;
+        Drop (item);
+        return false;
+      }
+    }
+
   }
 
   uint32_t nQueued = 0;

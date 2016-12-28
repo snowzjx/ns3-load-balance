@@ -205,6 +205,9 @@ public:
   */
   int64_t AssignStreams (int64_t stream);
 
+  void SetBlackHoleSrc (Ipv4Address addr, Ipv4Mask mask);
+  void SetBlackHoleDest (Ipv4Address addr, Ipv4Mask mask);
+
 protected:
   /**
    * \brief Dispose of the object
@@ -300,7 +303,15 @@ private:
   bool m_isNs1Compat;       //!< Ns-1 compatibility
   DataRate m_linkBandwidth; //!< Link bandwidth
   Time m_linkDelay;         //!< Link delay
-  double m_dropRate;        //!< Packet black hole drop rate (0 - 1), 0 for not dropping
+
+  double m_dropRate;        //!< Packet random drop rate (0 - 1), 0 for not dropping
+
+  uint32_t m_blackHoleMode; //!< 0 for disable, 1 for src, 2 for dest, 3 for src dest pair
+
+  Ipv4Mask m_blackHoleSrcMask;
+  Ipv4Address m_blackHoleSrcAddr;
+  Ipv4Mask m_blackHoleDestMask;
+  Ipv4Address m_blackHoleDestAddr;
 
   // ** Variables maintained by RED
   double m_vProb1;          //!< Prob. of packet drop before "count"
