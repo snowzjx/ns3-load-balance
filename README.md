@@ -86,4 +86,5 @@ Program Arguments:
     --enableLargeDupAck:          Whether to set the ReTxThreshold to a very large value to mask reordering [false]
     --congaFlowletTimeout:        Flowlet timeout in Conga [50]
     --letFlowFlowletTimeout:      Flowlet timeout in LetFlow [50]
-```
+    --enableRandomDrop:           Whether the Spine-0 to other leaves has the random drop problem [false]
+    --randomDropRate:             The random drop rate when the random drop is enabled [0.005]```
