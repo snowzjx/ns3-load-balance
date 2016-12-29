@@ -202,9 +202,9 @@ TypeId RedQueueDisc::GetTypeId (void)
                    MakeDoubleChecker<double> ())
     .AddAttribute ("BlackHole",
                    "The packet black hole mode",
-                   IntegerValue (false),
-                   MakeIntegerAccessor (&RedQueueDisc::m_blackHoleMode),
-                   MakeIntegerChecker<uint32_t> ())
+                   UintegerValue (0),
+                   MakeUintegerAccessor (&RedQueueDisc::m_blackHoleMode),
+                   MakeUintegerChecker<uint32_t> ())
   ;
 
   return tid;
