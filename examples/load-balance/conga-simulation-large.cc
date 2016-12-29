@@ -309,6 +309,12 @@ int main (int argc, char *argv[])
     bool enableRandomDrop = false;
     double randomDropRate = 0.005; // 0.5%
 
+    uint32_t blackHoleMode = 0; // When the black hole is enabled, the
+    std::string blackHoleSrcAddrStr = "10.1.1.0";
+    std::string blackHoleSrcMaskStr = "255.255.255.0";
+    std::string blackHoleDestAddrStr = "10.1.2.0";
+    std::string blackHoleDestMaskStr = "255.255.255.0";
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -374,11 +380,22 @@ int main (int argc, char *argv[])
     cmd.AddValue ("enableRandomDrop", "Whether the Spine-0 to other leaves has the random drop problem", enableRandomDrop);
     cmd.AddValue ("randomDropRate", "The random drop rate when the random drop is enabled", randomDropRate);
 
+    cmd.AddValue ("blackHoleMode", "The packet black hole mode, 0 to disable, 1 src, 2 dest, 3 src/dest pair", blackHoleMode);
+    cmd.AddValue ("blackHoleSrcAddr", "The packet black hole source address", blackHoleSrcAddrStr);
+    cmd.AddValue ("blackHoleSrcMask", "The packet black hole source mask", blackHoleSrcMaskStr);
+    cmd.AddValue ("blackHoleDestAddr", "The packet black hole destination address", blackHoleDestAddrStr);
+    cmd.AddValue ("blackHoleDestMask", "The packet black hole destination mask", blackHoleDestMaskStr);
+
     cmd.Parse (argc, argv);
 
     uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
     uint64_t LEAF_SERVER_CAPACITY = leafServerCapacity * LINK_CAPACITY_BASE;
     Time LINK_LATENCY = MicroSeconds (linkLatency);
+
+    Ipv4Address blackHoleSrcAddr = Ipv4Address (blackHoleSrcAddrStr.c_str ());
+    Ipv4Mask blackHoleSrcMask = Ipv4Mask (blackHoleSrcMaskStr.c_str ());
+    Ipv4Address blackHoleDestAddr = Ipv4Address (blackHoleDestAddrStr.c_str ());
+    Ipv4Mask blackHoleDestMask = Ipv4Mask (blackHoleDestMaskStr.c_str ());
 
     RunMode runMode;
     if (runModeStr.compare ("Conga") == 0)
@@ -842,11 +859,7 @@ int main (int argc, char *argv[])
 		    if (transportProt.compare ("DcTcp") == 0)
 		    {
 		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and spine: " << j);
-                if (!enableRandomDrop)
-                {
-	                tc.Install (netDeviceContainer);
-                }
-                else
+                if (enableRandomDrop)
                 {
                     if (j == 0)
                     {
@@ -860,6 +873,30 @@ int main (int argc, char *argv[])
                         Config::SetDefault ("ns3::RedQueueDisc::DropRate", DoubleValue (0.0));
 	                    tc.Install (netDeviceContainer);
                     }
+                }
+                else if (blackHoleMode != 0)
+                {
+                    if (j == 0)
+                    {
+                        Config::SetDefault ("ns3::RedQueueDisc::BlackHole", UintegerValue (0));
+                        tc.Install (netDeviceContainer.Get (0)); // Leaf to Spine Queue
+                        Config::SetDefault ("ns3::RedQueueDisc::BlackHole", UintegerValue (blackHoleMode));
+                        tc.Install (netDeviceContainer.Get (1)); // Spine to Leaf Queue
+                        Ptr<TrafficControlLayer> tc = netDeviceContainer.Get (1)->GetNode ()->GetObject<TrafficControlLayer> ();
+                        Ptr<QueueDisc> queueDisc = tc->GetRootQueueDiscOnDevice (netDeviceContainer.Get (1));
+                        Ptr<RedQueueDisc> redQueueDisc = DynamicCast<RedQueueDisc> (queueDisc);
+                        redQueueDisc->SetBlackHoleSrc (blackHoleSrcAddr, blackHoleSrcMask);
+                        redQueueDisc->SetBlackHoleDest (blackHoleDestAddr, blackHoleDestMask);
+                    }
+                    else
+                    {
+                        Config::SetDefault ("ns3::RedQueueDisc::BlackHole", UintegerValue (0));
+                        tc.Install (netDeviceContainer);
+                    }
+                }
+                else
+                {
+	                tc.Install (netDeviceContainer);
                 }
             }
             Ipv4InterfaceContainer ipv4InterfaceContainer = ipv4.Assign (netDeviceContainer);
@@ -1192,7 +1229,7 @@ int main (int argc, char *argv[])
     linkMonitor->Start (Seconds (START_TIME));
     linkMonitor->Stop (Seconds (END_TIME));
 
-        flowMonitor->CheckForLostPackets ();
+    flowMonitor->CheckForLostPackets ();
 
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
