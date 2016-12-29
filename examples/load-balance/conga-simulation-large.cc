@@ -310,8 +310,8 @@ int main (int argc, char *argv[])
     double randomDropRate = 0.005; // 0.5%
 
     uint32_t blackHoleMode = 0; // When the black hole is enabled, the
-    std::string blackHoleSrcAddrStr = "10.1.1.0";
-    std::string blackHoleSrcMaskStr = "255.255.255.0";
+    std::string blackHoleSrcAddrStr = "10.1.1.1";
+    std::string blackHoleSrcMaskStr = "255.255.255.240";
     std::string blackHoleDestAddrStr = "10.1.2.0";
     std::string blackHoleDestMaskStr = "255.255.255.0";
 
@@ -716,12 +716,18 @@ int main (int argc, char *argv[])
             int serverIndex = i * SERVER_COUNT + j;
             NodeContainer nodeContainer = NodeContainer (leaves.Get (i), servers.Get (serverIndex));
             NetDeviceContainer netDeviceContainer = p2p.Install (nodeContainer);
-		    if (transportProt.compare ("DcTcp") == 0)
+
+            if (transportProt.compare ("DcTcp") == 0)
 		    {
 		        NS_LOG_INFO ("Install RED Queue for leaf: " << i << " and server: " << j);
 	            tc.Install (netDeviceContainer);
             }
             Ipv4InterfaceContainer interfaceContainer = ipv4.Assign (netDeviceContainer);
+
+            NS_LOG_INFO ("Leaf - " << i << " is connected to Server - " << j << " with address "
+                    << interfaceContainer.GetAddress(0) << " <-> " << interfaceContainer.GetAddress (1)
+                    << " with port " << netDeviceContainer.Get (0)->GetIfIndex () << " <-> " << netDeviceContainer.Get (1)->GetIfIndex ());
+
             serverAddresses [serverIndex] = interfaceContainer.GetAddress (1);
 		    if (transportProt.compare ("Tcp") == 0)
             {
@@ -1343,6 +1349,16 @@ int main (int argc, char *argv[])
         tlbBibleFilename2 << "random-drop-" << randomDropRate << "-";
         rbTraceFilename << "random-drop-" << randomDropRate << "-";
     }
+
+    if (blackHoleMode != 0)
+    {
+        flowMonitorFilename << "black-hole-" << blackHoleMode << "-";
+        linkMonitorFilename << "black-hole-" << blackHoleMode << "-";
+        tlbBibleFilename << "black-hole-" << blackHoleMode << "-";
+        tlbBibleFilename2 << "black-hole-" << blackHoleMode << "-";
+        rbTraceFilename << "black-hole-" << blackHoleMode << "-";
+    }
+
 
     flowMonitorFilename << "b" << BUFFER_SIZE << ".xml";
     linkMonitorFilename << "b" << BUFFER_SIZE << "-link-utility.out";
