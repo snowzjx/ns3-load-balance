@@ -315,6 +315,8 @@ int main (int argc, char *argv[])
     std::string blackHoleDestAddrStr = "10.1.2.0";
     std::string blackHoleDestMaskStr = "255.255.255.0";
 
+    bool congaAwareAsym = true;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -385,6 +387,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("blackHoleSrcMask", "The packet black hole source mask", blackHoleSrcMaskStr);
     cmd.AddValue ("blackHoleDestAddr", "The packet black hole destination address", blackHoleDestAddrStr);
     cmd.AddValue ("blackHoleDestMask", "The packet black hole destination mask", blackHoleDestMaskStr);
+
+    cmd.AddValue ("congaAwareAsym", "Whether Conga is aware of the capacity of asymmetric path capacity", congaAwareAsym);
 
     cmd.Parse (argc, argv);
 
@@ -956,10 +960,11 @@ int main (int argc, char *argv[])
 
                 if (isAsymCapacity)
                 {
+                    uint64_t congaAwareCapacity = congaAwareAsym ? spineLeafCapacity : SPINE_LEAF_CAPACITY;
                     Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
-                    congaLeaf->SetLinkCapacity (netDeviceContainer.Get (0)->GetIfIndex (), DataRate (spineLeafCapacity));
+                    congaLeaf->SetLinkCapacity (netDeviceContainer.Get (0)->GetIfIndex (), DataRate (congaAwareCapacity));
                     NS_LOG_INFO ("Reducing Link Capacity of Conga Leaf: " << i << " with port: " << netDeviceContainer.Get (0)->GetIfIndex ());
-                    congaSpine->SetLinkCapacity(netDeviceContainer.Get (1)->GetIfIndex (), DataRate (spineLeafCapacity));
+                    congaSpine->SetLinkCapacity(netDeviceContainer.Get (1)->GetIfIndex (), DataRate (congaAwareCapacity));
                     NS_LOG_INFO ("Reducing Link Capacity of Conga Spine: " << j << " with port: " << netDeviceContainer.Get (1)->GetIfIndex ());
                 }
 	        }
