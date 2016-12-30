@@ -249,7 +249,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
-        if (0 == 1
+        if (1 == 1
                 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {
