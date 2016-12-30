@@ -2540,7 +2540,13 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       tcpTLBTag.SetPath (path);
       tcpTLBTag.SetTime (Simulator::Now ());
       p->AddPacketTag (tcpTLBTag);
-      ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), false);
+
+      bool synRetrans = hasSyn && (m_synCount != m_synRetries - 1);
+      ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), m_synRetries);
+      if (synRetrans)
+      {
+          ipv4TLB->FlowTimeout (flowId, m_endPoint->GetPeerAddress (), path);
+      }
 
       // Pause Support
       if (m_isPauseEnabled && m_oldPath == 0)
@@ -2639,6 +2645,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       NS_LOG_LOGIC ("Schedule retransmission timeout at time "
                     << Simulator::Now ().GetSeconds () << " to expire at time "
                     << (Simulator::Now () + m_rto.Get ()).GetSeconds ());
+
       m_retxEvent = Simulator::Schedule (m_rto, &TcpSocketBase::SendEmptyPacket, this, flags);
     }
 }

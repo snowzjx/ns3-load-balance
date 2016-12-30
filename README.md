@@ -88,3 +88,9 @@ Program Arguments:
     --letFlowFlowletTimeout:      Flowlet timeout in LetFlow [50]
     --enableRandomDrop:           Whether the Spine-0 to other leaves has the random drop problem [false]
     --randomDropRate:             The random drop rate when the random drop is enabled [0.005]```
+    --blackHoleMode:              The packet black hole mode, 0 to disable, 1 src, 2 dest, 3 src/dest pair [0]
+    --blackHoleSrcAddr:           The packet black hole source address [10.1.1.1]
+    --blackHoleSrcMask:           The packet black hole source mask [255.255.255.240]
+    --blackHoleDestAddr:          The packet black hole destination address [10.1.2.0]
+    --blackHoleDestMask:          The packet black hole destination mask [255.255.255.0]
+    --congaAwareAsym:             Whether Conga is aware of the capacity of asymmetric path capacity [true]

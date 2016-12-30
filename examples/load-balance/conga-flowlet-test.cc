@@ -22,14 +22,14 @@
 
 #define SPINE_LEAF_CAPACITY  10000000000          // 10Gbps
 #define LEAF_SERVER_CAPACITY 100000000000         // 100Gbps
-#define LINK_LATENCY MicroSeconds(10)             // 10 MicroSeconds
+#define LINK_LATENCY MicroSeconds(20)             // 10 MicroSeconds
 #define BUFFER_SIZE 600                           // 600 Packets
 
 #define RED_QUEUE_MARKING 65 			  // 65 Packets (available only in DcTcp)
 
 // The simulation starting and ending time
 #define START_TIME 0.0
-#define END_TIME 0.01
+#define END_TIME 0.05
 
 // The flow port range, each flow will be assigned a random port number within this range
 #define FLOW_A_PORT 5000
@@ -50,6 +50,22 @@ Gnuplot2dDataset throughputDatasetB;
 
 uint64_t flowARecvBytes = 0;
 uint64_t flowBRecvBytes = 0;
+
+std::string
+ToString (uint32_t value)
+{
+  std::stringstream ss;
+  ss << value;
+  return ss.str();
+}
+
+std::string
+StringCombine (std::string A, std::string B, std::string C)
+{
+  std::stringstream ss;
+  ss << A << B << C;
+  return ss.str();
+}
 
 void
 CheckFlowAThroughput (Ptr<PacketSink> sink)
@@ -82,21 +98,21 @@ CheckFlowBThroughput (Ptr<PacketSink> sink)
 }
 
 void
-DoGnuPlot ()
+DoGnuPlot (uint32_t flowletTimeout)
 {
-    Gnuplot flowAThroughputPlot ("flow_A_throughput.png");
+    Gnuplot flowAThroughputPlot (StringCombine ("flow_A_", ToString (flowletTimeout), "_throughput.png"));
     flowAThroughputPlot.SetTitle ("Flow A Throughput");
     flowAThroughputPlot.SetTerminal ("png");
     flowAThroughputPlot.AddDataset (throughputDatasetA);
-    std::ofstream flowAThroughputFile ("flow_A_throughput.plt");
+    std::ofstream flowAThroughputFile (StringCombine ("flow_A_", ToString (flowletTimeout), "_throughput.plt").c_str ());
     flowAThroughputPlot.GenerateOutput (flowAThroughputFile);
     flowAThroughputFile.close ();
 
-    Gnuplot flowBThroughputPlot ("flow_B_throughput.png");
+    Gnuplot flowBThroughputPlot (StringCombine ("flow_B_", ToString (flowletTimeout), "_throughput.png"));
     flowBThroughputPlot.SetTitle ("Flow B Throughput");
     flowBThroughputPlot.SetTerminal ("png");
     flowBThroughputPlot.AddDataset (throughputDatasetB);
-    std::ofstream flowBThroughputFile ("flow_B_throughput.plt");
+    std::ofstream flowBThroughputFile (StringCombine ("flow_B_", ToString (flowletTimeout), "_throughput.plt").c_str ());
     flowBThroughputPlot.GenerateOutput (flowBThroughputFile);
     flowBThroughputFile.close ();
 }
@@ -149,7 +165,7 @@ int main (int argc, char *argv[])
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue(MilliSeconds(5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
-    Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (80)));
+    Config::SetDefault ("ns3::RttEstimator::InitialEstimation", TimeValue (MicroSeconds (160)));
     Config::SetDefault ("ns3::TcpSocket::SndBufSize", UintegerValue (160000000));
     Config::SetDefault ("ns3::TcpSocket::RcvBufSize", UintegerValue (160000000));
 
@@ -258,7 +274,7 @@ int main (int argc, char *argv[])
 
             Ptr<Ipv4CongaRouting> congaLeaf = congaRoutingHelper.GetCongaRouting (leaves.Get (i)->GetObject<Ipv4> ());
             congaLeaf->SetLeafId (i);
-	        congaLeaf->SetTDre (MicroSeconds (30));
+	        congaLeaf->SetTDre (MicroSeconds (60));
 	        congaLeaf->SetAlpha (0.2);
             congaLeaf->SetLinkCapacity (DataRate (leafSpineCapacity));
 	        congaLeaf->SetFlowletTimeout (MicroSeconds (flowletTimeout));
@@ -296,7 +312,7 @@ int main (int argc, char *argv[])
 
 		    // For each conga spine switch, routing entry to THIS leaf switch should be added
 		    Ptr<Ipv4CongaRouting> congaSpine = congaRoutingHelper.GetCongaRouting (spines.Get (j)->GetObject<Ipv4> ());
-		    congaSpine->SetTDre (MicroSeconds (30));
+		    congaSpine->SetTDre (MicroSeconds (60));
 		    congaSpine->SetAlpha (0.2);
             congaSpine->SetLinkCapacity(DataRate(leafSpineCapacity));
 		    congaSpine->AddRoute (leafNetworks[i],
@@ -306,7 +322,7 @@ int main (int argc, char *argv[])
     }
 
     NS_LOG_INFO ("Initialize Conga Congestion");
-    congaRoutingHelper.GetCongaRouting (leaves.Get (0)->GetObject<Ipv4> ())->InitCongestion (1, 2, 8);
+    congaRoutingHelper.GetCongaRouting (leaves.Get (0)->GetObject<Ipv4> ())->InitCongestion (1, 2, 1);
 
     NS_LOG_INFO ("Create applications");
     NS_LOG_INFO ("Creating Flow A");
@@ -375,8 +391,8 @@ int main (int argc, char *argv[])
 
     NS_LOG_INFO ("Enable Throughput Tracing");
 
-    remove ("flow_A_throughput.plt");
-    remove ("flow_B_throughput.plt");
+    remove (StringCombine ("flow_A_", ToString (flowletTimeout), "_throughput.plt").c_str ());
+    remove (StringCombine ("flow_B_", ToString (flowletTimeout), "_throughput.plt").c_str ());
 
     throughputDatasetA.SetTitle ("Throughput A");
     throughputDatasetA.SetStyle (Gnuplot2dDataset::LINES_POINTS);
@@ -395,8 +411,8 @@ int main (int argc, char *argv[])
     std::stringstream flowMonitorFilename;
     std::stringstream linkMonitorFilename;
 
-    flowMonitorFilename << "conga-flowlet-test-flow-monitor.xml";
-    linkMonitorFilename << "conga-flowlet-test-link-monitor.out";
+    flowMonitorFilename << "conga-flowlet-" << flowletTimeout << "-test-flow-monitor.xml";
+    linkMonitorFilename << "conga-flowlet-" << flowletTimeout << "-test-link-monitor.out";
 
     flowMonitor->SerializeToXmlFile(flowMonitorFilename.str (), true, true);
     linkMonitor->OutputToFile (linkMonitorFilename.str (), &DefaultFormat);
@@ -404,7 +420,7 @@ int main (int argc, char *argv[])
     Simulator::Destroy ();
     NS_LOG_INFO ("Stop simulation");
 
-    DoGnuPlot ();
+    DoGnuPlot (flowletTimeout);
 
     return 0;
 }
