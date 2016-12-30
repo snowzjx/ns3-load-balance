@@ -254,7 +254,6 @@ int main (int argc, char *argv[])
     uint32_t linkLatency = 10;
 
     bool asymCapacity = false;
-    // bool asymTopology = false;
 
     uint32_t asymCapacityPoss = 40;  // 40 %
 
@@ -316,6 +315,7 @@ int main (int argc, char *argv[])
     std::string blackHoleDestMaskStr = "255.255.255.0";
 
     bool congaAwareAsym = true;
+    bool asymCapacity2 = false;
 
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
@@ -390,6 +390,8 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("congaAwareAsym", "Whether Conga is aware of the capacity of asymmetric path capacity", congaAwareAsym);
 
+    cmd.AddValue ("asymCapacity2", "Whether the Spine0-Leaf0's capacity is asymmetric", asymCapacity2);
+
     cmd.Parse (argc, argv);
 
     uint64_t SPINE_LEAF_CAPACITY = spineLeafCapacity * LINK_CAPACITY_BASE;
@@ -425,7 +427,7 @@ int main (int argc, char *argv[])
     }
     else if (runModeStr.compare ("Weighted-Presto") == 0)
     {
-        if (asymCapacity == false)
+        if (asymCapacity == false && asymCapacity2 == false)
         {
             NS_LOG_ERROR ("The Weighted-Presto has to work with asymmetric topology. For a symmetric topology, please use Presto instead");
             return 0;
@@ -847,6 +849,11 @@ int main (int argc, char *argv[])
             bool isAsymCapacity = false;
 
             if (asymCapacity && static_cast<uint32_t> (rand () % 100) < asymCapacityPoss)
+            {
+                isAsymCapacity = true;
+            }
+
+            if (asymCapacity2 && i == 0 && j ==0)
             {
                 isAsymCapacity = true;
             }
@@ -1329,6 +1336,14 @@ int main (int argc, char *argv[])
 	    linkMonitorFilename << "capacity-asym-";
         tlbBibleFilename << "capacity-asym-";
         tlbBibleFilename2 << "capacity-asym-";
+    }
+
+    if (asymCapacity2)
+    {
+        flowMonitorFilename << "capacity-asym2-";
+	    linkMonitorFilename << "capacity-asym2-";
+        tlbBibleFilename << "capacity-asym2-";
+        tlbBibleFilename2 << "capacity-asym2-";
     }
 
     if (resequenceBuffer)
