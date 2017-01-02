@@ -175,7 +175,7 @@ def parse (fileName, id):
         for flow in sim.flows:
             if flow.fct == None or flow.txBitrate == None or flow.rxBitrate == None:
                 continue
-            if flow.txBytes == 52 * flow.txPackets + 4:
+            if flow.txBytes >= 52 * flow.txPackets + 4 and flow.txBytes <= 52 * flow.txPackets + 4 * 6:
                 continue
             flow_count += 1
             total_fct += flow.fct
@@ -218,6 +218,8 @@ def main (argv):
     print compare
     parse (base, 1)
     parse (compare, 2)
+    total_not_exist = 0
+
 
     for flowKey in baseMap.iterkeys():
         baseSize = baseMap[flowKey]
