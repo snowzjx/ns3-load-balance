@@ -224,7 +224,7 @@ def parse (fileName):
 
     print "The FCT of 99 flow is: %.4f" % flow_fct_99
 
-    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct, 'small_flow_99': small_flow_fct_99, 'flow_99' : flow_fct_99, 'total_tx' : total_packets, 'totao_rx' : total_rx_packets}
+    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct, 'small_flow_99': small_flow_fct_99, 'flow_99' : flow_fct_99, 'total_tx' : total_packets, 'total_rx' : total_rx_packets}
 
 def main (argv):
     files = glob.glob (argv[1])
