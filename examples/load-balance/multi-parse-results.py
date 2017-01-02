@@ -224,7 +224,7 @@ def parse (fileName):
 
     print "The FCT of 99 flow is: %.4f" % flow_fct_99
 
-    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct, 'small_flow_99': small_flow_fct_99, 'flow_99' : flow_fct_99}
+    return {'avg_fct': avg_fct, 'avg_small_fct': avg_small_fct, 'avg_large_fct': avg_large_fct, 'small_flow_99': small_flow_fct_99, 'flow_99' : flow_fct_99, 'total_tx' : total_packets, 'totao_rx' : total_rx_packets}
 
 def main (argv):
     files = glob.glob (argv[1])
@@ -233,6 +233,8 @@ def main (argv):
     total_small_fct = 0
     total_small_flow_99 = 0
     total_flow_99 = 0
+    total_tx = 0
+    total_rx = 0
     print files
     for fileName in files:
 	print (fileName)
@@ -242,6 +244,8 @@ def main (argv):
         total_small_fct += result['avg_small_fct']
         total_small_flow_99 += result['small_flow_99']
         total_flow_99 += result['flow_99']
+        total_tx += result['total_tx']
+        total_rx += result['total_rx']
 
 	print ('')
     print "AVG FCT: %6f" % (total_fct / len(files))
@@ -249,6 +253,8 @@ def main (argv):
     print "AVG Small flow FCT: %6f" % (total_small_fct / len(files))
     print "AVG Small flow 99 FCT: %6f" % (total_small_flow_99 / len(files))
     print "AVG Flow 99 FCT: %6f" % (total_flow_99 / len(files))
+    print "Total TX: %6f" % (total_tx / len(files))
+    print "Total RX: %6f" % (total_rx / len(files))
 
 if __name__ == '__main__':
     main(sys.argv)
