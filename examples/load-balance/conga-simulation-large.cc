@@ -1140,7 +1140,7 @@ int main (int argc, char *argv[])
         }
 
 
-        if (TLBProbingEnable)
+        if (runMode == TLB && TLBProbingEnable)
         {
         NS_LOG_INFO ("Configuring TLB Probing");
         for (int i = 0; i < SERVER_COUNT * LEAF_COUNT; i++)
