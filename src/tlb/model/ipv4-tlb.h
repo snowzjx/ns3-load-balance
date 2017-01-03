@@ -41,6 +41,11 @@ struct PathInfo {
     uint32_t quantifiedDre;
 };
 
+struct TLBAcklet {
+    uint32_t pathId;
+    Time activeTime;
+};
+
 class Node;
 
 class Ipv4TLB : public Object
@@ -62,6 +67,8 @@ public:
 
     // These methods are used for TCP flows
     uint32_t GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr);
+
+    uint32_t GetAckPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr);
 
     Time GetPauseTime (uint32_t flowId);
 
@@ -193,9 +200,13 @@ private:
 
     Time m_quantifyRttBase;
 
+    Time m_ackletTimeout;
+
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo> m_pathInfo; /* <DestTorId, PathId>, TLBPathInfo> */
+
+    std::map<uint32_t, TLBAcklet> m_acklets; /* <FlowId, TLBAcklet> */
 
     std::map<Ipv4Address, uint32_t> m_ipTorMap; /* <DestAddress, DestTorId> */
 
