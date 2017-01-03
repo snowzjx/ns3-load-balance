@@ -39,8 +39,8 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
-    m_flowRetransHigh (1400000000),
-    m_flowRetransVeryHigh (1400000000),
+    m_flowRetransHigh (14000),
+    m_flowRetransVeryHigh (140000),
     m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
@@ -51,7 +51,8 @@ Ipv4TLB::Ipv4TLB ():
     m_smoothDesired (150),
     m_smoothBeta1 (101),
     m_smoothBeta2 (99),
-    m_quantifyRttBase (MicroSeconds (10))
+    m_quantifyRttBase (MicroSeconds (10)),
+    m_ackletTimeout (MicroSeconds (100))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -87,7 +88,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_smoothDesired (other.m_smoothDesired),
     m_smoothBeta1 (other.m_smoothBeta1),
     m_smoothBeta2 (other.m_smoothBeta2),
-    m_quantifyRttBase (MicroSeconds (10))
+    m_quantifyRttBase (MicroSeconds (10)),
+    m_ackletTimeout (MicroSeconds (100))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -147,6 +149,10 @@ Ipv4TLB::GetTypeId (void)
                       TimeValue (MicroSeconds (10)),
                       MakeTimeAccessor (&Ipv4TLB::m_quantifyRttBase),
                       MakeTimeChecker ())
+        .AddAttribute ("AckletTimeout", "The ACK flowlet timeout",
+                      TimeValue (MicroSeconds (100)),
+                      MakeTimeAccessor (&Ipv4TLB::m_ackletTimeout),
+                      MakeTimeChecker ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
@@ -196,6 +202,44 @@ Ipv4TLB::GetAvailPath (Ipv4Address daddr)
         return emptyVector;
     }
     return itr->second;
+}
+
+uint32_t
+Ipv4TLB::GetAckPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
+{
+    struct TLBAcklet acklet;
+    std::map<uint32_t, TLBAcklet>::iterator ackletItr = m_acklets.find (flowId);
+
+    if (ackletItr != m_acklets.end ()) // New flow
+    {
+        acklet = ackletItr->second;
+        if (Simulator::Now () - acklet.activeTime <= m_ackletTimeout) // Timeout
+        {
+            acklet.activeTime = Simulator::Now ();
+            m_acklets[flowId] = acklet;
+            return acklet.pathId;
+        }
+    }
+
+    uint32_t destTor = 0;
+    if (!Ipv4TLB::FindTorId (daddr, destTor))
+    {
+        NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+        return 0;
+    }
+
+    struct PathInfo newPath;
+    if (!Ipv4TLB::WhereToChange (destTor, newPath, false, 0))
+    {
+        newPath = Ipv4TLB::SelectRandomPath (destTor);
+    }
+
+    acklet.pathId = newPath.pathId;
+    acklet.activeTime = Simulator::Now ();
+
+    m_acklets[flowId] = acklet;
+
+    return newPath.pathId;
 }
 
 uint32_t
@@ -280,8 +324,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
             return newPath.pathId;
         }
-        else if ((flowItr->second).rtt >= m_highRtt
-                && oldPathInfo.quantifiedDre <= m_dreMultiply * std::pow (2, m_dreQ)
+        else if (oldPathInfo.pathType == BadPath // TODO To be fixed
+                && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ  // TODO To be fixed
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))
@@ -902,7 +946,7 @@ Ipv4TLB::WhereToChange (uint32_t destTor, PathInfo &newPath, bool hasOldPath, ui
         return true;
     }
 
-    // Secondly, checking gray path
+    // Secondly, checking grey path
     struct PathInfo originalPath;
     if (hasOldPath)
     {
