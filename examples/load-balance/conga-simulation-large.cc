@@ -563,6 +563,7 @@ int main (int argc, char *argv[])
     if (enableLargeSynRetries)
     {
         Config::SetDefault ("ns3::TcpSocket::ConnCount", UintegerValue (10000));
+        Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MicroSeconds (10)));
     }
 
     NodeContainer spines;
