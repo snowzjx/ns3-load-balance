@@ -317,6 +317,8 @@ int main (int argc, char *argv[])
     bool congaAwareAsym = true;
     bool asymCapacity2 = false;
 
+    bool enableLargeSynRetries = false;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -391,6 +393,8 @@ int main (int argc, char *argv[])
     cmd.AddValue ("congaAwareAsym", "Whether Conga is aware of the capacity of asymmetric path capacity", congaAwareAsym);
 
     cmd.AddValue ("asymCapacity2", "Whether the Spine0-Leaf0's capacity is asymmetric", asymCapacity2);
+
+    cmd.AddValue ("enableLargeSynRetries", "Whether the SYN packet would retry thousands of times", enableLargeSynRetries);
 
     cmd.Parse (argc, argv);
 
@@ -554,6 +558,11 @@ int main (int argc, char *argv[])
     if (enableLargeDupAck)
     {
         Config::SetDefault ("ns3::TcpSocketBase::ReTxThreshold", UintegerValue (1000));
+    }
+
+    if (enableLargeSynRetries)
+    {
+        Config::SetDefault ("ns3::TcpSocket::ConnCount", UintegerValue (10000));
     }
 
     NodeContainer spines;

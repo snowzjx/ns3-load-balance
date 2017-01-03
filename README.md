@@ -94,3 +94,4 @@ Program Arguments:
     --blackHoleDestAddr:          The packet black hole destination address [10.1.2.0]
     --blackHoleDestMask:          The packet black hole destination mask [255.255.255.0]
     --congaAwareAsym:             Whether Conga is aware of the capacity of asymmetric path capacity [true]
+    --enableLargeSynRetries:      Whether the SYN packet would retry thousands of times [false]
