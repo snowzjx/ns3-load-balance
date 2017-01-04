@@ -319,6 +319,8 @@ int main (int argc, char *argv[])
 
     bool enableLargeSynRetries = false;
 
+    bool enableFastReConnection = false;
+
     CommandLine cmd;
     cmd.AddValue ("ID", "Running ID", id);
     cmd.AddValue ("StartTime", "Start time of the simulation", START_TIME);
@@ -395,6 +397,7 @@ int main (int argc, char *argv[])
     cmd.AddValue ("asymCapacity2", "Whether the Spine0-Leaf0's capacity is asymmetric", asymCapacity2);
 
     cmd.AddValue ("enableLargeSynRetries", "Whether the SYN packet would retry thousands of times", enableLargeSynRetries);
+    cmd.AddValue ("enableFastReConnection", "Whether the SYN gap will be very small when reconnecting", enableFastReConnection);
 
     cmd.Parse (argc, argv);
 
@@ -547,8 +550,7 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Config parameters");
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
-    //Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
-    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MicroSeconds (40)));
+    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
