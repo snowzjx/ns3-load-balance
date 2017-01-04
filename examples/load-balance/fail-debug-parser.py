@@ -173,9 +173,12 @@ def parse (fileName, id):
 
     for sim in sim_list:
         for flow in sim.flows:
+            t = flow.fiveTuple
             if flow.fct == None or flow.txBitrate == None or flow.rxBitrate == None:
                 continue
-            if flow.txBytes >= 52 * flow.txPackets + 4 and flow.txBytes <= 52 * flow.txPackets + 4 * 6:
+            if id == 1 and flow.txBytes == 52 * flow.txPackets + 4:
+                continue
+            if id == 2 and t not in baseMap:
                 continue
             flow_count += 1
             total_fct += flow.fct
@@ -193,7 +196,6 @@ def parse (fileName, id):
                     max_small_flow_id = flow.flowId
                     max_small_flow_fct = flow.fct
                 small_flow_list.append(flow)
-            t = flow.fiveTuple
             proto = {6: 'TCP', 17: 'UDP'} [t.protocol]
             # print "FlowID: %i (%s %s/%s --> %s/%i)" % (flow.flowId, proto, t.sourceAddress, t.sourcePort, t.destinationAddress, t.destinationPort)
             # print "\tTX bitrate: %.2f kbit/s" % (flow.txBitrate*1e-3,)
@@ -209,6 +211,26 @@ def parse (fileName, id):
                 baseMap[t] = flow.txPackets
             else:
                 compareMap[t] = flow.txPackets
+    if id == 1:
+        return
+
+    print "Avg FCT: %.4f" % (total_fct / flow_count)
+    if large_flow_count == 0:
+	print "No large flows"
+    else:
+        print "Large Flow Avg FCT: %.4f" % (large_flow_total_fct / large_flow_count)
+
+    if small_flow_count == 0:
+   	print "No small flows"
+    else:
+	print "Small Flow Avg FCT: %.4f" % (small_flow_total_fct / small_flow_count)
+
+    print "Total flows: %i" % flow_count
+    print "Total TX Packets: %i" % total_packets
+    print "Total RX Packets: %i" % total_rx_packets
+    print "Total Lost Packets: %i" % total_lost_packets
+    print "Max Small flow Id: %i" % max_small_flow_id
+
 
 
 def main (argv):
