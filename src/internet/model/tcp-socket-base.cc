@@ -2573,6 +2573,20 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       tcpTLBTag.SetTime (m_onewayRtt);
       p->AddPacketTag (tcpTLBTag);
     }
+
+    if (isAck)
+    {
+      uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
+                        m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
+
+      Ptr<Ipv4TLB> ipv4TLB = m_node->GetObject<Ipv4TLB> ();
+      uint32_t path = ipv4TLB->GetAckPath (flowId, m_endPoint->GetLocalAddress (), m_endPoint->GetPeerAddress ());
+
+      // XPath Support
+      Ipv4XPathTag ipv4XPathTag;
+      ipv4XPathTag.SetPathId (path);
+      p->AddPacketTag (ipv4XPathTag);
+    }
   }
 
   // XXX Clove Support
