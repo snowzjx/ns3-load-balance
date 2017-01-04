@@ -241,18 +241,22 @@ def main (argv):
     parse (base, 1)
     parse (compare, 2)
     total_not_exist = 0
+    total_wrong_size = 0
 
 
     for flowKey in baseMap.iterkeys():
         baseSize = baseMap[flowKey]
 	if flowKey not in compareMap:
+            total_not_exist += 1
             print "Flow (%s/%s --> %s/%s) does not exist, the size should be %i" % (flowKey.sourceAddress, flowKey.sourcePort, flowKey.destinationAddress, flowKey.destinationPort, baseSize)
     
 
     for flowKey in baseMap.iterkeys():
         baseSize = baseMap[flowKey]
 	if flowKey in compareMap and baseSize > compareMap[flowKey]:
-            print "Flow (%s/%s --> %s/%s) is in wrong size, the size should be %i but now it is: %i" % (flowKey.sourceAddress, flowKey.sourcePort, flowKey.destinationAddress, flowKey.destinationPort, baseSize, compareMap[flowKey])  
+            total_wrong_size += 1
+            print "Flow (%s/%s --> %s/%s) is in wrong size, the size should be %i but now it is: %i" % (flowKey.sourceAddress, flowKey.sourcePort, flowKey.destinationAddress, flowKey.destinationPort, baseSize, compareMap[flowKey])
+    print "Not exist flows: %i, Wrong size flows: %i" % (total_not_exist, total_wrong_size)  
 
 if __name__ == '__main__':
     main(sys.argv)
