@@ -547,7 +547,8 @@ int main (int argc, char *argv[])
     NS_LOG_INFO ("Config parameters");
     Config::SetDefault ("ns3::TcpSocket::SegmentSize", UintegerValue(PACKET_SIZE));
     Config::SetDefault ("ns3::TcpSocket::DelAckCount", UintegerValue (0));
-    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
+    //Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MilliSeconds (5)));
+    Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MicroSeconds (40)));
     Config::SetDefault ("ns3::TcpSocket::InitialCwnd", UintegerValue (10));
     Config::SetDefault ("ns3::TcpSocketBase::MinRto", TimeValue (MilliSeconds (5)));
     Config::SetDefault ("ns3::TcpSocketBase::ClockGranularity", TimeValue (MicroSeconds (100)));
@@ -563,7 +564,6 @@ int main (int argc, char *argv[])
     if (enableLargeSynRetries)
     {
         Config::SetDefault ("ns3::TcpSocket::ConnCount", UintegerValue (10000));
-        Config::SetDefault ("ns3::TcpSocket::ConnTimeout", TimeValue (MicroSeconds (10)));
     }
 
     NodeContainer spines;
