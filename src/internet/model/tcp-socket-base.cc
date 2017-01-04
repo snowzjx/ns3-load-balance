@@ -2574,7 +2574,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       p->AddPacketTag (tcpTLBTag);
     }
 
-    if (isAck)
+    if ((hasSyn || isAck) && !m_TLBSendSide)
     {
       uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());
