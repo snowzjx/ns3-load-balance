@@ -319,6 +319,8 @@ int main (int argc, char *argv[])
 
     bool enableLargeSynRetries = false;
 
+    bool enableLargeDataRetries = false;
+
     bool enableFastReConnection = false;
 
     CommandLine cmd;
@@ -398,6 +400,7 @@ int main (int argc, char *argv[])
 
     cmd.AddValue ("enableLargeSynRetries", "Whether the SYN packet would retry thousands of times", enableLargeSynRetries);
     cmd.AddValue ("enableFastReConnection", "Whether the SYN gap will be very small when reconnecting", enableFastReConnection);
+    cmd.AddValue ("enableLargeDataRetries", "Whether the data retransmission will be more than 6 times", enableLargeDataRetries);
 
     cmd.Parse (argc, argv);
 
@@ -573,6 +576,11 @@ int main (int argc, char *argv[])
     if (enableLargeSynRetries)
     {
         Config::SetDefault ("ns3::TcpSocket::ConnCount", UintegerValue (10000));
+    }
+
+    if (enableLargeDataRetries)
+    {
+        Config::SetDefault ("ns3::TcpSocket::DataRetries", UintegerValue (10000));
     }
 
     NodeContainer spines;
