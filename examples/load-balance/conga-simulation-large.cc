@@ -310,7 +310,7 @@ int main (int argc, char *argv[])
 
     uint32_t blackHoleMode = 0; // When the black hole is enabled, the
     std::string blackHoleSrcAddrStr = "10.1.1.1";
-    std::string blackHoleSrcMaskStr = "255.255.255.240";
+    std::string blackHoleSrcMaskStr = "255.255.255.0";
     std::string blackHoleDestAddrStr = "10.1.2.0";
     std::string blackHoleDestMaskStr = "255.255.255.0";
 
