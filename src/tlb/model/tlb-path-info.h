@@ -22,6 +22,14 @@ public:
   Time timeStamp2;
   Time timeStamp3;
   uint32_t dreValue;
+
+  // Added at Jan 11st
+  uint32_t epAckSize;
+  uint32_t epEcnSize;
+  double epEcnPortion;
+  Time epTimeStamp;
+  // --
+
 };
 
 }
