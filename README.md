@@ -75,6 +75,7 @@ Program Arguments:
     --TLBRerouting:               Whether the rerouting is enabled in TLB [true]
     --TLBDREMultiply:             DRE multiply factor in TLB [5]
     --TLBS:                       The S used to judge a whether a flow should change path in TLB [64000]
+    --TLBReverseACK:              Whether to enable the TLB reverse ACK path selection [false]
     --quantifyRTTBase:            The quantify RTT base in TLB [10]
     --TcpPause:                   Whether TCP will pause in TLB & FlowBender [false]
     --applicationPauseThresh:     How many packets can pass before we have delay, 0 for disable [0]
@@ -95,3 +96,5 @@ Program Arguments:
     --blackHoleDestMask:          The packet black hole destination mask [255.255.255.0]
     --congaAwareAsym:             Whether Conga is aware of the capacity of asymmetric path capacity [true]
     --enableLargeSynRetries:      Whether the SYN packet would retry thousands of times [false]
+    --enableFastReConnection:     Whether the SYN gap will be very small when reconnecting [false]    
+    --enableLargeDataRetries:     Whether the data retransmission will be more than 6 times [false]

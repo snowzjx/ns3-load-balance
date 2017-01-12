@@ -151,6 +151,10 @@ TcpSocketBase::GetTypeId (void)
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_TLBEnabled),
                    MakeBooleanChecker ())
+    .AddAttribute ("TLBReverseACK", "Enable the TLB Reverse ACK path selection",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&TcpSocketBase::m_TLBReverseAckEnabled),
+                   MakeBooleanChecker ())
     .AddAttribute ("Clove", "Enable the Clove",
                    BooleanValue (false),
                    MakeBooleanAccessor (&TcpSocketBase::m_CloveEnabled),
@@ -352,6 +356,7 @@ TcpSocketBase::TcpSocketBase (void)
     m_TLBEnabled (false),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    m_TLBReverseAckEnabled (false),
     // Clove
     m_CloveEnabled (false),
     m_CloveSendSide (false),
@@ -457,6 +462,7 @@ TcpSocketBase::TcpSocketBase (const TcpSocketBase& sock)
     m_TLBEnabled (sock.m_TLBEnabled),
     m_TLBSendSide (false),
     m_piggybackTLBInfo (false),
+    m_TLBReverseAckEnabled (sock.m_TLBReverseAckEnabled),
     // Clove
     m_CloveEnabled (sock.m_CloveEnabled),
     m_CloveSendSide (false),
@@ -2574,7 +2580,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       p->AddPacketTag (tcpTLBTag);
     }
 
-    if ((hasSyn || isAck) && !m_TLBSendSide)
+    if (m_TLBReverseAckEnabled && (hasSyn || isAck) && !m_TLBSendSide)
     {
       uint32_t flowId = TcpSocketBase::CalFlowId (m_endPoint->GetLocalAddress (),
                         m_endPoint->GetPeerAddress (), header.GetSourcePort (), header.GetDestinationPort ());

@@ -30,6 +30,10 @@ public:
   double epEcnPortion;
   Time epTimeStamp;
   // --
+
+  // Added at Jan 12nd
+  Time activeTime;
+  // --
 };
 
 }

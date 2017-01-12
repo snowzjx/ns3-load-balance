@@ -57,7 +57,9 @@ Ipv4TLB::Ipv4TLB ():
     m_epDefaultEcnPortion (0.0),
     m_epAlpha (0.5),
     m_epCheckTime (MicroSeconds (100)),
-    m_epAgingTime (MicroSeconds (1000))
+    m_epAgingTime (MicroSeconds (1000)),
+    // Added at Jan 12nd
+    m_flowletTimeout (MicroSeconds (500))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -98,7 +100,8 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_epDefaultEcnPortion (other.m_epDefaultEcnPortion),
     m_epAlpha (other.m_epAlpha),
     m_epCheckTime (other.m_epCheckTime),
-    m_epAgingTime (other.m_epAgingTime)
+    m_epAgingTime (other.m_epAgingTime),
+    m_flowletTimeout (other.m_flowletTimeout)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -299,6 +302,9 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     }
     else if (m_rerouteEnable)
     {
+        Time flowActiveTime = (flowItr->second).activeTime;
+        (flowItr->second).activeTime = Simulator::Now ();
+
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
@@ -333,7 +339,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
             return newPath.pathId;
         }
-        else if (oldPathInfo.pathType == BadPath // TODO To be fixed
+        else if ((oldPathInfo.pathType == BadPath || Simulator::Now () - flowActiveTime > m_flowletTimeout) // Trigger for rerouting
                 && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ  // TODO To be fixed
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
@@ -377,6 +383,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     }
     else
     {
+        (flowItr->second).activeTime = Simulator::Now ();
+
         uint32_t oldPath = (flowItr->second).path;
         return oldPath;
     }
@@ -812,6 +820,9 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
     flowInfo.epEcnSize = 0;
     flowInfo.epEcnPortion = m_epDefaultEcnPortion;
     flowInfo.epTimeStamp = Simulator::Now ();
+
+    // Added Jan 12nd
+    flowInfo.activeTime = Simulator::Now ();
 
     m_flowInfo[flowId] = flowInfo;
 }
@@ -1291,13 +1302,13 @@ Ipv4TLB::PathAging (void)
         {
             (itr->second).size = 1;
             (itr->second).ecnSize = 0;
+            (itr->second).isTimeout = false;
             (itr->second).timeStamp1 = Simulator::Now ();
         }
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)
         {
             (itr->second).isRetransmission = false;
             (itr->second).isHighRetransmission = false;
-            (itr->second).isTimeout = false;
             (itr->second).isVeryTimeout = false;
             (itr->second).isProbingTimeout = false;
             (itr->second).timeStamp2 = Simulator::Now ();
