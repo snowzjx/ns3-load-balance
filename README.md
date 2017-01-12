@@ -77,6 +77,7 @@ Program Arguments:
     --TLBS:                       The S used to judge a whether a flow should change path in TLB [64000]
     --TLBReverseACK:              Whether to enable the TLB reverse ACK path selection [false]
     --quantifyRTTBase:            The quantify RTT base in TLB [10]
+    --TLBFlowletTimeout:          The TLB flowlet timeout [500]
     --TcpPause:                   Whether TCP will pause in TLB & FlowBender [false]
     --applicationPauseThresh:     How many packets can pass before we have delay, 0 for disable [0]
     --applicationPauseTime:       The time for a delay, in MicroSeconds [1000]

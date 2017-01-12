@@ -52,7 +52,7 @@ Ipv4TLB::Ipv4TLB ():
     m_smoothBeta1 (101),
     m_smoothBeta2 (99),
     m_quantifyRttBase (MicroSeconds (10)),
-    m_ackletTimeout (MicroSeconds (100)),
+    m_ackletTimeout (MicroSeconds (300)),
     // Added at Jan 11st
     m_epDefaultEcnPortion (0.0),
     m_epAlpha (0.5),
@@ -162,8 +162,12 @@ Ipv4TLB::GetTypeId (void)
                       MakeTimeAccessor (&Ipv4TLB::m_quantifyRttBase),
                       MakeTimeChecker ())
         .AddAttribute ("AckletTimeout", "The ACK flowlet timeout",
-                      TimeValue (MicroSeconds (100)),
+                      TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_ackletTimeout),
+                      MakeTimeChecker ())
+        .AddAttribute ("FlowletTimeout", "The flowlet timeout",
+                      TimeValue (MicroSeconds (500)),
+                      MakeTimeAccessor (&Ipv4TLB::m_flowletTimeout),
                       MakeTimeChecker ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
