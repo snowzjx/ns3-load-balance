@@ -23,6 +23,17 @@ public:
   // Added at Dec 23rd
   Time rtt;
   // --
+
+  // Added at Jan 11st
+  uint32_t epAckSize;
+  uint32_t epEcnSize;
+  double epEcnPortion;
+  Time epTimeStamp;
+  // --
+
+  // Added at Jan 12nd
+  Time activeTime;
+  // --
 };
 
 }

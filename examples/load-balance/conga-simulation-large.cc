@@ -287,6 +287,8 @@ int main (int argc, char *argv[])
     bool TLBRerouting = true;
     uint32_t TLBDREMultiply = 5;
     uint32_t TLBS = 64000;
+    bool TLBReverseACK = false;
+    uint32_t TLBFlowletTimeout = 500;
 
     bool tcpPause = false;
 
@@ -302,8 +304,8 @@ int main (int argc, char *argv[])
 
     bool enableLargeDupAck = false;
 
-    uint32_t congaFlowletTimeout = 50;
-    uint32_t letFlowFlowletTimeout = 50;
+    uint32_t congaFlowletTimeout = 500;
+    uint32_t letFlowFlowletTimeout = 500;
 
     bool enableRandomDrop = false;
     double randomDropRate = 0.005; // 0.5%
@@ -368,7 +370,9 @@ int main (int argc, char *argv[])
     cmd.AddValue ("TLBRerouting", "Whether the rerouting is enabled in TLB", TLBRerouting);
     cmd.AddValue ("TLBDREMultiply", "DRE multiply factor in TLB", TLBDREMultiply);
     cmd.AddValue ("TLBS", "The S used to judge a whether a flow should change path in TLB", TLBS);
+    cmd.AddValue ("TLBReverseACK", "Whether to enable the TLB reverse ACK path selection", TLBReverseACK);
     cmd.AddValue ("quantifyRTTBase", "The quantify RTT base in TLB", quantifyRTTBase);
+    cmd.AddValue ("TLBFlowletTimeout", "The TLB flowlet timeout", TLBFlowletTimeout);
 
     cmd.AddValue ("TcpPause", "Whether TCP will pause in TLB & FlowBender", tcpPause);
 
@@ -519,6 +523,7 @@ int main (int argc, char *argv[])
     {
         NS_LOG_INFO ("Enabling TLB");
         Config::SetDefault ("ns3::TcpSocketBase::TLB", BooleanValue (true));
+        Config::SetDefault ("ns3::TcpSocketBase::TLBReverseACK", BooleanValue (TLBReverseACK));
         Config::SetDefault ("ns3::Ipv4TLB::MinRTT", TimeValue (MicroSeconds (TLBMinRTT)));
         Config::SetDefault ("ns3::Ipv4TLB::HighRTT", TimeValue (MicroSeconds (TLBHighRTT)));
         Config::SetDefault ("ns3::Ipv4TLB::BetterPathRTTThresh", TimeValue (MicroSeconds (TLBBetterPathRTT)));
@@ -532,6 +537,7 @@ int main (int argc, char *argv[])
         Config::SetDefault ("ns3::Ipv4TLB::DREMultiply", UintegerValue (TLBDREMultiply));
         Config::SetDefault ("ns3::Ipv4TLB::S", UintegerValue(TLBS));
         Config::SetDefault ("ns3::Ipv4TLB::QuantifyRttBase", TimeValue (MicroSeconds (quantifyRTTBase)));
+        Config::SetDefault ("ns3::Ipv4TLB::FlowletTimeout", TimeValue (MicroSeconds (TLBFlowletTimeout)));
     }
 
     if (runMode == Clove)

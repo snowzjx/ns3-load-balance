@@ -1029,6 +1029,8 @@ protected:
 
   uint32_t                  m_pathAcked;
 
+  bool                      m_TLBReverseAckEnabled;
+
   // Clove Support
   bool                      m_CloveEnabled;
   bool                      m_CloveSendSide;

@@ -39,9 +39,9 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
-    m_flowRetransHigh (14000),
-    m_flowRetransVeryHigh (14000),
-    m_flowTimeoutCount (1),
+    m_flowRetransHigh (140000000),
+    m_flowRetransVeryHigh (140000000),
+    m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50),
@@ -52,7 +52,14 @@ Ipv4TLB::Ipv4TLB ():
     m_smoothBeta1 (101),
     m_smoothBeta2 (99),
     m_quantifyRttBase (MicroSeconds (10)),
-    m_ackletTimeout (MicroSeconds (100))
+    m_ackletTimeout (MicroSeconds (300)),
+    // Added at Jan 11st
+    m_epDefaultEcnPortion (0.0),
+    m_epAlpha (0.5),
+    m_epCheckTime (MicroSeconds (100)),
+    m_epAgingTime (MicroSeconds (1000)),
+    // Added at Jan 12nd
+    m_flowletTimeout (MicroSeconds (500))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -88,8 +95,13 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_smoothDesired (other.m_smoothDesired),
     m_smoothBeta1 (other.m_smoothBeta1),
     m_smoothBeta2 (other.m_smoothBeta2),
-    m_quantifyRttBase (MicroSeconds (10)),
-    m_ackletTimeout (MicroSeconds (100))
+    m_quantifyRttBase (other.m_quantifyRttBase),
+    m_ackletTimeout (other.m_ackletTimeout),
+    m_epDefaultEcnPortion (other.m_epDefaultEcnPortion),
+    m_epAlpha (other.m_epAlpha),
+    m_epCheckTime (other.m_epCheckTime),
+    m_epAgingTime (other.m_epAgingTime),
+    m_flowletTimeout (other.m_flowletTimeout)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -150,8 +162,12 @@ Ipv4TLB::GetTypeId (void)
                       MakeTimeAccessor (&Ipv4TLB::m_quantifyRttBase),
                       MakeTimeChecker ())
         .AddAttribute ("AckletTimeout", "The ACK flowlet timeout",
-                      TimeValue (MicroSeconds (100)),
+                      TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_ackletTimeout),
+                      MakeTimeChecker ())
+        .AddAttribute ("FlowletTimeout", "The flowlet timeout",
+                      TimeValue (MicroSeconds (500)),
+                      MakeTimeAccessor (&Ipv4TLB::m_flowletTimeout),
                       MakeTimeChecker ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
@@ -290,6 +306,9 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     }
     else if (m_rerouteEnable)
     {
+        Time flowActiveTime = (flowItr->second).activeTime;
+        (flowItr->second).activeTime = Simulator::Now ();
+
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
@@ -324,7 +343,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             Ipv4TLB::AssignFlowToPath (flowId, destTor, newPath.pathId);
             return newPath.pathId;
         }
-        else if (oldPathInfo.pathType == BadPath // TODO To be fixed
+        else if ((oldPathInfo.pathType == BadPath || Simulator::Now () - flowActiveTime > m_flowletTimeout) // Trigger for rerouting
                 && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ  // TODO To be fixed
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
@@ -368,6 +387,8 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     }
     else
     {
+        (flowItr->second).activeTime = Simulator::Now ();
+
         uint32_t oldPath = (flowItr->second).path;
         return oldPath;
     }
@@ -577,6 +598,23 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
     }
     // ---
 
+    // Added Jan 11st
+    (itr->second).epAckSize += size;
+    if (withECN)
+    {
+        (itr->second).epEcnSize += size;
+    }
+    if (Simulator::Now () - (itr->second).epTimeStamp > m_epCheckTime)
+    {
+        double originalEcnPortion = (itr->second).epEcnPortion;
+        double newEcnPortition = static_cast<double> ((itr->second).epEcnSize) / (itr->second).epAckSize;
+        (itr->second).epAckSize = 0;
+        (itr->second).epEcnSize = 0;
+        (itr->second).epEcnPortion = m_epAlpha * originalEcnPortion + (1 - m_epAlpha) * newEcnPortition;
+        (itr->second).epTimeStamp = Simulator::Now ();
+    }
+    // --
+
     return true;
 }
 
@@ -613,6 +651,24 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
         }
     }
     pathInfo.timeStamp3 = Simulator::Now ();
+
+    // Added Jan 11st
+    pathInfo.epAckSize += size;
+    if (withECN)
+    {
+        pathInfo.epEcnSize += size;
+    }
+    if (Simulator::Now () - pathInfo.epTimeStamp > m_epCheckTime)
+    {
+        double originalEcnPortion = pathInfo.epEcnPortion;
+        double newEcnPortition = static_cast<double> (pathInfo.epEcnSize) / pathInfo.epAckSize;
+        pathInfo.epAckSize = 0;
+        pathInfo.epEcnSize = 0;
+        pathInfo.epEcnPortion = m_epAlpha * originalEcnPortion + (1 - m_epAlpha) * newEcnPortition;
+        pathInfo.epTimeStamp = Simulator::Now ();
+    }
+    // --
+
     m_pathInfo[key] = pathInfo;
 }
 
@@ -762,6 +818,16 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
     // Flow RTT default value
     flowInfo.rtt = m_minRtt;
 
+    // Added Jan 11st
+    // Flow ECN portion default value
+    flowInfo.epAckSize = 0;
+    flowInfo.epEcnSize = 0;
+    flowInfo.epEcnPortion = m_epDefaultEcnPortion;
+    flowInfo.epTimeStamp = Simulator::Now ();
+
+    // Added Jan 12nd
+    flowInfo.activeTime = Simulator::Now ();
+
     m_flowInfo[flowId] = flowInfo;
 }
 
@@ -784,6 +850,13 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
     pathInfo.timeStamp2 = Simulator::Now ();
     pathInfo.timeStamp3 = Simulator::Now ();
     pathInfo.dreValue = 0;
+
+    // Added Jan 11st
+    // Path ECN portion default value
+    pathInfo.epAckSize = 0;
+    pathInfo.epEcnSize = 0;
+    pathInfo.epEcnPortion = m_epDefaultEcnPortion;
+    pathInfo.epTimeStamp = Simulator::Now ();
 
     return pathInfo;
 }
@@ -1233,13 +1306,13 @@ Ipv4TLB::PathAging (void)
         {
             (itr->second).size = 1;
             (itr->second).ecnSize = 0;
+            (itr->second).isTimeout = false;
             (itr->second).timeStamp1 = Simulator::Now ();
         }
         if (Simulator::Now () - (itr->second).timeStamp2 > m_T2)
         {
             (itr->second).isRetransmission = false;
             (itr->second).isHighRetransmission = false;
-            (itr->second).isTimeout = false;
             (itr->second).isVeryTimeout = false;
             (itr->second).isProbingTimeout = false;
             (itr->second).timeStamp2 = Simulator::Now ();
@@ -1264,6 +1337,14 @@ Ipv4TLB::PathAging (void)
             }
             (itr->second).timeStamp3 = Simulator::Now ();
         }
+
+        if (Simulator::Now () - (itr->second).epTimeStamp > m_epAgingTime)
+        {
+            (itr->second).epAckSize = 0;
+            (itr->second).epEcnSize = 0;
+            (itr->second).epEcnPortion = m_epDefaultEcnPortion;
+            (itr->second).epTimeStamp = Simulator::Now ();
+        }
     }
 
     std::map<uint32_t, TLBFlowInfo>::iterator itr2 = m_flowInfo.begin ();
@@ -1274,6 +1355,15 @@ Ipv4TLB::PathAging (void)
             Ipv4TLB::RemoveFlowFromPath ((itr2->second).flowId, (itr2->second).destTor, (itr2->second).path);
             m_flowInfo.erase (itr2);
         }
+
+        if (Simulator::Now () - (itr2->second).epTimeStamp > m_epAgingTime)
+        {
+            (itr2->second).epAckSize = 0;
+            (itr2->second).epEcnSize = 0;
+            (itr2->second).epEcnPortion = m_epDefaultEcnPortion;
+            (itr2->second).epTimeStamp = Simulator::Now ();
+        }
+
     }
 
     m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
