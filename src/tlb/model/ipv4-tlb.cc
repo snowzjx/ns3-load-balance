@@ -39,9 +39,9 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
-    m_flowRetransHigh (14000),
-    m_flowRetransVeryHigh (14000),
-    m_flowTimeoutCount (1),
+    m_flowRetransHigh (140000000),
+    m_flowRetransVeryHigh (140000000),
+    m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50),
