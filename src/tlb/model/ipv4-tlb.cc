@@ -56,8 +56,8 @@ Ipv4TLB::Ipv4TLB ():
     // Added at Jan 11st
     m_epDefaultEcnPortion (0.0),
     m_epAlpha (0.5),
-    m_epCheckTime (MicroSeconds (100)),
-    m_epAgingTime (MicroSeconds (1000)),
+    m_epCheckTime (MicroSeconds (10000)),
+    m_epAgingTime (MicroSeconds (10000)),
     // Added at Jan 12nd
     m_flowletTimeout (MicroSeconds (500))
 {
@@ -608,9 +608,9 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
     {
         double originalEcnPortion = (itr->second).epEcnPortion;
         double newEcnPortition = static_cast<double> ((itr->second).epEcnSize) / (itr->second).epAckSize;
-        (itr->second).epAckSize = 0;
+        (itr->second).epAckSize = 1;
         (itr->second).epEcnSize = 0;
-        (itr->second).epEcnPortion = m_epAlpha * originalEcnPortion + (1 - m_epAlpha) * newEcnPortition;
+        (itr->second).epEcnPortion = m_epAlpha * originalEcnPortion + (1.0 - m_epAlpha) * newEcnPortition;
         (itr->second).epTimeStamp = Simulator::Now ();
     }
     // --
@@ -662,9 +662,9 @@ Ipv4TLB::UpdatePathInfo (uint32_t destTor, uint32_t path, uint32_t size, bool wi
     {
         double originalEcnPortion = pathInfo.epEcnPortion;
         double newEcnPortition = static_cast<double> (pathInfo.epEcnSize) / pathInfo.epAckSize;
-        pathInfo.epAckSize = 0;
+        pathInfo.epAckSize = 1;
         pathInfo.epEcnSize = 0;
-        pathInfo.epEcnPortion = m_epAlpha * originalEcnPortion + (1 - m_epAlpha) * newEcnPortition;
+        pathInfo.epEcnPortion = m_epAlpha * originalEcnPortion + (1.0 - m_epAlpha) * newEcnPortition;
         pathInfo.epTimeStamp = Simulator::Now ();
     }
     // --
@@ -820,7 +820,7 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
 
     // Added Jan 11st
     // Flow ECN portion default value
-    flowInfo.epAckSize = 0;
+    flowInfo.epAckSize = 1;
     flowInfo.epEcnSize = 0;
     flowInfo.epEcnPortion = m_epDefaultEcnPortion;
     flowInfo.epTimeStamp = Simulator::Now ();
@@ -853,7 +853,7 @@ Ipv4TLB::GetInitPathInfo (uint32_t path)
 
     // Added Jan 11st
     // Path ECN portion default value
-    pathInfo.epAckSize = 0;
+    pathInfo.epAckSize = 1;
     pathInfo.epEcnSize = 0;
     pathInfo.epEcnPortion = m_epDefaultEcnPortion;
     pathInfo.epTimeStamp = Simulator::Now ();
@@ -1340,7 +1340,7 @@ Ipv4TLB::PathAging (void)
 
         if (Simulator::Now () - (itr->second).epTimeStamp > m_epAgingTime)
         {
-            (itr->second).epAckSize = 0;
+            (itr->second).epAckSize = 1;
             (itr->second).epEcnSize = 0;
             (itr->second).epEcnPortion = m_epDefaultEcnPortion;
             (itr->second).epTimeStamp = Simulator::Now ();
@@ -1355,15 +1355,13 @@ Ipv4TLB::PathAging (void)
             Ipv4TLB::RemoveFlowFromPath ((itr2->second).flowId, (itr2->second).destTor, (itr2->second).path);
             m_flowInfo.erase (itr2);
         }
-
-        if (Simulator::Now () - (itr2->second).epTimeStamp > m_epAgingTime)
+        else if (Simulator::Now () - (itr2->second).epTimeStamp > m_epAgingTime)
         {
-            (itr2->second).epAckSize = 0;
+            (itr2->second).epAckSize = 1;
             (itr2->second).epEcnSize = 0;
             (itr2->second).epEcnPortion = m_epDefaultEcnPortion;
             (itr2->second).epTimeStamp = Simulator::Now ();
         }
-
     }
 
     m_agingEvent = Simulator::Schedule (m_agingCheckTime, &Ipv4TLB::PathAging, this);
