@@ -203,10 +203,12 @@ private:
     Time m_ackletTimeout;
 
     // Added at Jan 11st
+    /*
     double m_epDefaultEcnPortion;
     double m_epAlpha;
     Time m_epCheckTime;
     Time m_epAgingTime;
+    */
     // --
 
     // Added at Jan 12nd
