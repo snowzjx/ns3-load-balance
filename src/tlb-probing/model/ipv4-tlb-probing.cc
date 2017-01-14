@@ -296,7 +296,7 @@ Ipv4TLBProbing::DoProbe ()
 
     std::set<uint32_t> pathSet;
 
-    if (m_hasBestPath)
+    if (m_hasBestPath && m_bestPath != 0)
     {
         /*
         std::vector<Ipv4Address>::iterator itr = m_broadcastAddresses.begin ();
