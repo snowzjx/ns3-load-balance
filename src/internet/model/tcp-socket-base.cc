@@ -2548,7 +2548,7 @@ TcpSocketBase::SendEmptyPacket (uint8_t flags)
       p->AddPacketTag (tcpTLBTag);
 
       bool synRetrans = hasSyn && (m_synCount != m_synRetries - 1);
-      ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), m_synRetries);
+      ipv4TLB->FlowSend (flowId, m_endPoint->GetPeerAddress (), path, p->GetSize (), synRetrans);
       if (synRetrans)
       {
           ipv4TLB->FlowTimeout (flowId, m_endPoint->GetPeerAddress (), path);

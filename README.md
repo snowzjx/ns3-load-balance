@@ -82,7 +82,7 @@ Program Arguments:
     --applicationPauseThresh:     How many packets can pass before we have delay, 0 for disable [0]
     --applicationPauseTime:       The time for a delay, in MicroSeconds [1000]
     --cloveFlowletTimeout:        Flowlet timeout for Clove [500]
-    --cloveRunMode:               Clove run mode, 1 for edge flowlet, 2 for ECN, 3 for INT (not yet implemented) [0]
+    --cloveRunMode:               Clove run mode, 0 for edge flowlet, 1 for ECN, 2 for INT (not yet implemented) [0]
     --cloveHalfRTT:               Half RTT used in Clove ECN [40]
     --cloveDisToUncongestedPath:  Whether Clove will distribute the weight to uncongested path (no ECN) or all paths [false]
     --enableLargeDupAck:          Whether to set the ReTxThreshold to a very large value to mask reordering [false]
