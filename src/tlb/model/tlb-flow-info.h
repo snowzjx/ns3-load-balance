@@ -21,7 +21,11 @@ public:
   Time liveTime;
 
   // Added at Dec 23rd
-  Time rtt;
+  Time activeTime;
+  // --
+
+  // Added at Jan 12nd
+//  Time tlbFlowletActiveTime;
   // --
 
   // Added at Jan 11st
@@ -33,9 +37,6 @@ public:
   */
   // --
 
-  // Added at Jan 12nd
-  Time activeTime;
-  // --
 };
 
 }

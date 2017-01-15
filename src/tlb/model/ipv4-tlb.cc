@@ -39,8 +39,8 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
-    m_flowRetransHigh (140000000),
-    m_flowRetransVeryHigh (140000000),
+    m_flowRetransHigh (14000000),
+    m_flowRetransVeryHigh (14000000),
     m_flowTimeoutCount (10),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
@@ -589,6 +589,7 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
     (itr->second).liveTime = Simulator::Now ();
 
     // Added Dec 23rd
+    /*
     if (m_isSmooth)
     {
         (itr->second).rtt = (SMOOTH_BASE - m_smoothAlpha) * (itr->second).rtt / SMOOTH_BASE + m_smoothAlpha * rtt / SMOOTH_BASE;
@@ -600,6 +601,7 @@ Ipv4TLB::UpdateFlowInfo (uint32_t flowId, uint32_t path, uint32_t size, bool wit
             (itr->second).rtt = rtt;
         }
     }
+    */
     // ---
 
     // Added Jan 11st
@@ -824,7 +826,7 @@ Ipv4TLB::UpdateFlowPath (uint32_t flowId, uint32_t path, uint32_t destTor)
 
     // Added Dec 23rd
     // Flow RTT default value
-    flowInfo.rtt = m_minRtt;
+    // flowInfo.rtt = m_minRtt;
 
     // Added Jan 11st
     // Flow ECN portion default value
