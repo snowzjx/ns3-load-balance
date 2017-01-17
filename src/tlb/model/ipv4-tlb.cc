@@ -230,8 +230,9 @@ Ipv4TLB::GetAckPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
     struct TLBAcklet acklet;
     std::map<uint32_t, TLBAcklet>::iterator ackletItr = m_acklets.find (flowId);
 
-    if (ackletItr != m_acklets.end ()) // New flow
+    if (ackletItr != m_acklets.end ())
     {
+        // Existing flow
         acklet = ackletItr->second;
         if (Simulator::Now () - acklet.activeTime <= m_ackletTimeout) // Timeout
         {
@@ -239,8 +240,39 @@ Ipv4TLB::GetAckPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             m_acklets[flowId] = acklet;
             return acklet.pathId;
         }
+
+        // Bug Fix for bad small flow FCT in black hole case
+        if (Simulator:: Now () - acklet.activeTime >= MilliSeconds (1))
+        {
+            uint32_t destTor = 0;
+            if (!Ipv4TLB::FindTorId (daddr, destTor))
+            {
+                NS_LOG_ERROR ("Cannot find dest tor id based on the given dest address");
+                return 0;
+            }
+
+            uint32_t oldPath = acklet.pathId;
+
+            struct PathInfo newPath;
+            while (1)
+            {
+                newPath = Ipv4TLB::SelectRandomPath (destTor);
+                if (newPath.pathId != oldPath)
+                {
+                    break;
+                }
+            }
+
+            acklet.pathId = newPath.pathId;
+            acklet.activeTime = Simulator::Now ();
+
+            m_acklets[flowId] = acklet;
+
+            return newPath.pathId;
+        }
     }
 
+    // New flow or expired flowlet
     uint32_t destTor = 0;
     if (!Ipv4TLB::FindTorId (daddr, destTor))
     {
