@@ -39,9 +39,9 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
-    m_flowRetransHigh (14000),
-    m_flowRetransVeryHigh (14000),
-    m_flowTimeoutCount (2),
+    m_flowRetransHigh (140000000),
+    m_flowRetransVeryHigh (140000000),
+    m_flowTimeoutCount (10000),
     m_betterPathEcnThresh (0),
     m_betterPathRttThresh (MicroSeconds (1)), // 100 200 300
     m_pathChangePoss (50),
@@ -61,7 +61,7 @@ Ipv4TLB::Ipv4TLB ():
     m_epAgingTime (MicroSeconds (10000)),
     */
     // Added at Jan 12nd
-    m_flowletTimeout (MicroSeconds (500))
+    m_flowletTimeout (MicroSeconds (5000000))
 {
     NS_LOG_FUNCTION (this);
 }
@@ -253,7 +253,7 @@ Ipv4TLB::GetAckPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
 
             uint32_t oldPath = acklet.pathId;
 
-            Ipv4TLB::TimeoutPath (destTor, oldPath, false, true);
+            // Ipv4TLB::TimeoutPath (destTor, oldPath, false, true);
 
             struct PathInfo newPath;
             while (1)
@@ -350,7 +350,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
-        if (1 == 1
+        if (0 == 1
                 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {
@@ -382,7 +382,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
             return newPath.pathId;
         }
         else if ((oldPathInfo.pathType == BadPath || Simulator::Now () - flowActiveTime > m_flowletTimeout) // Trigger for rerouting
-                && oldPathInfo.quantifiedDre <= m_dreMultiply * m_dreQ  // TODO To be fixed
+                && oldPathInfo.quantifiedDre <= m_dreMultiply * 8  // TODO To be fixed
                 && (flowItr->second).size >= m_S
                 /*&& ((static_cast<double> ((flowItr->second).ecnSize) / (flowItr->second).size > m_ecnPortionHigh && Simulator::Now () - (flowItr->second).timeStamp >= m_T) || (flowItr->second).retransmissionSize > m_flowRetransHigh)*/
                 && Simulator::Now() - (flowItr->second).tryChangePath > MicroSeconds (100))

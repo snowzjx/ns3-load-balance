@@ -1081,7 +1081,7 @@ int main (int argc, char *argv[])
                         // If the capacity of a uplink is reduced, the weight should be reduced either
                         if (asymLink.find (std::make_pair(i, k)) != asymLink.end ())
                         {
-                            drbRouting->AddWeightedPath (PRESTO_RATIO * 0.1, leafToSpinePath[std::make_pair (i, k)]);
+                            drbRouting->AddWeightedPath (PRESTO_RATIO * 0.2, leafToSpinePath[std::make_pair (i, k)]);
                         }
                         else
                         {
@@ -1097,7 +1097,7 @@ int main (int argc, char *argv[])
                                         Ptr<Ipv4> ipv4 = destServer->GetObject<Ipv4> ();
                                         Ipv4InterfaceAddress destInterface = ipv4->GetAddress (1,0);
                                         Ipv4Address destAddress = destInterface.GetLocal ();
-                                        drbRouting->AddWeightedPath (destAddress, PRESTO_RATIO * 0.1, leafToSpinePath[std::make_pair (i, k)]);
+                                        drbRouting->AddWeightedPath (destAddress, PRESTO_RATIO * 0.2, leafToSpinePath[std::make_pair (i, k)]);
                                         exclusiveIPs.insert (destAddress);
                                     }
                                 }
@@ -1336,10 +1336,10 @@ int main (int argc, char *argv[])
     }
     else if (runMode == TLB)
     {
-        flowMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
-        linkMonitorFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
-        tlbBibleFilename << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
-        tlbBibleFilename2 << "tlb-" << TLBRunMode << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBECNPortionLow << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        flowMonitorFilename << "tlb-" << TLBHighRTT << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBS << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        linkMonitorFilename << "tlb-" << TLBHighRTT << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBS << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        tlbBibleFilename << "tlb-" << TLBHighRTT << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBS << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
+        tlbBibleFilename2 << "tlb-" << TLBHighRTT << "-" << TLBMinRTT << "-" << TLBBetterPathRTT << "-" << TLBPoss << "-" << TLBS << "-" << TLBT1 << "-" << TLBProbingInterval << "-" << TLBSmooth << "-" << TLBRerouting << "-" << quantifyRTTBase << "-";
     }
     else if (runMode == Clove)
     {
