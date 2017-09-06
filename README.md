@@ -39,12 +39,17 @@ You can use `./waf --run conga-simulation-large` to run most of the test cases t
 
 You can follow the instructions below to change the parameters of the test cases.
 
-### Setting the running ID
+### Set the running ID
 ```
 --ID:                             Running ID [default value: 0], the running ID will be added to the beginning of all ouput files.
 ```
 
-### Setting simulation time
+### Set the random seed
+```
+--randomSeed:                     Random seed, 0 for random generated seed (based on current time) [default value: 0]
+```
+
+### Set simulation time
 ```
 --StartTime:                      Start time of the simulation [default value: 0]
 --EndTime:                        End time of the simulation [defaule value: 0.25s]
@@ -52,20 +57,45 @@ You can follow the instructions below to change the parameters of the test cases
 ```
 From *StartTime* to *FlowLaunchEndTime*, flows will be generated according to CDF (see below). From *FlowLaunchEndTime* to *EndTime*, no flows will generated. 
 
+### Set the load balancing scheme & transport protocol
+```
+--runMode:                        Load balancing scheme: TLB (Hermes), Conga, Conga-flow, Presto, DRB, FlowBender, ECMP, Clove, DRILL, LetFlow [default value: Conga]
+--transportProt:                  Transport protocol to use: Tcp, DcTcp [default value: Tcp]
+--enableLargeDupAck:              Whether to set the ReTxThreshold to a very large value to mask reordering [default value: false]
+--enableLargeSynRetries:          Whether the SYN packet would retry thousands of times [default value: false]
+--enableFastReConnection:         Whether the SYN gap will be very small when reconnecting [default value: false]
+--enableLargeDataRetries:         Whether the data retransmission will be more than 6 times [default value: false]
+```
+
+### Set the topology
+```
+--serverCount:                    The server count [default value: 8]
+--spineCount:                     The spine count [default value: 4]
+--leafCount:                      The leaf count [default value: 4]
+--linkCount:                      The link count between one spine and one leaf switch [default value: 1]
+--spineLeafCapacity:              Spine <-> leaf capacity (in Gbps) [default value: 10Gbps]
+--leafServerCapacity:             Leaf <-> server capacity (in Gbps) [default value: 10Gbps]
+--linkLatency:                    Link latency of one hop (in microsecond) [default value: 10us]
+```
+
+The topology used in all test cases is a spine-leaf topology, see Figure 7 in Conga paper for more details.
+
+To simulate an asymmetric topology, you can change the following parameters:
 
 ```
 
+```
+
+
+
+### Set the traffic pattern
+```
+--cdfFileName:                    File name for flow distribution [no default value, YOU MUST SPECIFY THIS VALUE]
+--load:                           Load of the network, 0.0 - 1.0 [default value: 0]
+```
+
+```
 Program Arguments:
-    --ID:                         Running ID [0]
-    --StartTime:                  Start time of the simulation [0]
-    --EndTime:                    End time of the simulation [0.25]
-    --FlowLaunchEndTime:          End time of the flow launch period [0.1]
-    --runMode:                    Running mode of this simulation: Conga, Conga-flow, Presto, DRB, FlowBender, ECMP, Clove, DRILL, LetFlow [Conga]
-    --randomSeed:                 Random seed, 0 for random generated [0]
-    --cdfFileName:                File name for flow distribution []
-    --load:                       Load of the network, 0.0 - 1.0 [0]
-    --transportProt:              Transport protocol to use: Tcp, DcTcp [Tcp]
-    --linkLatency:                Link latency, should be in MicroSeconds [10]
     --resequenceBuffer:           Whether enabling the resequence buffer [false]
     --resequenceInOrderTimer:     In order queue timeout in resequence buffer [5]
     --resequenceOutOrderTimer:    Out order queue timeout in resequence buffer [500]
@@ -75,13 +105,7 @@ Program Arguments:
     --asymCapacityPoss:           The possibility that a path will have only 1/10 capacity [40]
     --flowBenderT:                The T in flowBender [0.05]
     --flowBenderN:                The N in flowBender [1]
-    --serverCount:                The Server count [8]
-    --spineCount:                 The Spine count [4]
-    --leafCount:                  The Leaf count [4]
-    --linkCount:                  The Link count [1]
-    --spineLeafCapacity:          Spine <-> Leaf capacity in Gbps [10]
-    --leafServerCapacity:         Leaf <-> Server capacity in Gbps [10]
-    --TLBMinRTT:                  Min RTT used to judge a good path in TLB [40]
+        --TLBMinRTT:                  Min RTT used to judge a good path in TLB [40]
     --TLBHighRTT:                 High RTT used to judge a bad path in TLB [180]
     --TLBPoss:                    Possibility to change the path in TLB [50]
     --TLBBetterPathRTT:           RTT Threshold used to judge one path is better than another in TLB [1]
@@ -104,7 +128,6 @@ Program Arguments:
     --cloveRunMode:               Clove run mode, 0 for edge flowlet, 1 for ECN, 2 for INT (not yet implemented) [0]
     --cloveHalfRTT:               Half RTT used in Clove ECN [40]
     --cloveDisToUncongestedPath:  Whether Clove will distribute the weight to uncongested path (no ECN) or all paths [false]
-    --enableLargeDupAck:          Whether to set the ReTxThreshold to a very large value to mask reordering [false]
     --congaFlowletTimeout:        Flowlet timeout in Conga [50]
     --letFlowFlowletTimeout:      Flowlet timeout in LetFlow [50]
     --enableRandomDrop:           Whether the Spine-0 to other leaves has the random drop problem [false]
@@ -115,6 +138,4 @@ Program Arguments:
     --blackHoleDestAddr:          The packet black hole destination address [10.1.2.0]
     --blackHoleDestMask:          The packet black hole destination mask [255.255.255.0]
     --congaAwareAsym:             Whether Conga is aware of the capacity of asymmetric path capacity [true]
-    --enableLargeSynRetries:      Whether the SYN packet would retry thousands of times [false]
-    --enableFastReConnection:     Whether the SYN gap will be very small when reconnecting [false]    
-    --enableLargeDataRetries:     Whether the data retransmission will be more than 6 times [false]
+```
