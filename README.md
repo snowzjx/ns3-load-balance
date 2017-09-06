@@ -101,7 +101,7 @@ If you are using DRB, Presto or other packet spay load balancing scheme, you can
 ```
 --resequenceBuffer:              Whether to enable the resequence buffer [default value: false]
 --resequenceInOrderTimer:        In order queue timeout (in microseconds) [default value: 5us]
---resequenceOutOrderTimer:       Out order queue timeout (in microseconds) [default value: 500]
+--resequenceOutOrderTimer:       Out order queue timeout (in microseconds) [default value: 500us]
 --resequenceInOrderSize:         In order queue size (in packets) [default value: 100 packets]
 --resequenceBufferLog:           Whether to enable the resequence buffer logging system [default value: false]
 ```
