@@ -83,10 +83,10 @@ The topology used in all test cases is a spine-leaf topology, see Figure 7 in Co
 To simulate an asymmetric topology, you can change the following parameters:
 
 ```
-
+--asymCapacity:                   Whether the capacity is asym, which means some link will have only 1/5 the capacity of others [default value: false]
+--asymCapacityPoss:               The possibility that a path will have only 1/5 capacity (in %) [default value: 40%]
+--asymCapacity2:                  Whether the Spine0-Leaf0's capacity is only 1/5 [default value: false] 
 ```
-
-
 
 ### Set the traffic pattern
 ```
@@ -94,48 +94,73 @@ To simulate an asymmetric topology, you can change the following parameters:
 --load:                           Load of the network, 0.0 - 1.0 [default value: 0]
 ```
 
+### Set the resequence buffer
+
+If you are using DRB, Presto or other packet spay load balancing scheme, you can turn on the resequence buffer to avoid the performance degradation caused by TCP disorder.
+
 ```
-Program Arguments:
-    --resequenceBuffer:           Whether enabling the resequence buffer [false]
-    --resequenceInOrderTimer:     In order queue timeout in resequence buffer [5]
-    --resequenceOutOrderTimer:    Out order queue timeout in resequence buffer [500]
-    --resequenceInOrderSize:      In order queue size in resequence buffer [100]
-    --resequenceBufferLog:        Whether enabling the resequence buffer logging system [false]
-    --asymCapacity:               Whether the capacity is asym, which means some link will have only 1/10 the capacity of others [false]
-    --asymCapacityPoss:           The possibility that a path will have only 1/10 capacity [40]
-    --flowBenderT:                The T in flowBender [0.05]
-    --flowBenderN:                The N in flowBender [1]
-        --TLBMinRTT:                  Min RTT used to judge a good path in TLB [40]
-    --TLBHighRTT:                 High RTT used to judge a bad path in TLB [180]
-    --TLBPoss:                    Possibility to change the path in TLB [50]
-    --TLBBetterPathRTT:           RTT Threshold used to judge one path is better than another in TLB [1]
-    --TLBT1:                      The path aging time interval in TLB [100]
-    --TLBECNPortionLow:           The ECN portion used in judging a good path in TLB [0.1]
-    --TLBRunMode:                 The running mode of TLB, 0 for minimize counter, 1 for minimize RTT, 2 for random, 11 for RTT counter, 12 for RTT DRE [0]
-    --TLBProbingEnable:           Whether the TLB probing is enable [true]
-    --TLBProbingInterval:         Probing interval for TLB probing [50]
-    --TLBSmooth:                  Whether the RTT calculation is smooth [true]
-    --TLBRerouting:               Whether the rerouting is enabled in TLB [true]
-    --TLBDREMultiply:             DRE multiply factor in TLB [5]
-    --TLBS:                       The S used to judge a whether a flow should change path in TLB [64000]
-    --TLBReverseACK:              Whether to enable the TLB reverse ACK path selection [false]
-    --quantifyRTTBase:            The quantify RTT base in TLB [10]
-    --TLBFlowletTimeout:          The TLB flowlet timeout [500]
-    --TcpPause:                   Whether TCP will pause in TLB & FlowBender [false]
-    --applicationPauseThresh:     How many packets can pass before we have delay, 0 for disable [0]
-    --applicationPauseTime:       The time for a delay, in MicroSeconds [1000]
-    --cloveFlowletTimeout:        Flowlet timeout for Clove [500]
-    --cloveRunMode:               Clove run mode, 0 for edge flowlet, 1 for ECN, 2 for INT (not yet implemented) [0]
-    --cloveHalfRTT:               Half RTT used in Clove ECN [40]
-    --cloveDisToUncongestedPath:  Whether Clove will distribute the weight to uncongested path (no ECN) or all paths [false]
-    --congaFlowletTimeout:        Flowlet timeout in Conga [50]
-    --letFlowFlowletTimeout:      Flowlet timeout in LetFlow [50]
-    --enableRandomDrop:           Whether the Spine-0 to other leaves has the random drop problem [false]
-    --randomDropRate:             The random drop rate when the random drop is enabled [0.005]```
-    --blackHoleMode:              The packet black hole mode, 0 to disable, 1 src, 2 dest, 3 src/dest pair [0]
-    --blackHoleSrcAddr:           The packet black hole source address [10.1.1.1]
-    --blackHoleSrcMask:           The packet black hole source mask [255.255.255.240]
-    --blackHoleDestAddr:          The packet black hole destination address [10.1.2.0]
-    --blackHoleDestMask:          The packet black hole destination mask [255.255.255.0]
-    --congaAwareAsym:             Whether Conga is aware of the capacity of asymmetric path capacity [true]
+--resequenceBuffer:              Whether to enable the resequence buffer [default value: false]
+--resequenceInOrderTimer:        In order queue timeout (in microseconds) [default value: 5us]
+--resequenceOutOrderTimer:       Out order queue timeout (in microseconds) [default value: 500]
+--resequenceInOrderSize:         In order queue size (in packets) [default value: 100 packets]
+--resequenceBufferLog:           Whether to enable the resequence buffer logging system [default value: false]
+```
+
+### Set the grey failure 
+
+You can change the following parameters to simulate grey failures in DCN, such as pakcet random drop or packet black hole.
+
+Random packet drop:
+```
+--enableRandomDrop:              Whether the Spine-0 to other leaves has the random drop problem [default value: false]
+--randomDropRate:                The random drop rate when the random drop is enabled [default value: 0.005]
+```
+
+Packet black hole:
+```
+--blackHoleMode:                 The packet black hole mode, 0 for disable, 1 for matching src address only, 2 for matching dest address only, 3 for both src/dest address [default value: 0]
+--blackHoleSrcAddr:              The packet black hole source address [default value: 10.1.1.1]
+--blackHoleSrcMask:              The packet black hole source mask [default value: 255.255.255.240]
+--blackHoleDestAddr:             The packet black hole destination address [default value: 10.1.2.0]
+--blackHoleDestMask:             The packet black hole destination mask [default value: 255.255.255.0]
+```
+
+### Set Hemeres parameters:
+
+
+### Set Conga parameters:
+If you are using Conga loading balancing scheme, you should set the following parameters:
+
+```
+--congaFlowletTimeout:           Flowlet timeout in Conga (in microseconds) [default value: 500us]
+--congaAwareAsym:                Whether Conga is aware of the capacity of asymmetric path capacity [default value: true]
+```
+### Set LetFlow parameters:
+If you are using LetFlow loading balancing scheme, you should set the following parameters:
+```
+--letFlowFlowletTimeout:         Flowlet timeout in LetFlow (in microseconds) [default value: 500us]
+```
+
+### Set Clove parameters:
+If you are using Clove loading balancing scheme, you should set the following parameters:
+```
+--cloveFlowletTimeout:           Flowlet timeout for Clove (in microseconds) [default value: 500us]
+--cloveRunMode:                  Clove run mode, 0 for edge flowlet, 1 for ECN, 2 for INT (not yet implemented) [default value: 0]
+--cloveHalfRTT:                  Half RTT used in Clove ECN (in microseconds) [default value: 40us]
+--cloveDisToUncongestedPath:     Whether Clove will distribute the weight to uncongested path (no ECN) or all paths [default value: false]
+```
+
+### Set FlowBender parameters:
+If you are using FlowBender loading balancing scheme, you should set the following parameters:
+```
+--flowBenderT:                   The T in FlowBender [default value: 0.05]
+--flowBenderN:                   The N in FlowBender [default value: 1]
+```
+
+### Some experimental parameters:
+Please *DO NOT* use those parameters if you haven't read all the code
+```
+--TcpPause:                      Whether TCP will pause in Hemeres & FlowBender [default value: false]
+--applicationPauseThresh:        How many packets can pass before we have delay, 0 for disable [default value: 0]
+--applicationPauseTime:          The time for a delay (in microseconds) [default value: 1000us]
 ```
