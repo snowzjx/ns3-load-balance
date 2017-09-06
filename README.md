@@ -19,7 +19,7 @@ Load Balance Scheme
 7. [FlowBender](http://conferences2.sigcomm.org/co-next/2014/CoNEXT_papers/p149.pdf) 
 8. [CLOVE](https://www.cs.princeton.edu/~nkatta/papers/clove-hotnets16.pdf)
 9. [DRILL](http://conferences.sigcomm.org/hotnets/2015/papers/ghorbani.pdf)
-10.[LetFlow](https://people.csail.mit.edu/alizadeh/papers/letflow-nsdi17.pdf)
+10. [LetFlow](https://people.csail.mit.edu/alizadeh/papers/letflow-nsdi17.pdf)
 
 Routing 
 ---
