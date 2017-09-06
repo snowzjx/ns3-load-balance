@@ -125,7 +125,7 @@ Packet black hole:
 --blackHoleDestMask:             The packet black hole destination mask [default value: 255.255.255.0]
 ```
 
-### Set Hemeres parameters:
+### Set Hermes parameters:
 
 
 ### Set Conga parameters:
@@ -160,7 +160,7 @@ If you are using FlowBender loading balancing scheme, you should set the followi
 ### Some experimental parameters:
 Please *DO NOT* use those parameters if you haven't read all the code
 ```
---TcpPause:                      Whether TCP will pause in Hemeres & FlowBender [default value: false]
+--TcpPause:                      Whether TCP will pause in Hermes & FlowBender [default value: false]
 --applicationPauseThresh:        How many packets can pass before we have delay, 0 for disable [default value: 0]
 --applicationPauseTime:          The time for a delay (in microseconds) [default value: 1000us]
 ```
