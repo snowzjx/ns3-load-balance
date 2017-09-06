@@ -39,6 +39,7 @@ Ipv4TLB::Ipv4TLB ():
     m_ecnSampleMin (14000),
     m_ecnPortionLow (0.3), // 0.3 0.1
     m_ecnPortionHigh (1.1),
+    m_respondToFailure (false),
     m_flowRetransHigh (140000000),
     m_flowRetransVeryHigh (140000000),
     m_flowTimeoutCount (10000),
@@ -85,6 +86,7 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_ecnSampleMin (other.m_ecnSampleMin),
     m_ecnPortionLow (other.m_ecnPortionLow),
     m_ecnPortionHigh (other.m_ecnPortionHigh),
+    m_respondToFailure (other.m_respondToFailure),
     m_flowRetransHigh (other.m_flowRetransHigh),
     m_flowRetransVeryHigh (other.m_flowRetransVeryHigh),
     m_flowTimeoutCount (other.m_flowTimeoutCount),
@@ -173,6 +175,25 @@ Ipv4TLB::GetTypeId (void)
                       TimeValue (MicroSeconds (500)),
                       MakeTimeAccessor (&Ipv4TLB::m_flowletTimeout),
                       MakeTimeChecker ())
+      .AddAttribute ("RespondToFailure", "Whether TLB reacts to failure",
+                     BooleanValue (false),
+                     MakeBooleanAccessor (&Ipv4TLB::m_respondToFailure),
+                     MakeBooleanChecker ())
+      .AddAttribute ("FlowRetransHigh",
+                     "Threshold to determine whether the flow has experienced a serve retransmission",
+                     UintegerValue (140000000),
+                     MakeIntegerAccessor (&Ipv4TLB::m_flowRetransHigh),
+                     MakeIntegerChecker<uint32_t> ())
+      .AddAttribute ("FlowRetransVeryHigh",
+                     "Threshold to determine whether the flow has experienced a very serve retransmission",
+                     UintegerValue (140000000),
+                     MakeIntegerAccessor (&Ipv4TLB::m_flowRetransVeryHigh),
+                     MakeIntegerChecker<uint32_t> ())
+      .AddAttribute ("FlowTimeoutCount",
+                     "Threshold to determine whether the flow has expierienced a serve timeouts",
+                     UintegerValue (10000),
+                     MakeIntegerAccessor (&Ipv4TLB::m_flowTimeoutCount),
+                     MakeIntegerChecker<uint32_t> ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
@@ -350,7 +371,7 @@ Ipv4TLB::GetPath (uint32_t flowId, Ipv4Address saddr, Ipv4Address daddr)
         // Old flow
         uint32_t oldPath = (flowItr->second).path;
         struct PathInfo oldPathInfo = Ipv4TLB::JudgePath (destTor, oldPath);
-        if (0 == 1
+        if (m_respondToFailure
                 && ((flowItr->second).retransmissionSize > m_flowRetransVeryHigh
                 || (flowItr->second).timeoutCount >= 1))
         {

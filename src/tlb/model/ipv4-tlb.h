@@ -179,10 +179,13 @@ private:
 
     double m_ecnPortionHigh;
 
+    // Failure Related Configurations
+    bool m_respondToFailure;
     uint32_t m_flowRetransHigh;
     uint32_t m_flowRetransVeryHigh;
 
     uint32_t m_flowTimeoutCount;
+    // End of Failure Related Configurations
 
     double m_betterPathEcnThresh;
 
