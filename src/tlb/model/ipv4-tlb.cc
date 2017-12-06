@@ -62,7 +62,9 @@ Ipv4TLB::Ipv4TLB ():
     m_epAgingTime (MicroSeconds (10000)),
     */
     // Added at Jan 12nd
-    m_flowletTimeout (MicroSeconds (5000000))
+    m_flowletTimeout (MicroSeconds (5000000)),
+    m_rttAlpha(1.0),
+    m_ecnBeta(0.0)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -107,7 +109,9 @@ Ipv4TLB::Ipv4TLB (const Ipv4TLB &other):
     m_epCheckTime (other.m_epCheckTime),
     m_epAgingTime (other.m_epAgingTime),
     */
-    m_flowletTimeout (other.m_flowletTimeout)
+    m_flowletTimeout (other.m_flowletTimeout),
+    m_rttAlpha (other.m_rttAlpha),
+    m_ecnBeta (other.m_ecnBeta)
 {
     NS_LOG_FUNCTION (this);
 }
@@ -194,6 +198,16 @@ Ipv4TLB::GetTypeId (void)
                      UintegerValue (10000),
                      MakeIntegerAccessor (&Ipv4TLB::m_flowTimeoutCount),
                      MakeIntegerChecker<uint32_t> ())
+      .AddAttribute ("RTTAlpha",
+                     "",
+                     DoubleValue (1.0),
+                     MakeDoubleAccessor (&Ipv4TLB::m_rttAlpha),
+                     MakeDoubleChecker<double> ())
+      .AddAttribute ("ECNBeta",
+                     "",
+                     DoubleValue (0.0),
+                     MakeDoubleAccessor (&Ipv4TLB::m_ecnBeta),
+                     MakeDoubleChecker<double> ())
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
@@ -1295,8 +1309,11 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     path.ecnPortion = static_cast<double>(pathInfo.ecnSize) / pathInfo.size;
     path.counter = pathInfo.flowCounter;
     path.quantifiedDre = Ipv4TLB::QuantifyDre (pathInfo.dreValue);
-    if ((pathInfo.minRtt < m_minRtt
-            && (pathInfo.size > m_ecnSampleMin && static_cast<double>(pathInfo.ecnSize) / pathInfo.size < m_ecnPortionLow))
+
+    int consideECN = (pathInfo.size > m_ecnSampleMin) ? 1 : 0;
+
+    if ((m_rttAlpha * pathInfo.minRtt + m_ecnBeta * consideECN * static_cast<double>(pathInfo.ecnSize) / pathInfo.size
+                < m_rttAlpha * m_minRtt + m_ecnBeta * consideECN * m_ecnPortionLow)
             && (pathInfo.isRetransmission) == false
             /*&& (pathInfo.isHighRetransmission) == false*/
             && (pathInfo.isTimeout) == false
@@ -1306,6 +1323,7 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         path.pathType = GoodPath;
         return path;
     }
+
     if (pathInfo.isHighRetransmission
             || pathInfo.isVeryTimeout
             || pathInfo.isProbingTimeout)
@@ -1314,15 +1332,15 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
         return path;
     }
 
-    if (/*(static_cast<double>(pathInfo.ecnSize) / pathInfo.size > m_ecnPortionHigh
-            && Simulator::Now () - pathInfo.timeStamp1 > m_T1 / 2 )*/ // TODO RTT > threshold, comment ECN
-            pathInfo.minRtt >= m_highRtt
+    if ((m_rttAlpha * pathInfo.minRtt + m_ecnBeta * consideECN * static_cast<double>(pathInfo.ecnSize) / pathInfo.size
+                < m_rttAlpha * m_highRtt + m_ecnBeta * consideECN * m_ecnPortionHigh)
             || pathInfo.isTimeout == true
             || pathInfo.isRetransmission == true)
     {
         path.pathType = BadPath;
         return path;
     }
+
     path.pathType = GreyPath;
     return path;
 }

@@ -218,6 +218,9 @@ private:
     Time m_flowletTimeout;
     // --
 
+    double m_rttAlpha;
+    double m_ecnBeta;
+
     // Variables
     std::map<uint32_t, TLBFlowInfo> m_flowInfo; /* <FlowId, TLBFlowInfo> */
     std::map<std::pair<uint32_t, uint32_t>, TLBPathInfo> m_pathInfo; /* <DestTorId, PathId>, TLBPathInfo> */
