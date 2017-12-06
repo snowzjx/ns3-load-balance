@@ -6,7 +6,7 @@ We have implemented the following transportation protocol and load balance schem
 
 Transport Protocol
 ---
-1. [DCTCP](http://simula.stanford.edu/~alizade/Site/DCTCP_files/dctcp-final.pdf)
+1. [DCTCP](https://people.csail.mit.edu/alizadeh/papers/dctcp-sigcomm10.pdf)
 
 Load Balance Scheme
 ---
