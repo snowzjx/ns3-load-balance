@@ -365,7 +365,7 @@ TcpHeader::Deserialize (Buffer::Iterator start)
   m_sequenceNumber = i.ReadNtohU32 ();
   m_ackNumber = i.ReadNtohU32 ();
   uint16_t field = i.ReadNtohU16 ();
-  m_flags = field & 0xFF;   // What the fuck.
+  m_flags = field & 0xFF;   // Bug fix for ns3: previously wrong bitwise operation;
   m_length = field >> 12;
   m_windowSize = i.ReadNtohU16 ();
   i.Next (2);
