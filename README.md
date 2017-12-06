@@ -10,7 +10,7 @@ Transport Protocol
 
 Load Balance Scheme
 ---
-1. [Hermes](http://http://www.cse.ust.hk/~kaichen/papers/hermes-sigcomm17.pdf)
+1. [Hermes](http://www.cse.ust.hk/~kaichen/papers/hermes-sigcomm17.pdf)
 2. Per flow ECMP
 3. [CONGA](https://people.csail.mit.edu/alizadeh/papers/conga-sigcomm14.pdf)
 4. [DRB](http://conferences.sigcomm.org/co-next/2013/program/p49.pdf)
