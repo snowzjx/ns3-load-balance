@@ -126,7 +126,22 @@ Packet black hole:
 ```
 
 ### Set Hermes parameters:
-
+```
+--TLBMinRTT:                     The RTT threshold used to judge a good path in TLB (T_{RTT_LOW}) in microseconds [Recommended value: 60 (20 + one-way base RTT)]
+--TLBHighRTT:                    The RTT threshold used to judge a good path in TLB (T_{RTT_HIGH}) in microseconds [Recommended value: 100]
+--TLBBetterPathRTT:              The RTT threshold used to judge whether a path is better than another one (Delta_{RTT}) in microseconds [Recommended value: 180]
+--TLBT1:                         The path aging time interval (i.e., the frequency to update path condition) in microseconds [Recommended value: 60]
+--TLBECNPortionLow:              The ECN portion used in judging a good path in TLB (T_{ECN}). (We mainly use RTT in our simulation and not all parameters related to ECN is exposed here. Please refer to /src/tlb/model/ipv4-tlb.cc for more details)
+--TLBRunMode:                    The running mode of TLB (i.e., how to choose path from candidate paths), 0 for minimize counter, 1 for minimize RTT, 2 for random, 11 for RTT counter, 12 for RTT DRE [Recommended value: 12]
+--TLBProbingEnable:              Whether the TLB probing is enabled [Recommended value: true]
+--TLBProbingInterval:            Probing interval for TLB probing (in microseconds) [Recommended value: 100-500]
+--TLBSmooth:                     Whether the RTT calculation is smoothed (i.e., using EWMA) [Recommended value: true]
+--TLBRerouting:                  Whether the rerouting is enabled in TLB [Recommended value: true]
+--TLBS:                          The sent size used to judge a whether a flow should change path in TLB (in bytes) [Recommended value: 600000]
+--TLBReverseACK:                 Whether to enable the TLB reverse ACK path selection [Default value: false]
+--quantifyRTTBase:               The quantify RTT base (granularity to quantify paths to different categories according to RTT) [Default value: 10] 
+--TLBFlowletTimeout:             The flowlet timeout value [Default value: 5ms]
+```
 
 ### Set Conga parameters:
 If you are using Conga loading balancing scheme, you should set the following parameters:
