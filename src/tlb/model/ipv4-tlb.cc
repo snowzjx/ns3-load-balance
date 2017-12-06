@@ -123,51 +123,51 @@ Ipv4TLB::GetTypeId (void)
         .SetParent<Object> ()
         .SetGroupName ("TLB")
         .AddConstructor<Ipv4TLB> ()
-        .AddAttribute ("RunMode", "The running mode of TLB, 0 for minimize counter, 1 for minimize RTT, 2 for random",
+        .AddAttribute ("RunMode", "The running mode of TLB (i.e., how to choose path from candidate paths), 0 for minimize counter, 1 for minimize RTT, 2 for random, 11 for RTT counter, 12 for RTT DRE",
                       UintegerValue (0),
                       MakeUintegerAccessor (&Ipv4TLB::m_runMode),
                       MakeUintegerChecker<uint32_t> ())
-        .AddAttribute ("Rerouting", "Wether the reroute is enabled",
+        .AddAttribute ("Rerouting", "Whether rerouting is enabled",
                       BooleanValue (false),
                       MakeBooleanAccessor (&Ipv4TLB::m_rerouteEnable),
                       MakeBooleanChecker ())
-        .AddAttribute ("MinRTT", "Min RTT used to judge a good path",
+        .AddAttribute ("MinRTT", "Min RTT threshold used to judge a good path",
                       TimeValue (MicroSeconds(50)),
                       MakeTimeAccessor (&Ipv4TLB::m_minRtt),
                       MakeTimeChecker ())
-        .AddAttribute ("HighRTT", "High RTT used to judge a bad path",
+        .AddAttribute ("HighRTT", "High RTT threshold used to judge a bad path",
                       TimeValue (MicroSeconds(200)),
                       MakeTimeAccessor (&Ipv4TLB::m_highRtt),
                       MakeTimeChecker ())
-        .AddAttribute ("DREMultiply", "DRE multiply factor",
+        .AddAttribute ("DREMultiply", "DRE multiply factor (refer to CONGA)",
                       UintegerValue (5),
                       MakeUintegerAccessor (&Ipv4TLB::m_dreMultiply),
                       MakeUintegerChecker<uint32_t> ())
-        .AddAttribute ("S", "The S used to judge a whether a flow should change path",
+        .AddAttribute ("S", "The sent size used to judge whether a flow should change path",
                       UintegerValue (64000),
                       MakeUintegerAccessor (&Ipv4TLB::m_S),
                       MakeUintegerChecker<uint32_t> ())
-        .AddAttribute ("BetterPathRTTThresh", "RTT Threshold used to judge one path is better than another",
+        .AddAttribute ("BetterPathRTTThresh", "RTT Threshold used to judge whether one path is better than another",
                       TimeValue (MicroSeconds (300)),
                       MakeTimeAccessor (&Ipv4TLB::m_betterPathRttThresh),
                       MakeTimeChecker ())
-        .AddAttribute ("ChangePathPoss", "Possibility to change the path",
+        .AddAttribute ("ChangePathPoss", "Possibility to change the path (to avoid herd behavior)",
                       UintegerValue (50),
                       MakeUintegerAccessor (&Ipv4TLB::m_pathChangePoss),
                       MakeUintegerChecker<uint32_t> ())
-        .AddAttribute ("T1", "The path aging time interval",
+        .AddAttribute ("T1", "The path aging time interval (i.e., the frequency to update path condition)",
                       TimeValue (MicroSeconds (320)),
                       MakeTimeAccessor (&Ipv4TLB::m_T1),
                       MakeTimeChecker ())
-        .AddAttribute ("ECNPortionLow", "The ECN portion used in judging a good path",
+        .AddAttribute ("ECNPortionLow", "The ECN portion threshold used in judging a good path",
                       DoubleValue (0.3),
                       MakeDoubleAccessor (&Ipv4TLB::m_ecnPortionLow),
                       MakeDoubleChecker<double> (0.0))
-        .AddAttribute ("IsSmooth", "Whether the RTT calculation is smooth",
+        .AddAttribute ("IsSmooth", "Whether the RTT calculation is smoothed (moving average)",
                       BooleanValue (false),
                       MakeBooleanAccessor (&Ipv4TLB::m_isSmooth),
                       MakeBooleanChecker ())
-        .AddAttribute ("QuantifyRttBase", "The quantify RTT base",
+        .AddAttribute ("QuantifyRttBase", "The quantify RTT base  (granularity to quantify paths to differernt catagories according to RTT)",
                       TimeValue (MicroSeconds (10)),
                       MakeTimeAccessor (&Ipv4TLB::m_quantifyRttBase),
                       MakeTimeChecker ())
@@ -194,20 +194,23 @@ Ipv4TLB::GetTypeId (void)
                      MakeIntegerAccessor (&Ipv4TLB::m_flowRetransVeryHigh),
                      MakeIntegerChecker<uint32_t> ())
       .AddAttribute ("FlowTimeoutCount",
-                     "Threshold to determine whether the flow has expierienced a serve timeouts",
+                     "Threshold to determine whether the flow has expierienced a serve timeout",
                      UintegerValue (10000),
                      MakeIntegerAccessor (&Ipv4TLB::m_flowTimeoutCount),
                      MakeIntegerChecker<uint32_t> ())
       .AddAttribute ("RTTAlpha",
-                     "",
+                     "The weight of RTT in characterizing paths into good, congested and gray",
                      DoubleValue (1.0),
                      MakeDoubleAccessor (&Ipv4TLB::m_rttAlpha),
                      MakeDoubleChecker<double> ())
       .AddAttribute ("ECNBeta",
-                     "",
+                     "They weight of ECN in characterizing paths into good, congested and gray",
                      DoubleValue (0.0),
                      MakeDoubleAccessor (&Ipv4TLB::m_ecnBeta),
                      MakeDoubleChecker<double> ())
+        // we set RTTAlpha = 1 and ECNBeta = 0 in our simulation as the RTT measurement is accurate. 
+        // And we set RTTAlpha = 0 and ECNBeta = 1 in our testbed because the RTT measurement in our testbed is not accurate.
+        // In general, Alpha and Beta can be flexibely tuned to reflect which value are more trusted.
         .AddTraceSource ("SelectPath",
                          "When the new flow is assigned the path",
                          MakeTraceSourceAccessor (&Ipv4TLB::m_pathSelectTrace),
