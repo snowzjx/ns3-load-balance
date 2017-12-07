@@ -126,6 +126,9 @@ Packet black hole:
 ```
 
 ### Set Hermes parameters:
+
+Notification: TLB is the former name of Hermes.
+
 ```
 --TLBMinRTT:                     The RTT threshold used to judge a good path in TLB (T_{RTT_LOW}) in microseconds [Recommended value: 60 (20 + one-way base RTT)]
 --TLBHighRTT:                    The RTT threshold used to judge a good path in TLB (T_{RTT_HIGH}) in microseconds [Recommended value: 100]
