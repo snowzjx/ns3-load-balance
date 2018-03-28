@@ -131,8 +131,8 @@ Notification: TLB is the former name of Hermes.
 
 ```
 --TLBMinRTT:                     The RTT threshold used to judge a good path in TLB (T_{RTT_LOW}) in microseconds [Recommended value: 60 (20 + one-way base RTT)]
---TLBHighRTT:                    The RTT threshold used to judge a good path in TLB (T_{RTT_HIGH}) in microseconds [Recommended value: 100]
---TLBBetterPathRTT:              The RTT threshold used to judge whether a path is better than another one (Delta_{RTT}) in microseconds [Recommended value: 180]
+--TLBHighRTT:                    The RTT threshold used to judge a good path in TLB (T_{RTT_HIGH}) in microseconds [Recommended value: 180]
+--TLBBetterPathRTT:              The RTT threshold used to judge whether a path is better than another one (Delta_{RTT}) in microseconds [Recommended value: 100]
 --TLBT1:                         The path aging time interval (i.e., the frequency to update path condition) in microseconds [Recommended value: 60]
 --TLBECNPortionLow:              The ECN portion used in judging a good path in TLB (T_{ECN}). (We mainly use RTT in our simulation and not all parameters related to ECN is exposed here. Please refer to /src/tlb/model/ipv4-tlb.cc for more details)
 --TLBRunMode:                    The running mode of TLB (i.e., how to choose path from candidate paths), 0 for minimize counter, 1 for minimize RTT, 2 for random, 11 for RTT counter, 12 for RTT DRE [Recommended value: 12]
