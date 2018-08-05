@@ -1336,7 +1336,7 @@ Ipv4TLB::JudgePath (uint32_t destTor, uint32_t pathId)
     }
 
     if ((m_rttAlpha * pathInfo.minRtt + m_ecnBeta * consideECN * static_cast<double>(pathInfo.ecnSize) / pathInfo.size
-                < m_rttAlpha * m_highRtt + m_ecnBeta * consideECN * m_ecnPortionHigh)
+                >= m_rttAlpha * m_highRtt + m_ecnBeta * consideECN * m_ecnPortionHigh)
             || pathInfo.isTimeout == true
             || pathInfo.isRetransmission == true)
     {
