@@ -2,6 +2,8 @@ ns3-load-balance
 ===
 ![Build Status](https://travis-ci.com/snowzjx/ns3-load-balance.svg?token=h9rZZxytGHrsS5Xgsb6n&branch=master)
 
+Please see [https://github.com/snowzjx/ns3-ecn-sharp](https://github.com/snowzjx/ns3-ecn-sharp) for a more clean code base.
+
 We have implemented the following transportation protocol and load balance scheme.
 
 Transport Protocol
